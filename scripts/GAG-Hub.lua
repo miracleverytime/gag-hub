@@ -3,6 +3,7 @@
     Theme: Black & White (Monochrome)
     Features: Sidebar navigation, collapsible sections, toggles, sliders, dropdowns
     Pure GUI only - no functional logic
+    Minimize Animation: Smooth collapse to Miracle "M" Shield Logo
 --]]
 
 local Players = game:GetService("Players")
@@ -107,12 +108,12 @@ local ScreenGui = Create("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
 
--- Loading Screen (shown first, GUI hidden until done)
+-- Loading Screen (shown first, GUI hidden until done) - transparent background
 local LoadingScreen = Create("Frame", {
     Name = "LoadingScreen",
     Parent = ScreenGui,
     Size = UDim2.new(1, 0, 1, 0),
-    BackgroundColor3 = Colors.Background,
+    BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ZIndex = 100,
 })
@@ -238,45 +239,43 @@ local WindowControls = Create("Frame", {
 })
 CreatePadding(WindowControls, 16)
 
-local CloseButton = Create("TextButton", {
-    Name = "CloseButton",
+-- Decorative dots (pure decoration, no function) - white circles
+local Star1 = Create("Frame", {
+    Name = "Star1",
     Parent = WindowControls,
-    Size = UDim2.new(0, 12, 0, 12),
-    Position = UDim2.new(0, 0, 0.5, -6),
-    BackgroundColor3 = Color3.fromRGB(255, 95, 87),
-    Text = "",
+    Size = UDim2.new(0, 10, 0, 10),
+    Position = UDim2.new(0, 0, 0.5, -5),
+    BackgroundColor3 = Colors.TextPrimary,
     BorderSizePixel = 0,
 })
-CreateCorner(CloseButton, 6)
+CreateCorner(Star1, 5)
 
-local MinimizeButton = Create("TextButton", {
-    Name = "MinimizeButton",
+local Star2 = Create("Frame", {
+    Name = "Star2",
     Parent = WindowControls,
-    Size = UDim2.new(0, 12, 0, 12),
-    Position = UDim2.new(0, 20, 0.5, -6),
-    BackgroundColor3 = Color3.fromRGB(255, 189, 46),
-    Text = "",
+    Size = UDim2.new(0, 10, 0, 10),
+    Position = UDim2.new(0, 16, 0.5, -5),
+    BackgroundColor3 = Colors.TextPrimary,
     BorderSizePixel = 0,
 })
-CreateCorner(MinimizeButton, 6)
+CreateCorner(Star2, 5)
 
-local MaximizeButton = Create("TextButton", {
-    Name = "MaximizeButton",
+local Star3 = Create("Frame", {
+    Name = "Star3",
     Parent = WindowControls,
-    Size = UDim2.new(0, 12, 0, 12),
-    Position = UDim2.new(0, 40, 0.5, -6),
-    BackgroundColor3 = Color3.fromRGB(40, 200, 64),
-    Text = "",
+    Size = UDim2.new(0, 10, 0, 10),
+    Position = UDim2.new(0, 32, 0.5, -5),
+    BackgroundColor3 = Colors.TextPrimary,
     BorderSizePixel = 0,
 })
-CreateCorner(MaximizeButton, 6)
+CreateCorner(Star3, 5)
 
 -- Search Bar
 local SearchBar = Create("Frame", {
     Name = "SearchBar",
     Parent = TopBar,
     Size = UDim2.new(0, 280, 0, 34),
-    Position = UDim2.new(0, 90, 0.5, -17),
+    Position = UDim2.new(0, 120, 0.5, -17),
     BackgroundColor3 = Colors.Background,
     BorderSizePixel = 0,
 })
@@ -323,7 +322,7 @@ local PageTitle = Create("TextLabel", {
     TextXAlignment = Enum.TextXAlignment.Center,
 })
 
--- Right Controls
+-- Right Controls (Close & Minimize)
 local RightControls = Create("Frame", {
     Name = "RightControls",
     Parent = TopBar,
@@ -332,33 +331,53 @@ local RightControls = Create("Frame", {
     BackgroundTransparency = 1,
 })
 
-local LayoutButton = Create("TextButton", {
-    Name = "LayoutButton",
-    Parent = RightControls,
-    Size = UDim2.new(0, 32, 0, 32),
-    Position = UDim2.new(0, 8, 0.5, -16),
-    BackgroundColor3 = Colors.Surface,
-    Text = "☰",
-    TextColor3 = Colors.TextSecondary,
-    TextSize = 16,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-})
-CreateCorner(LayoutButton, 6)
-
-local FullscreenButton = Create("TextButton", {
-    Name = "FullscreenButton",
+-- Close button (× icon, top right)
+local CloseButton = Create("TextButton", {
+    Name = "CloseButton",
     Parent = RightControls,
     Size = UDim2.new(0, 32, 0, 32),
     Position = UDim2.new(0, 44, 0.5, -16),
     BackgroundColor3 = Colors.Surface,
-    Text = "⛶",
+    Text = "×",
     TextColor3 = Colors.TextSecondary,
-    TextSize = 16,
+    TextSize = 18,
     Font = Enum.Font.GothamBold,
     BorderSizePixel = 0,
+    AutoButtonColor = false,
 })
-CreateCorner(FullscreenButton, 6)
+CreateCorner(CloseButton, 6)
+
+-- Minimize button (− icon, top right)
+local MinimizeButton = Create("TextButton", {
+    Name = "MinimizeButton",
+    Parent = RightControls,
+    Size = UDim2.new(0, 32, 0, 32),
+    Position = UDim2.new(0, 8, 0.5, -16),
+    BackgroundColor3 = Colors.Surface,
+    Text = "−",
+    TextColor3 = Colors.TextSecondary,
+    TextSize = 18,
+    Font = Enum.Font.GothamBold,
+    BorderSizePixel = 0,
+    AutoButtonColor = false,
+})
+CreateCorner(MinimizeButton, 6)
+
+-- Hover effects for close button
+CloseButton.MouseEnter:Connect(function()
+    Tween(CloseButton, {BackgroundColor3 = Color3.fromRGB(180, 80, 80), TextColor3 = Colors.TextPrimary}, 0.2)
+end)
+CloseButton.MouseLeave:Connect(function()
+    Tween(CloseButton, {BackgroundColor3 = Colors.Surface, TextColor3 = Colors.TextSecondary}, 0.2)
+end)
+
+-- Hover effects for minimize button
+MinimizeButton.MouseEnter:Connect(function()
+    Tween(MinimizeButton, {BackgroundColor3 = Colors.SurfaceLight, TextColor3 = Colors.TextPrimary}, 0.2)
+end)
+MinimizeButton.MouseLeave:Connect(function()
+    Tween(MinimizeButton, {BackgroundColor3 = Colors.Surface, TextColor3 = Colors.TextSecondary}, 0.2)
+end)
 
 -- Sidebar
 local Sidebar = Create("Frame", {
@@ -1169,7 +1188,245 @@ BuildVisualsPage()
 BuildTeleportPage()
 BuildSettingsPage()
 
--- Window Dragging
+-- ==================== MIRACLE SHIELD LOGO (MINIMIZED STATE) ====================
+-- Create the minimized logo container (initially hidden)
+local MinimizedLogo = Create("Frame", {
+    Name = "MinimizedLogo",
+    Parent = ScreenGui,
+    Size = UDim2.new(0, 60, 0, 60),
+    Position = UDim2.new(0.5, -30, 0.5, -30),
+    BackgroundColor3 = Colors.Background,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 50,
+})
+CreateCorner(MinimizedLogo, 12)
+CreateStroke(MinimizedLogo, Colors.BorderLight, 2)
+
+-- Shield outer shape (using Frame with corner radius)
+local ShieldOuter = Create("Frame", {
+    Name = "ShieldOuter",
+    Parent = MinimizedLogo,
+    Size = UDim2.new(0, 44, 0, 44),
+    Position = UDim2.new(0.5, -22, 0.5, -22),
+    BackgroundColor3 = Colors.BackgroundLight,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 51,
+})
+-- Shield shape using UICorner
+CreateCorner(ShieldOuter, 4)
+
+-- Shield border stroke
+local ShieldStroke = CreateStroke(ShieldOuter, Colors.Accent, 2)
+ShieldStroke.Transparency = 1
+
+-- Inner "M" letter - constructed with frames for elegant look
+-- Left vertical stroke of M
+local M_Left = Create("Frame", {
+    Name = "MLeft",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 3, 0, 20),
+    Position = UDim2.new(0, 10, 0.5, -10),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 52,
+})
+CreateCorner(M_Left, 2)
+
+-- Right vertical stroke of M
+local M_Right = Create("Frame", {
+    Name = "MRight",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 3, 0, 20),
+    Position = UDim2.new(1, -13, 0.5, -10),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 52,
+})
+CreateCorner(M_Right, 2)
+
+-- Left diagonal stroke of M (center going up-left)
+local M_DiagLeft = Create("Frame", {
+    Name = "MDiagLeft",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 3, 0, 12),
+    Position = UDim2.new(0.5, -1, 0.5, -10),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Rotation = -30,
+    ZIndex = 52,
+})
+CreateCorner(M_DiagLeft, 2)
+
+-- Right diagonal stroke of M (center going up-right)
+local M_DiagRight = Create("Frame", {
+    Name = "MDiagRight",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 3, 0, 12),
+    Position = UDim2.new(0.5, -1, 0.5, -10),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Rotation = 30,
+    ZIndex = 52,
+})
+CreateCorner(M_DiagRight, 2)
+
+-- Center V bottom of M
+local M_Center = Create("Frame", {
+    Name = "MCenter",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 3, 0, 10),
+    Position = UDim2.new(0.5, -1, 0.5, 0),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 52,
+})
+CreateCorner(M_Center, 2)
+
+-- Decorative corner accents (small dots at shield corners)
+local CornerTL = Create("Frame", {
+    Name = "CornerTL",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 4, 0, 4),
+    Position = UDim2.new(0, 4, 0, 4),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 52,
+})
+CreateCorner(CornerTL, 2)
+
+local CornerTR = Create("Frame", {
+    Name = "CornerTR",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 4, 0, 4),
+    Position = UDim2.new(1, -8, 0, 4),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 52,
+})
+CreateCorner(CornerTR, 2)
+
+local CornerBL = Create("Frame", {
+    Name = "CornerBL",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 4, 0, 4),
+    Position = UDim2.new(0, 4, 1, -8),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 52,
+})
+CreateCorner(CornerBL, 2)
+
+local CornerBR = Create("Frame", {
+    Name = "CornerBR",
+    Parent = ShieldOuter,
+    Size = UDim2.new(0, 4, 0, 4),
+    Position = UDim2.new(1, -8, 1, -8),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 52,
+})
+CreateCorner(CornerBR, 2)
+
+-- Glow effect behind logo
+local LogoGlow = Create("Frame", {
+    Name = "LogoGlow",
+    Parent = MinimizedLogo,
+    Size = UDim2.new(1, 20, 1, 20),
+    Position = UDim2.new(0, -10, 0, -10),
+    BackgroundColor3 = Colors.Accent,
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    ZIndex = 49,
+})
+CreateCorner(LogoGlow, 20)
+
+-- Click detector for minimized logo
+local LogoClick = Create("TextButton", {
+    Name = "LogoClick",
+    Parent = MinimizedLogo,
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundTransparency = 1,
+    Text = "",
+    ZIndex = 60,
+})
+
+-- Subtle hover effect for minimized logo (opacity only, no scale)
+LogoClick.MouseEnter:Connect(function()
+    Tween(ShieldStroke, {Color = Colors.TextPrimary}, 0.25)
+    Tween(M_Left, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    Tween(M_Right, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    Tween(M_DiagLeft, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    Tween(M_DiagRight, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    Tween(M_Center, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    Tween(CornerTL, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    Tween(CornerTR, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    Tween(CornerBL, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    Tween(CornerBR, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+end)
+
+LogoClick.MouseLeave:Connect(function()
+    Tween(ShieldStroke, {Color = Colors.Accent}, 0.25)
+    Tween(M_Left, {BackgroundColor3 = Colors.Accent}, 0.25)
+    Tween(M_Right, {BackgroundColor3 = Colors.Accent}, 0.25)
+    Tween(M_DiagLeft, {BackgroundColor3 = Colors.Accent}, 0.25)
+    Tween(M_DiagRight, {BackgroundColor3 = Colors.Accent}, 0.25)
+    Tween(M_Center, {BackgroundColor3 = Colors.Accent}, 0.25)
+    Tween(CornerTL, {BackgroundColor3 = Colors.Accent}, 0.25)
+    Tween(CornerTR, {BackgroundColor3 = Colors.Accent}, 0.25)
+    Tween(CornerBL, {BackgroundColor3 = Colors.Accent}, 0.25)
+    Tween(CornerBR, {BackgroundColor3 = Colors.Accent}, 0.25)
+end)
+
+-- ==================== MINIMIZED LOGO DRAGGING ====================
+local logoDragging = false
+local logoDragStart = nil
+local logoStartPos = nil
+local logoDragThreshold = 5
+local logoHasMoved = false
+
+LogoClick.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        logoDragging = true
+        logoHasMoved = false
+        logoDragStart = input.Position
+        logoStartPos = MinimizedLogo.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if logoDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - logoDragStart
+        if math.abs(delta.X) > logoDragThreshold or math.abs(delta.Y) > logoDragThreshold then
+            logoHasMoved = true
+        end
+        if logoHasMoved then
+            MinimizedLogo.Position = UDim2.new(
+                logoStartPos.X.Scale, logoStartPos.X.Offset + delta.X,
+                logoStartPos.Y.Scale, logoStartPos.Y.Offset + delta.Y
+            )
+        end
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        logoDragging = false
+    end
+end)
+
+-- ==================== WINDOW DRAGGING ====================
 local dragging = false
 local dragStart = nil
 local startPos = nil
@@ -1198,44 +1455,289 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- Close button with smooth animation
-local originalSize = UDim2.new(0, 900, 0, 600)
-CloseButton.MouseButton1Click:Connect(function()
-    Tween(MainFrame, {Size = UDim2.new(0, 900, 0, 0)}, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-    task.wait(0.35)
-    ScreenGui.Enabled = false
-    MainFrame.Size = originalSize
+-- ==================== CONFIRMATION MODAL ====================
+local ConfirmModal = Create("Frame", {
+    Name = "ConfirmModal",
+    Parent = ScreenGui,
+    Size = UDim2.new(1, 0, 1, 0),
+    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    BackgroundTransparency = 1,
+    BorderSizePixel = 0,
+    Visible = false,
+    ZIndex = 1000,
+})
+
+local ConfirmBox = Create("Frame", {
+    Name = "ConfirmBox",
+    Parent = ConfirmModal,
+    Size = UDim2.new(0, 380, 0, 200),
+    Position = UDim2.new(0.5, -190, 0.5, -100),
+    BackgroundColor3 = Colors.BackgroundLight,
+    BorderSizePixel = 0,
+    ZIndex = 1001,
+})
+CreateCorner(ConfirmBox, 16)
+CreateStroke(ConfirmBox, Colors.Border, 1)
+
+-- Centered content container using UIListLayout
+local ConfirmContent = Create("Frame", {
+    Name = "ConfirmContent",
+    Parent = ConfirmBox,
+    Size = UDim2.new(1, -48, 1, -48),
+    Position = UDim2.new(0, 24, 0, 24),
+    BackgroundTransparency = 1,
+    ZIndex = 1002,
+})
+
+local ConfirmLayout = Create("UIListLayout", {
+    Parent = ConfirmContent,
+    Padding = UDim.new(0, 12),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    HorizontalAlignment = Enum.HorizontalAlignment.Center,
+    VerticalAlignment = Enum.VerticalAlignment.Center,
+})
+
+local ConfirmTitle = Create("TextLabel", {
+    Name = "ConfirmTitle",
+    Parent = ConfirmContent,
+    Size = UDim2.new(1, 0, 0, 28),
+    BackgroundTransparency = 1,
+    Text = "Close Miracle Hub?",
+    TextColor3 = Colors.TextPrimary,
+    TextSize = 20,
+    Font = Enum.Font.GothamBold,
+    TextXAlignment = Enum.TextXAlignment.Center,
+    LayoutOrder = 1,
+    ZIndex = 1002,
+})
+
+local ConfirmDesc = Create("TextLabel", {
+    Name = "ConfirmDesc",
+    Parent = ConfirmContent,
+    Size = UDim2.new(1, 0, 0, 40),
+    BackgroundTransparency = 1,
+    Text = "Are you sure you want to close? You will need to reinject to use it again.",
+    TextColor3 = Colors.TextSecondary,
+    TextSize = 14,
+    Font = Enum.Font.Gotham,
+    TextXAlignment = Enum.TextXAlignment.Center,
+    TextWrapped = true,
+    LayoutOrder = 2,
+    ZIndex = 1002,
+})
+
+-- Button row container
+local ButtonRow = Create("Frame", {
+    Name = "ButtonRow",
+    Parent = ConfirmContent,
+    Size = UDim2.new(1, 0, 0, 40),
+    BackgroundTransparency = 1,
+    LayoutOrder = 3,
+    ZIndex = 1002,
+})
+
+local ButtonRowLayout = Create("UIListLayout", {
+    Parent = ButtonRow,
+    Padding = UDim.new(0, 12),
+    SortOrder = Enum.SortOrder.LayoutOrder,
+    FillDirection = Enum.FillDirection.Horizontal,
+    HorizontalAlignment = Enum.HorizontalAlignment.Center,
+    VerticalAlignment = Enum.VerticalAlignment.Center,
+})
+
+local ConfirmYes = Create("TextButton", {
+    Name = "ConfirmYes",
+    Parent = ButtonRow,
+    Size = UDim2.new(0, 110, 0, 36),
+    BackgroundColor3 = Color3.fromRGB(180, 80, 80),
+    Text = "Yes, Close",
+    TextColor3 = Colors.TextPrimary,
+    TextSize = 14,
+    Font = Enum.Font.GothamBold,
+    BorderSizePixel = 0,
+    ZIndex = 1002,
+    AutoButtonColor = false,
+})
+CreateCorner(ConfirmYes, 8)
+
+local ConfirmNo = Create("TextButton", {
+    Name = "ConfirmNo",
+    Parent = ButtonRow,
+    Size = UDim2.new(0, 110, 0, 36),
+    BackgroundColor3 = Colors.Surface,
+    Text = "Cancel",
+    TextColor3 = Colors.TextPrimary,
+    TextSize = 14,
+    Font = Enum.Font.GothamBold,
+    BorderSizePixel = 0,
+    ZIndex = 1002,
+    AutoButtonColor = false,
+})
+CreateCorner(ConfirmNo, 8)
+
+ConfirmYes.MouseEnter:Connect(function()
+    Tween(ConfirmYes, {BackgroundColor3 = Color3.fromRGB(200, 90, 90)}, 0.2)
+end)
+ConfirmYes.MouseLeave:Connect(function()
+    Tween(ConfirmYes, {BackgroundColor3 = Color3.fromRGB(180, 80, 80)}, 0.2)
 end)
 
--- Minimize button with smooth animation
+ConfirmNo.MouseEnter:Connect(function()
+    Tween(ConfirmNo, {BackgroundColor3 = Colors.SurfaceLight}, 0.2)
+end)
+ConfirmNo.MouseLeave:Connect(function()
+    Tween(ConfirmNo, {BackgroundColor3 = Colors.Surface}, 0.2)
+end)
+
+-- Close button with confirmation popup
+local originalSize = UDim2.new(0, 900, 0, 600)
+CloseButton.MouseButton1Click:Connect(function()
+    ConfirmModal.Visible = true
+    ConfirmModal.BackgroundTransparency = 1
+    ConfirmBox.Size = UDim2.new(0, 360, 0, 190)
+    ConfirmBox.Position = UDim2.new(0.5, -180, 0.5, -95)
+    Tween(ConfirmModal, {BackgroundTransparency = 0.6}, 0.25)
+    Tween(ConfirmBox, {Size = UDim2.new(0, 380, 0, 200), Position = UDim2.new(0.5, -190, 0.5, -100)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+end)
+
+ConfirmNo.MouseButton1Click:Connect(function()
+    -- Smooth close animation
+    Tween(ConfirmBox, {Size = UDim2.new(0, 360, 0, 190), Position = UDim2.new(0.5, -180, 0.5, -95)}, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    task.wait(0.3)
+    ConfirmModal.Visible = false
+end)
+
+ConfirmYes.MouseButton1Click:Connect(function()
+    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
+    Tween(ConfirmBox, {Size = UDim2.new(0, 360, 0, 190), Position = UDim2.new(0.5, -180, 0.5, -95)}, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    task.wait(0.25)
+    Tween(MainFrame, {Size = UDim2.new(0, 900, 0, 0)}, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+    task.wait(0.35)
+    ScreenGui:Destroy()
+end)
+
+-- ==================== MINIMIZE WITH MIRACLE LOGO ANIMATION ====================
 local minimized = false
-MinimizeButton.MouseButton1Click:Connect(function()
-    minimized = not minimized
-    if minimized then
-        Tween(MainFrame, {Size = UDim2.new(0, 900, 0, 50)}, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-        task.delay(0.2, function()
-            Sidebar.Visible = false
-            ContentArea.Visible = false
+
+-- Helper function to animate logo parts
+local function AnimateLogoParts(transparency, duration)
+    duration = duration or 0.4
+    Tween(ShieldOuter, {BackgroundTransparency = transparency > 0.5 and 1 or 0.1}, duration)
+    Tween(ShieldStroke, {Transparency = transparency}, duration)
+    Tween(M_Left, {BackgroundTransparency = transparency}, duration)
+    Tween(M_Right, {BackgroundTransparency = transparency}, duration)
+    Tween(M_DiagLeft, {BackgroundTransparency = transparency}, duration)
+    Tween(M_DiagRight, {BackgroundTransparency = transparency}, duration)
+    Tween(M_Center, {BackgroundTransparency = transparency}, duration)
+    Tween(CornerTL, {BackgroundTransparency = transparency}, duration)
+    Tween(CornerTR, {BackgroundTransparency = transparency}, duration)
+    Tween(CornerBL, {BackgroundTransparency = transparency}, duration)
+    Tween(CornerBR, {BackgroundTransparency = transparency}, duration)
+    Tween(LogoGlow, {BackgroundTransparency = transparency + 0.7}, duration)
+end
+
+-- Minimize / Restore function (reusable)
+local function DoMinimize()
+    minimized = true
+    -- Get current position for logo placement
+    local currentPos = MainFrame.AbsolutePosition
+    local centerX = currentPos.X + MainFrame.AbsoluteSize.X / 2
+    local centerY = currentPos.Y + MainFrame.AbsoluteSize.Y / 2
+    
+    -- Position logo at center of main frame
+    MinimizedLogo.Position = UDim2.new(0, centerX - 30, 0, centerY - 30)
+    
+    -- Fade out main frame content first
+    Tween(MainFrame, {BackgroundTransparency = 1}, 0.25)
+    Tween(TopBar, {BackgroundTransparency = 1}, 0.25)
+    
+    -- Shrink main frame to center
+    Tween(MainFrame, {
+        Size = UDim2.new(0, 60, 0, 60),
+        Position = UDim2.new(0, centerX - 30, 0, centerY - 30)
+    }, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+    
+    task.delay(0.3, function()
+        Sidebar.Visible = false
+        ContentArea.Visible = false
+        -- Hide all top bar elements
+        for _, child in ipairs(TopBar:GetDescendants()) do
+            if child:IsA("GuiObject") then
+                child.Visible = false
+            end
+        end
+        TopBar.Visible = false
+    end)
+    
+    -- Show and animate logo
+    task.delay(0.45, function()
+        MinimizedLogo.Visible = true
+        MinimizedLogo.BackgroundTransparency = 1
+        Tween(MinimizedLogo, {BackgroundTransparency = 0}, 0.3)
+        AnimateLogoParts(0, 0.4)
+        
+        -- Subtle pulse animation
+        task.delay(0.5, function()
+            Tween(LogoGlow, {BackgroundTransparency = 0.85}, 0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
         end)
-    else
+    end)
+end
+
+local function DoRestore()
+    minimized = false
+    -- Fade out logo parts
+    AnimateLogoParts(1, 0.25)
+    Tween(MinimizedLogo, {BackgroundTransparency = 1}, 0.3)
+    
+    task.delay(0.2, function()
+        MinimizedLogo.Visible = false
+        
+        -- Restore main frame
+        MainFrame.BackgroundTransparency = 0
+        TopBar.BackgroundTransparency = 0
+        TopBar.Visible = true
+        
+        -- Show all top bar elements
+        for _, child in ipairs(TopBar:GetDescendants()) do
+            if child:IsA("GuiObject") then
+                child.Visible = true
+            end
+        end
+        
         Sidebar.Visible = true
         ContentArea.Visible = true
-        Tween(MainFrame, {Size = originalSize}, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        
+        -- Animate back to full size
+        Tween(MainFrame, {
+            Size = originalSize,
+            Position = UDim2.new(0.5, -450, 0.5, -300)
+        }, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    end)
+end
+
+MinimizeButton.MouseButton1Click:Connect(function()
+    if minimized then
+        DoRestore()
+    else
+        DoMinimize()
     end
 end)
 
--- Toggle GUI with Insert key (works for both open and close)
+-- Click on minimized logo to restore (only if not dragged)
+LogoClick.MouseButton1Click:Connect(function()
+    if minimized and not logoHasMoved then
+        DoRestore()
+    end
+end)
+
+-- ==================== INSERT KEY TOGGLE (MINIMIZE / MAXIMIZE) ====================
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.Insert then
-        if ScreenGui.Enabled then
-            Tween(MainFrame, {Size = UDim2.new(0, 900, 0, 0)}, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-            task.wait(0.3)
-            ScreenGui.Enabled = false
-            MainFrame.Size = originalSize
+        if minimized then
+            DoRestore()
         else
-            ScreenGui.Enabled = true
-            MainFrame.Size = UDim2.new(0, 900, 0, 0)
-            Tween(MainFrame, {Size = originalSize}, 0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            DoMinimize()
         end
     end
 end)
