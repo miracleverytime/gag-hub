@@ -1,26 +1,19 @@
---[[
-    Miracle Hub - Modern Elegant GUI for Roblox
-    Theme: Black & White (Monochrome)
-    Features: Sidebar navigation, collapsible sections, toggles, sliders, dropdowns
-    Pure GUI only - no functional logic
-    Minimize Animation: Smooth collapse to Miracle "M" Shield Logo
---]]
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
 
 -- Remove existing GUI if any
 local existingGui = playerGui:FindFirstChild("MiracleHub")
-if existingGui then
-    existingGui:Destroy()
-end
+if existingGui then existingGui:Destroy() end
 
--- Color Palette (Black & White Theme)
+-- ======================== COLORS ========================
 local Colors = {
     Background = Color3.fromRGB(12, 12, 14),
     BackgroundLight = Color3.fromRGB(20, 20, 24),
@@ -34,16 +27,172 @@ local Colors = {
     TextMuted = Color3.fromRGB(120, 120, 135),
     Accent = Color3.fromRGB(200, 200, 210),
     AccentHover = Color3.fromRGB(220, 220, 230),
-    ToggleOn = Color3.fromRGB(80, 80, 90),
+    ToggleOn = Color3.fromRGB(80, 200, 120),
+    ToggleOnDark = Color3.fromRGB(40, 100, 60),
     ToggleOff = Color3.fromRGB(40, 40, 48),
-    ToggleKnob = Color3.fromRGB(200, 200, 210),
+    ToggleKnob = Color3.fromRGB(255, 255, 255),
     SliderTrack = Color3.fromRGB(40, 40, 48),
     SliderFill = Color3.fromRGB(200, 200, 210),
     Success = Color3.fromRGB(50, 255, 100),
     Error = Color3.fromRGB(180, 80, 80),
+    Warning = Color3.fromRGB(255, 200, 60),
+    Gold = Color3.fromRGB(255, 215, 0),
+    Electric = Color3.fromRGB(80, 160, 255),
+    Rainbow = Color3.fromRGB(255, 100, 200),
+    Frozen = Color3.fromRGB(100, 210, 255),
+    BadgeRare = Color3.fromRGB(60, 120, 255),
+    BadgeLegend = Color3.fromRGB(200, 100, 255),
 }
 
--- Utility Functions
+-- ======================== GAME DATA (from scanner) ========================
+-- Full seed list from ReplicatedStorage.StockValues.SeedShop.Items (scanner verified)
+local SEEDS = {
+    "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo",
+    "Corn", "Cactus", "Pineapple", "Mushroom", "Green Bean", "Banana", "Grape",
+    "Coconut", "Mango", "Dragon Fruit", "Acorn", "Cherry", "Sunflower",
+    "Venus Fly Trap", "Pomegranate", "Poison Apple", "Venom Spitter",
+    "Moon Bloom", "Dragon's Breath", "Ghost Pepper", "Poison Ivy",
+    "Baby Cactus", "Glow Mushroom", "Romanesco", "Horned Melon",
+    "Hypnobloom", "Gold", "Rainbow",
+}
+local MUTATIONS = {"None", "Gold", "Electric", "Rainbow", "Frozen"}
+local RARITIES = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical"}
+local PETS = {"Frog", "Bunny", "Robin", "Owl", "Cat", "Dog"}
+local PET_SIZES = {"Normal", "Big", "Huge", "Giant"}
+
+-- PlotId: scanner detected Plot6 for this player
+local MY_PLOT_ID = player:GetAttribute("PlotId") or 6
+local MAX_EQUIPPED_PETS = player:GetAttribute("MaxEquippedPets") or 6
+local MAX_FRUIT_CAP = player:GetAttribute("MaxFruitCapacity") or 100
+
+-- Remote references
+local PacketRemote = game:GetService("ReplicatedStorage"):FindFirstChild("SharedModules")
+    and game:GetService("ReplicatedStorage").SharedModules:FindFirstChild("Packet")
+    and game:GetService("ReplicatedStorage").SharedModules.Packet:FindFirstChild("RemoteEvent")
+
+-- Networking module (dari decompile StevenController — cara BENAR buat sell)
+-- Networking.NPCS.SellAll:Fire() → jual semua inventory
+-- Networking.NPCS.SellFruit:Fire(fruitId) → jual 1 buah by ID
+-- Networking.NPCS.PreviewSellAll:Fire() → preview total harga {FruitCount, TotalValue, TotalBaseValue}
+-- Networking.NPCS.CheckDailyDeal:Fire() → cek daily deal {Available}
+-- Networking.NPCS.UseDailyDealAll:Fire() → pakai daily deal semua
+local Networking = nil
+pcall(function()
+    Networking = require(game:GetService("ReplicatedStorage").SharedModules.Networking)
+end)
+
+-- SellValueData — base harga per fruit dari decompile (fallback jika Networking nil)
+local SELL_VALUE_DATA = {
+    Carrot=5, Strawberry=3, Tomato=9, Blueberry=5, Apple=12, Bamboo=800,
+    Cactus=40, Pineapple=30, ["Green Bean"]=10, Banana=35, Grape=45,
+    Mushroom=13000, Coconut=60, Mango=90, ["Dragon Fruit"]=150, Acorn=200,
+    Cherry=350, Sunflower=1750, ["Venus Fly Trap"]=3000, Pomegranate=900,
+    ["Poison Apple"]=900, ["Moon Bloom"]=9000, ["Dragon's Breath"]=3400,
+    ["Poison Ivy"]=1700, ["Glow Mushroom"]=700, ["Ghost Pepper"]=2500,
+    ["Horned Melon"]=200, Corn=34, ["Baby Cactus"]=70, Tulip=60,
+    ["Venom Spitter"]=4000,
+}
+
+-- Packet IDs — semua dari Attribute di RemoteEvent (scanner verified)
+local PACKET = {
+    PlantSeed           = 9,
+    PurchaseSeed        = 120,   -- beli seed dari SeedShop (FIXED)
+    SeedShopRestock     = 121,   -- personal restock (opsional)
+    PurchaseCrate       = 122,
+    CrateShopRestock    = 123,
+    EquipGear           = 126,
+    SellFruit           = 167,   -- jual buah (FIXED, bukan 4)
+    OpenCrate           = 130,
+    OpenEgg             = 139,
+    ReplicateOpenEgg    = 140,
+    LikeGarden          = 221,
+    MailboxClaim        = 281,
+}
+
+-- ======================== STATES ========================
+local States = {
+    -- Farm
+    autoPlant = false,
+    autoHarvest = false,
+    autoWater = false,
+    autoSprinkler = false,
+    harvestFilterMutation = "None",
+    plantSeedFilter = "All Seeds",
+    plantRarityFilter = "All",
+    keepReserve = 0,
+    maxPlantsCycle = 40,
+    perFruitDelay = 0.05,
+    harvestLoopDelay = 2.0,
+    notifyHarvest = false,
+    -- Shop
+    autoBuySeed = false,
+    autoBuySeedTarget = "Bamboo",      -- legacy (fallback jika targets kosong)
+    autoBuySeedTargets = {},           -- TABLE: daftar seed dipilih (multi-select)
+    autoBuyQuantity = 1,               -- jumlah yg dibeli per cycle (1/3/10/50)
+    autoBuyQtyStr = "1",               -- versi string untuk dropdown
+    autoBuyAll = false,                -- beli semua seed yg ada stoknya
+    autoCrate = false,
+    buyBeforeOpen = true,
+    crateLoopDelay = 8,
+    buyDelay = 0.05,                   -- delay antar beli (cepat)
+    shopLoopDelay = 0.5,               -- loop delay (cek stock tiap 0.5s)
+    notifyBuy = true,
+    notifyCrate = true,
+    alertRarity = "Legendary",
+    -- Sell
+    autoSell = false,
+    autoUseDailyDeal = false,   -- otomatis pakai daily deal kalau tersedia (5x harga)
+    sellDelay = 0.05,
+    sellLoopDelay = 3,
+    keepMutations = true,
+    keepRarity = "Legendary",
+    notifySell = false,
+    -- Player
+    lockWalkSpeed = false,
+    walkSpeed = 31,
+    lockJumpPower = false,
+    jumpPower = 50,
+    infiniteJump = false,
+    fly = false,
+    flySpeed = 60,
+    noclip = false,
+    antiAfk = true,
+    -- Pets
+    autoEquipPets = false,
+    autoCatchWild = false,
+    wildPetFilter = "All",
+    wildPetMaxCost = 500,
+    petEquipPriority = "Biggest First",
+    -- Eggs
+    autoOpenEgg = false,
+    eggLoopDelay = 5,
+    -- Visuals
+    espPlayers = false,
+    espItems = false,
+    espFruits = false,
+    espMutations = false,
+    fullBright = false,
+    brightness = 5,
+    noFog = false,
+    noShadows = false,
+    showPlantAge = false,
+    showFruitWeight = false,
+    -- Teleport
+    tpDelay = 0,
+    -- Utility
+    autoAcceptGifts = false,
+    autoBidAccept = false,
+    showRestockTimer = false,
+    -- Server
+    autoRejoin = false,
+    rejoinCondition = "Server Full",
+    -- Settings
+    autoSaveConfig = true,
+    minimizeToTray = false,
+    showNotifications = true,
+}
+
+-- ======================== UTILITY FUNCTIONS ========================
 local function Create(className, properties)
     local instance = Instance.new(className)
     for prop, value in pairs(properties or {}) do
@@ -53,41 +202,30 @@ local function Create(className, properties)
 end
 
 local function CreateCorner(parent, radius)
-    local corner = Create("UICorner", {
-        CornerRadius = UDim.new(0, radius or 8),
-        Parent = parent,
-    })
-    return corner
+    return Create("UICorner", {CornerRadius = UDim.new(0, radius or 8), Parent = parent})
 end
 
 local function CreateStroke(parent, color, thickness)
-    local stroke = Create("UIStroke", {
-        Color = color or Colors.Border,
-        Thickness = thickness or 1,
-        Parent = parent,
-    })
-    return stroke
+    return Create("UIStroke", {Color = color or Colors.Border, Thickness = thickness or 1, Parent = parent})
 end
 
 local function CreatePadding(parent, padding)
-    local pad = Create("UIPadding", {
+    return Create("UIPadding", {
         PaddingLeft = UDim.new(0, padding or 12),
         PaddingRight = UDim.new(0, padding or 12),
         PaddingTop = UDim.new(0, padding or 12),
         PaddingBottom = UDim.new(0, padding or 12),
         Parent = parent,
     })
-    return pad
 end
 
 local function CreateListLayout(parent, padding, direction)
-    local layout = Create("UIListLayout", {
+    return Create("UIListLayout", {
         Padding = UDim.new(0, padding or 8),
         SortOrder = Enum.SortOrder.LayoutOrder,
         FillDirection = direction or Enum.FillDirection.Vertical,
         Parent = parent,
     })
-    return layout
 end
 
 local function Tween(instance, properties, duration, easingStyle, easingDirection)
@@ -100,7 +238,110 @@ local function Tween(instance, properties, duration, easingStyle, easingDirectio
     return tween
 end
 
--- Main GUI
+-- ======================== HELPER: FIRE PROXIMITY PROMPT ========================
+local function FirePrompt(prompt)
+    if not prompt then return false end
+    if prompt:IsA("ProximityPrompt") then
+        local hd = prompt.HoldDuration
+        if hd and hd > 0 then
+            prompt:InputHoldBegin()
+            task.wait(hd + 0.05)
+            prompt:InputHoldEnd()
+        else
+            fireproximityprompt(prompt)
+        end
+        return true
+    end
+    return false
+end
+
+-- Safe fireproximityprompt wrapper (executor function)
+local _fireprox = fireproximityprompt or function(p)
+    p:InputHoldBegin()
+    task.wait((p.HoldDuration or 0) + 0.05)
+    p:InputHoldEnd()
+end
+
+local function SafeFirePrompt(prompt)
+    if not prompt then return false end
+    pcall(_fireprox, prompt)
+    return true
+end
+
+-- ======================== NOTIFICATION SYSTEM ========================
+local notifCount = 0
+local function Notify(title, message, color, duration)
+    if not States.showNotifications then return end
+    duration = duration or 4
+    notifCount = notifCount + 1
+    local yOffset = (notifCount - 1) * 72
+
+    local notifFrame = Create("Frame", {
+        Parent = playerGui:FindFirstChild("MiracleHub"),
+        Size = UDim2.new(0, 280, 0, 60),
+        Position = UDim2.new(1, -290, 0, 16 + yOffset),
+        BackgroundColor3 = Colors.BackgroundLight,
+        BorderSizePixel = 0,
+        ZIndex = 200,
+    })
+    CreateCorner(notifFrame, 10)
+    CreateStroke(notifFrame, color or Colors.Border, 1)
+
+    local bar = Create("Frame", {
+        Parent = notifFrame,
+        Size = UDim2.new(0, 3, 1, 0),
+        BackgroundColor3 = color or Colors.Success,
+        BorderSizePixel = 0,
+        ZIndex = 201,
+    })
+    CreateCorner(bar, 2)
+
+    Create("TextLabel", {
+        Parent = notifFrame,
+        Size = UDim2.new(1, -20, 0, 20),
+        Position = UDim2.new(0, 12, 0, 8),
+        BackgroundTransparency = 1,
+        Text = title,
+        TextColor3 = Colors.TextPrimary,
+        TextSize = 13,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 201,
+    })
+    Create("TextLabel", {
+        Parent = notifFrame,
+        Size = UDim2.new(1, -20, 0, 18),
+        Position = UDim2.new(0, 12, 0, 28),
+        BackgroundTransparency = 1,
+        Text = message,
+        TextColor3 = Colors.TextMuted,
+        TextSize = 11,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 201,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+    })
+
+    notifFrame.Position = UDim2.new(1, 10, 0, 16 + yOffset)
+    Tween(notifFrame, {Position = UDim2.new(1, -290, 0, 16 + yOffset)}, 0.3, Enum.EasingStyle.Back)
+
+    task.delay(duration, function()
+        Tween(notifFrame, {Position = UDim2.new(1, 10, 0, 16 + yOffset)}, 0.3)
+        task.wait(0.35)
+        if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+        notifCount = math.max(0, notifCount - 1)
+    end)
+end
+
+local function GetMutationColor(mutation)
+    if mutation == "Gold" then return Colors.Gold
+    elseif mutation == "Electric" then return Colors.Electric
+    elseif mutation == "Rainbow" then return Colors.Rainbow
+    elseif mutation == "Frozen" then return Colors.Frozen
+    else return Colors.TextMuted end
+end
+
+-- ======================== MAIN GUI ========================
 local ScreenGui = Create("ScreenGui", {
     Name = "MiracleHub",
     Parent = playerGui,
@@ -108,110 +349,39 @@ local ScreenGui = Create("ScreenGui", {
     ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
 
--- Loading Screen (shown first, GUI hidden until done) - transparent background
+-- Loading Screen
 local LoadingScreen = Create("Frame", {
     Name = "LoadingScreen",
     Parent = ScreenGui,
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
-    BorderSizePixel = 0,
     ZIndex = 100,
 })
-
 local LoadingContainer = Create("Frame", {
-    Name = "LoadingContainer",
     Parent = LoadingScreen,
-    Size = UDim2.new(0, 400, 0, 160),
-    Position = UDim2.new(0.5, -200, 0.5, -80),
+    Size = UDim2.new(0, 420, 0, 170),
+    Position = UDim2.new(0.5, -210, 0.5, -85),
     BackgroundColor3 = Colors.BackgroundLight,
     BorderSizePixel = 0,
     ZIndex = 101,
 })
 CreateCorner(LoadingContainer, 16)
 CreateStroke(LoadingContainer, Colors.Border, 1)
-
-local LoadingTitle = Create("TextLabel", {
-    Name = "LoadingTitle",
-    Parent = LoadingContainer,
-    Size = UDim2.new(1, 0, 0, 30),
-    Position = UDim2.new(0, 0, 0, 20),
-    BackgroundTransparency = 1,
-    Text = "Miracle Hub",
-    TextColor3 = Colors.Success,
-    TextSize = 24,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Center,
-    ZIndex = 102,
-})
-
-local LoadingSubtitle = Create("TextLabel", {
-    Name = "LoadingSubtitle",
-    Parent = LoadingContainer,
-    Size = UDim2.new(1, 0, 0, 20),
-    Position = UDim2.new(0, 0, 0, 52),
-    BackgroundTransparency = 1,
-    Text = "Grow A Garden 2",
-    TextColor3 = Colors.TextMuted,
-    TextSize = 14,
-    Font = Enum.Font.Gotham,
-    TextXAlignment = Enum.TextXAlignment.Center,
-    ZIndex = 102,
-})
-
-local LoadingBarBg = Create("Frame", {
-    Name = "LoadingBarBg",
-    Parent = LoadingContainer,
-    Size = UDim2.new(1, -60, 0, 8),
-    Position = UDim2.new(0, 30, 0, 90),
-    BackgroundColor3 = Colors.BackgroundLighter,
-    BorderSizePixel = 0,
-    ZIndex = 102,
-})
+Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,30), Position=UDim2.new(0,0,0,20), BackgroundTransparency=1, Text="Miracle Hub", TextColor3=Colors.Success, TextSize=24, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
+Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,20), Position=UDim2.new(0,0,0,52), BackgroundTransparency=1, Text="Grow A Garden 2  •  Full Feature Build", TextColor3=Colors.TextMuted, TextSize=13, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
+local LoadingBarBg = Create("Frame", {Parent=LoadingContainer, Size=UDim2.new(1,-60,0,8), Position=UDim2.new(0,30,0,92), BackgroundColor3=Colors.BackgroundLighter, BorderSizePixel=0, ZIndex=102})
 CreateCorner(LoadingBarBg, 4)
-
-local LoadingBarFill = Create("Frame", {
-    Name = "LoadingBarFill",
-    Parent = LoadingBarBg,
-    Size = UDim2.new(0, 0, 1, 0),
-    BackgroundColor3 = Colors.Success,
-    BorderSizePixel = 0,
-    ZIndex = 103,
-})
+local LoadingBarFill = Create("Frame", {Parent=LoadingBarBg, Size=UDim2.new(0,0,1,0), BackgroundColor3=Colors.Success, BorderSizePixel=0, ZIndex=103})
 CreateCorner(LoadingBarFill, 4)
+local LoadingPercent = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,20), Position=UDim2.new(0,0,0,112), BackgroundTransparency=1, Text="0%", TextColor3=Colors.Success, TextSize=14, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
+local LoadingStatus = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,0,0,138), BackgroundTransparency=1, Text="Initializing...", TextColor3=Colors.TextMuted, TextSize=12, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
 
-local LoadingPercent = Create("TextLabel", {
-    Name = "LoadingPercent",
-    Parent = LoadingContainer,
-    Size = UDim2.new(1, 0, 0, 20),
-    Position = UDim2.new(0, 0, 0, 110),
-    BackgroundTransparency = 1,
-    Text = "0%",
-    TextColor3 = Colors.Success,
-    TextSize = 14,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Center,
-    ZIndex = 102,
-})
-
-local LoadingStatus = Create("TextLabel", {
-    Name = "LoadingStatus",
-    Parent = LoadingContainer,
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 132),
-    BackgroundTransparency = 1,
-    Text = "Initializing...",
-    TextColor3 = Colors.TextMuted,
-    TextSize = 12,
-    Font = Enum.Font.Gotham,
-    TextXAlignment = Enum.TextXAlignment.Center,
-    ZIndex = 102,
-})
-
--- Main Frame (hidden initially)
+-- Main Frame
+local originalSize = UDim2.new(0, 900, 0, 600)
 local MainFrame = Create("Frame", {
     Name = "MainFrame",
     Parent = ScreenGui,
-    Size = UDim2.new(0, 900, 0, 600),
+    Size = originalSize,
     Position = UDim2.new(0.5, -450, 0.5, -300),
     BackgroundColor3 = Colors.Background,
     BorderSizePixel = 0,
@@ -230,49 +400,18 @@ local TopBar = Create("Frame", {
 })
 CreateCorner(TopBar, 0)
 
--- Window Controls (Top Left)
-local WindowControls = Create("Frame", {
-    Name = "WindowControls",
-    Parent = TopBar,
-    Size = UDim2.new(0, 70, 1, 0),
-    BackgroundTransparency = 1,
-})
-CreatePadding(WindowControls, 16)
+for i, xpos in ipairs({0, 16, 32}) do
+    local dot = Create("Frame", {
+        Parent = TopBar,
+        Size = UDim2.new(0, 10, 0, 10),
+        Position = UDim2.new(0, 16 + xpos, 0.5, -5),
+        BackgroundColor3 = Colors.TextPrimary,
+        BorderSizePixel = 0,
+    })
+    CreateCorner(dot, 5)
+end
 
--- Decorative dots (pure decoration, no function) - white circles
-local Star1 = Create("Frame", {
-    Name = "Star1",
-    Parent = WindowControls,
-    Size = UDim2.new(0, 10, 0, 10),
-    Position = UDim2.new(0, 0, 0.5, -5),
-    BackgroundColor3 = Colors.TextPrimary,
-    BorderSizePixel = 0,
-})
-CreateCorner(Star1, 5)
-
-local Star2 = Create("Frame", {
-    Name = "Star2",
-    Parent = WindowControls,
-    Size = UDim2.new(0, 10, 0, 10),
-    Position = UDim2.new(0, 16, 0.5, -5),
-    BackgroundColor3 = Colors.TextPrimary,
-    BorderSizePixel = 0,
-})
-CreateCorner(Star2, 5)
-
-local Star3 = Create("Frame", {
-    Name = "Star3",
-    Parent = WindowControls,
-    Size = UDim2.new(0, 10, 0, 10),
-    Position = UDim2.new(0, 32, 0.5, -5),
-    BackgroundColor3 = Colors.TextPrimary,
-    BorderSizePixel = 0,
-})
-CreateCorner(Star3, 5)
-
--- Search Bar
 local SearchBar = Create("Frame", {
-    Name = "SearchBar",
     Parent = TopBar,
     Size = UDim2.new(0, 280, 0, 34),
     Position = UDim2.new(0, 120, 0.5, -17),
@@ -281,26 +420,14 @@ local SearchBar = Create("Frame", {
 })
 CreateCorner(SearchBar, 8)
 CreateStroke(SearchBar, Colors.Border, 1)
-
-local SearchIcon = Create("TextLabel", {
-    Name = "SearchIcon",
-    Parent = SearchBar,
-    Size = UDim2.new(0, 30, 1, 0),
-    BackgroundTransparency = 1,
-    Text = "🔍",
-    TextColor3 = Colors.TextMuted,
-    TextSize = 14,
-    Font = Enum.Font.Gotham,
-})
-
+Create("TextLabel", {Parent=SearchBar, Size=UDim2.new(0,30,1,0), BackgroundTransparency=1, Text="🔍", TextColor3=Colors.TextMuted, TextSize=14, Font=Enum.Font.Gotham})
 local SearchBox = Create("TextBox", {
-    Name = "SearchBox",
     Parent = SearchBar,
-    Size = UDim2.new(1, -40, 1, 0),
-    Position = UDim2.new(0, 30, 0, 0),
+    Size = UDim2.new(1,-40,1,0),
+    Position = UDim2.new(0,30,0,0),
     BackgroundTransparency = 1,
     Text = "",
-    PlaceholderText = "Search...",
+    PlaceholderText = "Search features...",
     PlaceholderColor3 = Colors.TextMuted,
     TextColor3 = Colors.TextPrimary,
     TextSize = 14,
@@ -308,32 +435,26 @@ local SearchBox = Create("TextBox", {
     ClearTextOnFocus = false,
 })
 
--- Page Title
 local PageTitle = Create("TextLabel", {
-    Name = "PageTitle",
     Parent = TopBar,
     Size = UDim2.new(0, 200, 1, 0),
     Position = UDim2.new(0.5, -100, 0, 0),
     BackgroundTransparency = 1,
-    Text = "Player",
+    Text = "Farm",
     TextColor3 = Colors.TextPrimary,
     TextSize = 18,
     Font = Enum.Font.GothamBold,
     TextXAlignment = Enum.TextXAlignment.Center,
 })
 
--- Right Controls (Close & Minimize)
 local RightControls = Create("Frame", {
-    Name = "RightControls",
     Parent = TopBar,
     Size = UDim2.new(0, 80, 1, 0),
     Position = UDim2.new(1, -80, 0, 0),
     BackgroundTransparency = 1,
 })
 
--- Close button (× icon, top right)
 local CloseButton = Create("TextButton", {
-    Name = "CloseButton",
     Parent = RightControls,
     Size = UDim2.new(0, 32, 0, 32),
     Position = UDim2.new(0, 44, 0.5, -16),
@@ -347,9 +468,7 @@ local CloseButton = Create("TextButton", {
 })
 CreateCorner(CloseButton, 6)
 
--- Minimize button (− icon, top right)
 local MinimizeButton = Create("TextButton", {
-    Name = "MinimizeButton",
     Parent = RightControls,
     Size = UDim2.new(0, 32, 0, 32),
     Position = UDim2.new(0, 8, 0.5, -16),
@@ -363,25 +482,13 @@ local MinimizeButton = Create("TextButton", {
 })
 CreateCorner(MinimizeButton, 6)
 
--- Hover effects for close button
-CloseButton.MouseEnter:Connect(function()
-    Tween(CloseButton, {BackgroundColor3 = Color3.fromRGB(180, 80, 80), TextColor3 = Colors.TextPrimary}, 0.2)
-end)
-CloseButton.MouseLeave:Connect(function()
-    Tween(CloseButton, {BackgroundColor3 = Colors.Surface, TextColor3 = Colors.TextSecondary}, 0.2)
-end)
-
--- Hover effects for minimize button
-MinimizeButton.MouseEnter:Connect(function()
-    Tween(MinimizeButton, {BackgroundColor3 = Colors.SurfaceLight, TextColor3 = Colors.TextPrimary}, 0.2)
-end)
-MinimizeButton.MouseLeave:Connect(function()
-    Tween(MinimizeButton, {BackgroundColor3 = Colors.Surface, TextColor3 = Colors.TextSecondary}, 0.2)
-end)
+CloseButton.MouseEnter:Connect(function() Tween(CloseButton, {BackgroundColor3 = Color3.fromRGB(180, 80, 80), TextColor3 = Colors.TextPrimary}, 0.2) end)
+CloseButton.MouseLeave:Connect(function() Tween(CloseButton, {BackgroundColor3 = Colors.Surface, TextColor3 = Colors.TextSecondary}, 0.2) end)
+MinimizeButton.MouseEnter:Connect(function() Tween(MinimizeButton, {BackgroundColor3 = Colors.SurfaceLight, TextColor3 = Colors.TextPrimary}, 0.2) end)
+MinimizeButton.MouseLeave:Connect(function() Tween(MinimizeButton, {BackgroundColor3 = Colors.Surface, TextColor3 = Colors.TextSecondary}, 0.2) end)
 
 -- Sidebar
 local Sidebar = Create("Frame", {
-    Name = "Sidebar",
     Parent = MainFrame,
     Size = UDim2.new(0, 240, 1, -50),
     Position = UDim2.new(0, 0, 0, 50),
@@ -390,9 +497,8 @@ local Sidebar = Create("Frame", {
 })
 
 local SidebarContent = Create("ScrollingFrame", {
-    Name = "SidebarContent",
     Parent = Sidebar,
-    Size = UDim2.new(1, 0, 1, -90),
+    Size = UDim2.new(1, 0, 1, -80),
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
     ScrollBarThickness = 4,
@@ -400,217 +506,151 @@ local SidebarContent = Create("ScrollingFrame", {
     CanvasSize = UDim2.new(0, 0, 0, 0),
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
 })
-CreatePadding(SidebarContent, 16)
+CreatePadding(SidebarContent, 12)
+CreateListLayout(SidebarContent, 3)
 
-local SidebarLayout = CreateListLayout(SidebarContent, 4)
-
--- Hub Info Card
 local HubCard = Create("Frame", {
-    Name = "HubCard",
     Parent = SidebarContent,
-    Size = UDim2.new(1, 0, 0, 70),
+    Size = UDim2.new(1, 0, 0, 60),
     BackgroundColor3 = Colors.BackgroundLighter,
     BorderSizePixel = 0,
     LayoutOrder = 0,
 })
 CreateCorner(HubCard, 12)
-CreatePadding(HubCard, 16)
+CreatePadding(HubCard, 14)
+Create("TextLabel", {Parent=HubCard, Size=UDim2.new(1,0,0,22), BackgroundTransparency=1, Text="Miracle Hub", TextColor3=Colors.Accent, TextSize=17, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left})
+Create("TextLabel", {Parent=HubCard, Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,0,24), BackgroundTransparency=1, Text="Grow A Garden 2  •  Full Edition", TextColor3=Colors.TextMuted, TextSize=11, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left})
 
-local HubTitle = Create("TextLabel", {
-    Name = "HubTitle",
-    Parent = HubCard,
-    Size = UDim2.new(1, 0, 0, 22),
-    BackgroundTransparency = 1,
-    Text = "Miracle Hub",
-    TextColor3 = Colors.Accent,
-    TextSize = 18,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left,
-})
+local SidebarButtons = {}
+local ActivePage = "Farm"
 
-local HubSubtitle = Create("TextLabel", {
-    Name = "HubSubtitle",
-    Parent = HubCard,
-    Size = UDim2.new(1, 0, 0, 18),
-    Position = UDim2.new(0, 0, 0, 24),
-    BackgroundTransparency = 1,
-    Text = "Grow A Garden 2",
-    TextColor3 = Colors.TextMuted,
-    TextSize = 13,
-    Font = Enum.Font.Gotham,
-    TextXAlignment = Enum.TextXAlignment.Left,
-})
-
--- Section Header Function
 local function CreateSectionHeader(parent, text, layoutOrder)
-    local header = Create("TextLabel", {
-        Name = text .. "Header",
+    return Create("TextLabel", {
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 28),
+        Size = UDim2.new(1, 0, 0, 24),
         BackgroundTransparency = 1,
         Text = text,
         TextColor3 = Colors.TextMuted,
-        TextSize = 11,
+        TextSize = 10,
         Font = Enum.Font.GothamBold,
         TextXAlignment = Enum.TextXAlignment.Left,
         LayoutOrder = layoutOrder,
     })
-    return header
 end
 
--- Sidebar Button Function
-local function CreateSidebarButton(parent, icon, text, isActive, layoutOrder)
+local function CreateSidebarButton(parent, icon, text, layoutOrder)
     local button = Create("TextButton", {
-        Name = text .. "Button",
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 42),
-        BackgroundColor3 = isActive and Colors.BackgroundLighter or Color3.new(1, 1, 1),
-        BackgroundTransparency = isActive and 0 or 1,
+        Size = UDim2.new(1, 0, 0, 40),
+        BackgroundTransparency = 1,
         Text = "",
         BorderSizePixel = 0,
         LayoutOrder = layoutOrder,
         AutoButtonColor = false,
     })
-    CreateCorner(button, 10)
-    
+    CreateCorner(button, 9)
+
     local indicator = Create("Frame", {
-        Name = "Indicator",
         Parent = button,
-        Size = UDim2.new(0, 3, 0, 20),
-        Position = UDim2.new(0, 0, 0.5, -10),
-        BackgroundColor3 = Colors.Accent,
+        Size = UDim2.new(0, 3, 0, 18),
+        Position = UDim2.new(0, 0, 0.5, -9),
+        BackgroundColor3 = Colors.Success,
         BorderSizePixel = 0,
-        Visible = isActive,
+        Visible = false,
     })
     CreateCorner(indicator, 2)
-    
+
     local iconLabel = Create("TextLabel", {
-        Name = "Icon",
         Parent = button,
         Size = UDim2.new(0, 24, 0, 24),
-        Position = UDim2.new(0, 16, 0.5, -12),
+        Position = UDim2.new(0, 14, 0.5, -12),
         BackgroundTransparency = 1,
         Text = icon,
-        TextColor3 = isActive and Colors.TextPrimary or Colors.TextSecondary,
-        TextSize = 18,
+        TextColor3 = Colors.TextSecondary,
+        TextSize = 17,
         Font = Enum.Font.Gotham,
     })
-    
     local textLabel = Create("TextLabel", {
-        Name = "Text",
         Parent = button,
-        Size = UDim2.new(1, -60, 1, 0),
-        Position = UDim2.new(0, 48, 0, 0),
+        Size = UDim2.new(1, -50, 1, 0),
+        Position = UDim2.new(0, 44, 0, 0),
         BackgroundTransparency = 1,
         Text = text,
-        TextColor3 = isActive and Colors.TextPrimary or Colors.TextSecondary,
+        TextColor3 = Colors.TextSecondary,
         TextSize = 14,
         Font = Enum.Font.Gotham,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    
-    -- Hover effects
+
+    SidebarButtons[text] = {button=button, indicator=indicator, icon=iconLabel, label=textLabel}
+
     button.MouseEnter:Connect(function()
-        if not isActive then
-            Tween(button, {BackgroundTransparency = 0.9}, 0.2)
+        if ActivePage ~= text then
+            Tween(button, {BackgroundTransparency = 0.85}, 0.15)
+            button.BackgroundColor3 = Colors.Surface
         end
     end)
-    
     button.MouseLeave:Connect(function()
-        if not isActive then
-            Tween(button, {BackgroundTransparency = 1}, 0.2)
+        if ActivePage ~= text then
+            Tween(button, {BackgroundTransparency = 1}, 0.15)
         end
     end)
-    
+
     return button
 end
 
--- Create Sidebar Sections and Buttons
+-- Build sidebar
 CreateSectionHeader(SidebarContent, "AUTOMATION", 1)
-CreateSidebarButton(SidebarContent, "🌱", "Farm", false, 2)
-CreateSidebarButton(SidebarContent, "📐", "Plot", false, 3)
-CreateSidebarButton(SidebarContent, "🛒", "Shop", false, 4)
-CreateSidebarButton(SidebarContent, "💰", "Sell", false, 5)
-CreateSidebarButton(SidebarContent, "🐾", "Pets", false, 6)
-CreateSidebarButton(SidebarContent, "🥚", "Eggs", false, 7)
+local BtnFarm = CreateSidebarButton(SidebarContent, "🌱", "Farm", 2)
+local BtnPlot = CreateSidebarButton(SidebarContent, "📐", "Plot", 3)
+local BtnShop = CreateSidebarButton(SidebarContent, "🛒", "Shop", 4)
+local BtnSell = CreateSidebarButton(SidebarContent, "💰", "Sell", 5)
+local BtnPets = CreateSidebarButton(SidebarContent, "🐾", "Pets", 6)
+local BtnEggs = CreateSidebarButton(SidebarContent, "🥚", "Eggs", 7)
 
 CreateSectionHeader(SidebarContent, "PLAYER", 8)
-CreateSidebarButton(SidebarContent, "👤", "Player", true, 9)
-CreateSidebarButton(SidebarContent, "👁", "Visuals", false, 10)
-CreateSidebarButton(SidebarContent, "📍", "Teleport", false, 11)
+local BtnPlayer = CreateSidebarButton(SidebarContent, "👤", "Player", 9)
+local BtnVisuals = CreateSidebarButton(SidebarContent, "👁", "Visuals", 10)
+local BtnTeleport = CreateSidebarButton(SidebarContent, "📍", "Teleport", 11)
 
 CreateSectionHeader(SidebarContent, "MISC", 12)
-CreateSidebarButton(SidebarContent, "🔧", "Utility", false, 13)
-CreateSidebarButton(SidebarContent, "✉", "Mailer", false, 14)
-CreateSidebarButton(SidebarContent, "ℹ", "Info", false, 15)
-CreateSidebarButton(SidebarContent, "🌐", "Server", false, 16)
-CreateSidebarButton(SidebarContent, "⚙", "Settings", false, 17)
+local BtnUtility = CreateSidebarButton(SidebarContent, "🔧", "Utility", 13)
+local BtnMailer = CreateSidebarButton(SidebarContent, "✉", "Mailer", 14)
+local BtnInfo = CreateSidebarButton(SidebarContent, "ℹ", "Info", 15)
+local BtnServer = CreateSidebarButton(SidebarContent, "🌐", "Server", 16)
+local BtnSettings = CreateSidebarButton(SidebarContent, "⚙", "Settings", 17)
 
--- User Profile Card (Bottom of Sidebar)
+-- Profile card
 local ProfileCard = Create("Frame", {
-    Name = "ProfileCard",
     Parent = Sidebar,
-    Size = UDim2.new(1, -32, 0, 70),
-    Position = UDim2.new(0, 16, 1, -80),
+    Size = UDim2.new(1, -24, 0, 64),
+    Position = UDim2.new(0, 12, 1, -74),
     BackgroundColor3 = Colors.BackgroundLighter,
     BorderSizePixel = 0,
 })
 CreateCorner(ProfileCard, 12)
-
 local ProfileAvatar = Create("ImageLabel", {
-    Name = "Avatar",
     Parent = ProfileCard,
     Size = UDim2.new(0, 44, 0, 44),
-    Position = UDim2.new(0, 12, 0.5, -22),
+    Position = UDim2.new(0, 10, 0.5, -22),
     BackgroundColor3 = Colors.Surface,
     Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
     BorderSizePixel = 0,
 })
 CreateCorner(ProfileAvatar, 22)
-
-local ProfileName = Create("TextLabel", {
-    Name = "ProfileName",
-    Parent = ProfileCard,
-    Size = UDim2.new(1, -72, 0, 18),
-    Position = UDim2.new(0, 64, 0, 14),
-    BackgroundTransparency = 1,
-    Text = player.DisplayName or player.Name,
-    TextColor3 = Colors.TextPrimary,
-    TextSize = 14,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Left,
-    TextTruncate = Enum.TextTruncate.AtEnd,
-})
-
-local ProfileUsername = Create("TextLabel", {
-    Name = "ProfileUsername",
-    Parent = ProfileCard,
-    Size = UDim2.new(1, -72, 0, 16),
-    Position = UDim2.new(0, 64, 0, 34),
-    BackgroundTransparency = 1,
-    Text = "@" .. player.Name,
-    TextColor3 = Colors.TextMuted,
-    TextSize = 12,
-    Font = Enum.Font.Gotham,
-    TextXAlignment = Enum.TextXAlignment.Left,
-})
-
-local ProfileStatus = Create("TextLabel", {
-    Name = "ProfileStatus",
-    Parent = ProfileCard,
-    Size = UDim2.new(0, 40, 0, 16),
-    Position = UDim2.new(0, 64, 0, 50),
-    BackgroundTransparency = 1,
-    Text = "Free",
-    TextColor3 = Colors.TextMuted,
-    TextSize = 11,
-    Font = Enum.Font.Gotham,
-    TextXAlignment = Enum.TextXAlignment.Left,
-})
+Create("TextLabel", {Parent=ProfileCard, Size=UDim2.new(1,-70,0,18), Position=UDim2.new(0,62,0,12), BackgroundTransparency=1, Text=player.DisplayName or player.Name, TextColor3=Colors.TextPrimary, TextSize=13, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left, TextTruncate=Enum.TextTruncate.AtEnd})
+Create("TextLabel", {Parent=ProfileCard, Size=UDim2.new(1,-70,0,14), Position=UDim2.new(0,62,0,32), BackgroundTransparency=1, Text="@"..player.Name, TextColor3=Colors.TextMuted, TextSize=11, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left})
+local PrimeLabel = Create("TextLabel", {Parent=ProfileCard, Size=UDim2.new(0,50,0,16), Position=UDim2.new(0,62,0,46), BackgroundTransparency=1, Text="⭐ Prime", TextColor3=Colors.Warning, TextSize=10, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left})
+if player:GetAttribute("PrimeEnabled") then
+    PrimeLabel.Text = "⭐ Prime"
+    PrimeLabel.TextColor3 = Colors.Warning
+else
+    PrimeLabel.Text = "Free"
+    PrimeLabel.TextColor3 = Colors.TextMuted
+end
 
 -- Content Area
 local ContentArea = Create("Frame", {
-    Name = "ContentArea",
     Parent = MainFrame,
     Size = UDim2.new(1, -240, 1, -50),
     Position = UDim2.new(0, 240, 0, 50),
@@ -620,7 +660,6 @@ local ContentArea = Create("Frame", {
 })
 
 local ContentScroll = Create("ScrollingFrame", {
-    Name = "ContentScroll",
     Parent = ContentArea,
     Size = UDim2.new(1, 0, 1, 0),
     BackgroundTransparency = 1,
@@ -631,128 +670,162 @@ local ContentScroll = Create("ScrollingFrame", {
     AutomaticCanvasSize = Enum.AutomaticSize.Y,
 })
 CreatePadding(ContentScroll, 20)
+local ContentLayout = CreateListLayout(ContentScroll, 14)
 
-local ContentLayout = CreateListLayout(ContentScroll, 16)
+-- ======================== PAGE SYSTEM ========================
+local Pages = {}
 
--- Section Card Function
-local function CreateSectionCard(parent, title, layoutOrder)
+local function ClearContent()
+    for _, child in ipairs(ContentScroll:GetChildren()) do
+        if child:IsA("GuiObject") and child.Name ~= "UIPadding" and child.Name ~= "UIListLayout" then
+            child:Destroy()
+        end
+    end
+end
+
+local function SetActivePage(pageName)
+    if SidebarButtons[ActivePage] then
+        local sb = SidebarButtons[ActivePage]
+        sb.indicator.Visible = false
+        Tween(sb.button, {BackgroundTransparency = 1}, 0.15)
+        sb.label.TextColor3 = Colors.TextSecondary
+        sb.icon.TextColor3 = Colors.TextSecondary
+        sb.button.BackgroundColor3 = Colors.Surface
+    end
+
+    ActivePage = pageName
+    PageTitle.Text = pageName
+
+    if SidebarButtons[pageName] then
+        local sb = SidebarButtons[pageName]
+        sb.indicator.Visible = true
+        sb.button.BackgroundColor3 = Colors.BackgroundLighter
+        Tween(sb.button, {BackgroundTransparency = 0}, 0.15)
+        sb.label.TextColor3 = Colors.TextPrimary
+        sb.label.Font = Enum.Font.GothamBold
+        sb.icon.TextColor3 = Colors.TextPrimary
+    end
+
+    ClearContent()
+    if Pages[pageName] then Pages[pageName]() end
+    ContentScroll.CanvasPosition = Vector2.new(0, 0)
+end
+
+-- ======================== UI COMPONENT BUILDERS ========================
+
+local function CreateSectionCard(title, layoutOrder, accentColor)
     local card = Create("Frame", {
-        Name = title .. "Card",
-        Parent = parent,
+        Parent = ContentScroll,
         Size = UDim2.new(1, 0, 0, 0),
         BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
         LayoutOrder = layoutOrder,
         AutomaticSize = Enum.AutomaticSize.Y,
     })
-    CreateCorner(card, 14)
-    CreatePadding(card, 20)
-    
-    local cardLayout = CreateListLayout(card, 16)
-    
-    -- Section Header with Dropdown
+    CreateCorner(card, 13)
+    CreatePadding(card, 18)
+    local cardLayout = CreateListLayout(card, 12)
+
     local header = Create("Frame", {
-        Name = "Header",
         Parent = card,
         Size = UDim2.new(1, 0, 0, 28),
         BackgroundTransparency = 1,
         LayoutOrder = 0,
     })
-    
-    local titleLabel = Create("TextLabel", {
-        Name = "Title",
+
+    if accentColor then
+        local accentBar = Create("Frame", {
+            Parent = header,
+            Size = UDim2.new(0, 3, 0, 20),
+            Position = UDim2.new(0, 0, 0.5, -10),
+            BackgroundColor3 = accentColor,
+            BorderSizePixel = 0,
+        })
+        CreateCorner(accentBar, 2)
+    end
+
+    Create("TextLabel", {
         Parent = header,
-        Size = UDim2.new(1, -40, 1, 0),
+        Size = UDim2.new(1, -50, 1, 0),
+        Position = UDim2.new(0, accentColor and 10 or 0, 0, 0),
         BackgroundTransparency = 1,
         Text = title,
         TextColor3 = Colors.Accent,
-        TextSize = 16,
+        TextSize = 15,
         Font = Enum.Font.GothamBold,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    
-    local dropdownBtn = Create("TextButton", {
-        Name = "DropdownBtn",
+
+    local dropBtn = Create("TextButton", {
         Parent = header,
-        Size = UDim2.new(0, 36, 0, 36),
-        Position = UDim2.new(1, -36, 0, -4),
+        Size = UDim2.new(0, 32, 0, 32),
+        Position = UDim2.new(1, -32, 0, -2),
         BackgroundColor3 = Colors.Surface,
         Text = "▼",
         TextColor3 = Colors.TextSecondary,
-        TextSize = 14,
+        TextSize = 13,
         Font = Enum.Font.GothamBold,
         BorderSizePixel = 0,
+        AutoButtonColor = false,
     })
-    CreateCorner(dropdownBtn, 8)
-    
+    CreateCorner(dropBtn, 7)
+
     local content = Create("Frame", {
-        Name = "Content",
         Parent = card,
         Size = UDim2.new(1, 0, 0, 0),
         BackgroundTransparency = 1,
         LayoutOrder = 1,
         AutomaticSize = Enum.AutomaticSize.Y,
     })
-    local contentLayout = CreateListLayout(content, 12)
-    
-    -- Toggle collapse
+    CreateListLayout(content, 10)
+
     local collapsed = false
-    dropdownBtn.MouseButton1Click:Connect(function()
+    dropBtn.MouseButton1Click:Connect(function()
         collapsed = not collapsed
         content.Visible = not collapsed
-        Tween(dropdownBtn, {Rotation = collapsed and -90 or 0}, 0.3)
+        Tween(dropBtn, {Rotation = collapsed and -90 or 0}, 0.25)
     end)
-    
+
     return card, content
 end
 
--- Subsection Header
-local function CreateSubsectionHeader(parent, text)
-    local header = Create("Frame", {
-        Name = text .. "SubHeader",
+local function CreateSubHeader(parent, text)
+    local h = Create("Frame", {
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 24),
+        Size = UDim2.new(1, 0, 0, 22),
         BackgroundTransparency = 1,
     })
-    
-    local label = Create("TextLabel", {
-        Name = "Label",
-        Parent = header,
+    Create("TextLabel", {
+        Parent = h,
         Size = UDim2.new(0, 200, 1, 0),
         BackgroundTransparency = 1,
         Text = text,
         TextColor3 = Colors.TextSecondary,
-        TextSize = 13,
+        TextSize = 12,
         Font = Enum.Font.GothamBold,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    
-    local line = Create("Frame", {
-        Name = "Line",
-        Parent = header,
+    Create("Frame", {
+        Parent = h,
         Size = UDim2.new(1, -210, 0, 1),
-        Position = UDim2.new(0, 210, 0.5, -0.5),
+        Position = UDim2.new(0, 210, 0.5, 0),
         BackgroundColor3 = Colors.Border,
         BorderSizePixel = 0,
     })
-    
-    return header
+    return h
 end
 
--- Toggle Switch Function
-local function CreateToggle(parent, text, defaultState, description)
+local function CreateToggle(parent, text, stateKey, description)
+    local defaultState = States[stateKey] or false
     local container = Create("Frame", {
-        Name = text .. "Toggle",
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, description and 56 or 36),
+        Size = UDim2.new(1, 0, 0, description and 54 or 36),
         BackgroundTransparency = 1,
     })
-    
-    local label = Create("TextLabel", {
-        Name = "Label",
+    Create("TextLabel", {
         Parent = container,
         Size = UDim2.new(1, -70, 0, 20),
-        Position = UDim2.new(0, 0, 0, description and 8 or 8),
+        Position = UDim2.new(0, 0, 0, description and 7 or 8),
         BackgroundTransparency = 1,
         Text = text,
         TextColor3 = Colors.TextPrimary,
@@ -760,10 +833,8 @@ local function CreateToggle(parent, text, defaultState, description)
         Font = Enum.Font.Gotham,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    
     if description then
-        local descLabel = Create("TextLabel", {
-            Name = "Description",
+        Create("TextLabel", {
             Parent = container,
             Size = UDim2.new(1, -70, 0, 16),
             Position = UDim2.new(0, 0, 0, 30),
@@ -775,59 +846,51 @@ local function CreateToggle(parent, text, defaultState, description)
             TextXAlignment = Enum.TextXAlignment.Left,
         })
     end
-    
+
     local toggleBg = Create("Frame", {
-        Name = "ToggleBg",
         Parent = container,
         Size = UDim2.new(0, 48, 0, 26),
-        Position = UDim2.new(1, -48, 0, description and 15 or 5),
+        Position = UDim2.new(1, -48, 0, description and 14 or 5),
         BackgroundColor3 = defaultState and Colors.ToggleOn or Colors.ToggleOff,
         BorderSizePixel = 0,
     })
     CreateCorner(toggleBg, 13)
     CreateStroke(toggleBg, Colors.Border, 1)
-    
     local knob = Create("Frame", {
-        Name = "Knob",
         Parent = toggleBg,
         Size = UDim2.new(0, 20, 0, 20),
-        Position = UDim2.new(0, defaultState and 26 or 2, 0.5, -10),
+        Position = UDim2.new(0, defaultState and 25 or 3, 0.5, -10),
         BackgroundColor3 = Colors.ToggleKnob,
         BorderSizePixel = 0,
     })
     CreateCorner(knob, 10)
-    
+
     local state = defaultState
     local toggleBtn = Create("TextButton", {
-        Name = "ToggleBtn",
         Parent = container,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         Text = "",
     })
-    
     toggleBtn.MouseButton1Click:Connect(function()
         state = not state
+        States[stateKey] = state
         Tween(toggleBg, {BackgroundColor3 = state and Colors.ToggleOn or Colors.ToggleOff}, 0.2)
-        Tween(knob, {Position = UDim2.new(0, state and 26 or 2, 0.5, -10)}, 0.2)
+        Tween(knob, {Position = UDim2.new(0, state and 25 or 3, 0.5, -10)}, 0.2)
     end)
-    
     return container, function() return state end
 end
 
--- Slider Function
-local function CreateSlider(parent, text, min, max, default, valueFormat)
+local function CreateSlider(parent, text, minVal, maxVal, stateKey, suffix)
+    local defaultVal = States[stateKey] or minVal
     local container = Create("Frame", {
-        Name = text .. "Slider",
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 50),
+        Size = UDim2.new(1, 0, 0, 54),
         BackgroundTransparency = 1,
     })
-    
-    local label = Create("TextLabel", {
-        Name = "Label",
+    Create("TextLabel", {
         Parent = container,
-        Size = UDim2.new(0, 120, 0, 20),
+        Size = UDim2.new(0, 200, 0, 20),
         BackgroundTransparency = 1,
         Text = text,
         TextColor3 = Colors.TextPrimary,
@@ -835,75 +898,85 @@ local function CreateSlider(parent, text, min, max, default, valueFormat)
         Font = Enum.Font.Gotham,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    
-    local valueLabel = Create("TextLabel", {
-        Name = "Value",
+    local valLabel = Create("TextLabel", {
         Parent = container,
-        Size = UDim2.new(0, 50, 0, 24),
-        Position = UDim2.new(1, -50, 0, 0),
+        Size = UDim2.new(0, 60, 0, 24),
+        Position = UDim2.new(1, -60, 0, -2),
         BackgroundColor3 = Colors.BackgroundLighter,
-        Text = tostring(default),
+        Text = tostring(defaultVal) .. (suffix or ""),
         TextColor3 = Colors.TextSecondary,
-        TextSize = 13,
+        TextSize = 12,
         Font = Enum.Font.Gotham,
         BorderSizePixel = 0,
     })
-    CreateCorner(valueLabel, 6)
-    
+    CreateCorner(valLabel, 6)
     local track = Create("Frame", {
-        Name = "Track",
         Parent = container,
-        Size = UDim2.new(1, -70, 0, 6),
-        Position = UDim2.new(0, 0, 0, 32),
+        Size = UDim2.new(1, -80, 0, 6),
+        Position = UDim2.new(0, 0, 0, 36),
         BackgroundColor3 = Colors.SliderTrack,
         BorderSizePixel = 0,
     })
     CreateCorner(track, 3)
-    
+    local fillPct = (defaultVal - minVal) / math.max(maxVal - minVal, 1)
     local fill = Create("Frame", {
-        Name = "Fill",
         Parent = track,
-        Size = UDim2.new((default - min) / (max - min), 0, 1, 0),
+        Size = UDim2.new(fillPct, 0, 1, 0),
         BackgroundColor3 = Colors.SliderFill,
         BorderSizePixel = 0,
     })
     CreateCorner(fill, 3)
-    
-    local knob = Create("Frame", {
-        Name = "Knob",
+    local sliderKnob = Create("Frame", {
         Parent = track,
         Size = UDim2.new(0, 16, 0, 16),
-        Position = UDim2.new((default - min) / (max - min), -8, 0.5, -8),
+        Position = UDim2.new(fillPct, -8, 0.5, -8),
         BackgroundColor3 = Colors.TextPrimary,
         BorderSizePixel = 0,
     })
-    CreateCorner(knob, 8)
-    
-    -- Slider interaction (visual only)
+    CreateCorner(sliderKnob, 8)
+
     local dragging = false
     local trackBtn = Create("TextButton", {
-        Name = "TrackBtn",
         Parent = container,
-        Size = UDim2.new(1, -70, 0, 30),
-        Position = UDim2.new(0, 0, 0, 20),
+        Size = UDim2.new(1, -80, 0, 26),
+        Position = UDim2.new(0, 0, 0, 26),
         BackgroundTransparency = 1,
         Text = "",
     })
-    
+    local function updateSlider(x)
+        local trackAbsPos = track.AbsolutePosition.X
+        local trackAbsSize = track.AbsoluteSize.X
+        local pct = math.clamp((x - trackAbsPos) / math.max(trackAbsSize, 1), 0, 1)
+        local val = math.floor(minVal + pct * (maxVal - minVal))
+        States[stateKey] = val
+        valLabel.Text = tostring(val) .. (suffix or "")
+        Tween(fill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
+        Tween(sliderKnob, {Position = UDim2.new(pct, -8, 0.5, -8)}, 0.05)
+    end
+    trackBtn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            updateSlider(input.Position.X)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input.Position.X)
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+    end)
     return container
 end
 
--- Action Button Function
-local function CreateActionButton(parent, text, hasArrow)
+local function CreateActionButton(parent, text, callback, accentColor)
     local container = Create("Frame", {
-        Name = text .. "Action",
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 40),
+        Size = UDim2.new(1, 0, 0, 38),
         BackgroundTransparency = 1,
     })
-    
     local btn = Create("TextButton", {
-        Name = "Btn",
         Parent = container,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Colors.BackgroundLighter,
@@ -911,58 +984,48 @@ local function CreateActionButton(parent, text, hasArrow)
         BorderSizePixel = 0,
         AutoButtonColor = false,
     })
-    CreateCorner(btn, 10)
-    CreateStroke(btn, Colors.Border, 1)
-    
-    local label = Create("TextLabel", {
-        Name = "Label",
+    CreateCorner(btn, 9)
+    CreateStroke(btn, accentColor or Colors.Border, accentColor and 1.5 or 1)
+    local lbl = Create("TextLabel", {
         Parent = btn,
-        Size = UDim2.new(1, hasArrow and -40 or -20, 1, 0),
-        Position = UDim2.new(0, 16, 0, 0),
+        Size = UDim2.new(1, -44, 1, 0),
+        Position = UDim2.new(0, 14, 0, 0),
         BackgroundTransparency = 1,
         Text = text,
-        TextColor3 = Colors.TextPrimary,
-        TextSize = 14,
+        TextColor3 = accentColor or Colors.TextPrimary,
+        TextSize = 13,
         Font = Enum.Font.Gotham,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    
-    if hasArrow then
-        local arrow = Create("TextLabel", {
-            Name = "Arrow",
-            Parent = btn,
-            Size = UDim2.new(0, 24, 1, 0),
-            Position = UDim2.new(1, -32, 0, 0),
-            BackgroundTransparency = 1,
-            Text = ">",
-            TextColor3 = Colors.TextMuted,
-            TextSize = 16,
-            Font = Enum.Font.GothamBold,
-        })
-    end
-    
-    btn.MouseEnter:Connect(function()
-        Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.2)
+    local arrow = Create("TextLabel", {
+        Parent = btn,
+        Size = UDim2.new(0, 20, 1, 0),
+        Position = UDim2.new(1, -26, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "›",
+        TextColor3 = Colors.TextMuted,
+        TextSize = 18,
+        Font = Enum.Font.GothamBold,
+    })
+    btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.15) end)
+    btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15) end)
+    btn.MouseButton1Click:Connect(function()
+        Tween(btn, {BackgroundColor3 = Colors.SurfaceLight}, 0.05)
+        task.wait(0.1)
+        Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.1)
+        if callback then callback() end
     end)
-    
-    btn.MouseLeave:Connect(function()
-        Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
-    end)
-    
     return container
 end
 
--- Dropdown/Selector Function
-local function CreateSelector(parent, text, selectedText)
+local function CreateDropdown(parent, label, options, stateKey)
+    local currentVal = States[stateKey] or options[1]
     local container = Create("Frame", {
-        Name = text .. "Selector",
         Parent = parent,
         Size = UDim2.new(1, 0, 0, 40),
         BackgroundTransparency = 1,
     })
-    
     local btn = Create("TextButton", {
-        Name = "Btn",
         Parent = container,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Colors.BackgroundLighter,
@@ -970,228 +1033,2719 @@ local function CreateSelector(parent, text, selectedText)
         BorderSizePixel = 0,
         AutoButtonColor = false,
     })
-    CreateCorner(btn, 10)
+    CreateCorner(btn, 9)
     CreateStroke(btn, Colors.Border, 1)
-    
-    local label = Create("TextLabel", {
-        Name = "Label",
+    local lbl = Create("TextLabel", {
         Parent = btn,
-        Size = UDim2.new(1, -50, 1, 0),
-        Position = UDim2.new(0, 16, 0, 0),
+        Size = UDim2.new(1, -60, 1, 0),
+        Position = UDim2.new(0, 14, 0, 0),
         BackgroundTransparency = 1,
-        Text = text .. " • " .. selectedText,
+        Text = label .. "  •  " .. currentVal,
         TextColor3 = Colors.TextPrimary,
-        TextSize = 14,
+        TextSize = 13,
         Font = Enum.Font.Gotham,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    
-    local icon = Create("TextLabel", {
-        Name = "Icon",
+    local arr = Create("TextLabel", {
         Parent = btn,
-        Size = UDim2.new(0, 24, 0, 24),
-        Position = UDim2.new(1, -36, 0.5, -12),
+        Size = UDim2.new(0, 30, 1, 0),
+        Position = UDim2.new(1, -32, 0, 0),
         BackgroundTransparency = 1,
-        Text = "📦",
+        Text = "▾",
         TextColor3 = Colors.TextMuted,
-        TextSize = 16,
-        Font = Enum.Font.Gotham,
+        TextSize = 14,
+        Font = Enum.Font.GothamBold,
     })
-    
-    btn.MouseEnter:Connect(function()
-        Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.2)
+    btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.15) end)
+    btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15) end)
+
+    local isOpen = false
+    local dropPanel = nil
+    btn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        Tween(arr, {Rotation = isOpen and 180 or 0}, 0.2)
+        if isOpen then
+            dropPanel = Create("Frame", {
+                Parent = ScreenGui,
+                Size = UDim2.new(0, container.AbsoluteSize.X, 0, math.min(#options * 32, 160)),
+                Position = UDim2.new(0, container.AbsolutePosition.X, 0, container.AbsolutePosition.Y + 44),
+                BackgroundColor3 = Colors.BackgroundLighter,
+                BorderSizePixel = 0,
+                ZIndex = 150,
+                ClipsDescendants = true,
+            })
+            CreateCorner(dropPanel, 9)
+            CreateStroke(dropPanel, Colors.Border, 1)
+            local scroll = Create("ScrollingFrame", {
+                Parent = dropPanel,
+                Size = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                ScrollBarThickness = 3,
+                CanvasSize = UDim2.new(0, 0, 0, 0),
+                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                ZIndex = 151,
+            })
+            CreateListLayout(scroll, 2)
+            CreatePadding(scroll, 4)
+            for _, opt in ipairs(options) do
+                local item = Create("TextButton", {
+                    Parent = scroll,
+                    Size = UDim2.new(1, 0, 0, 28),
+                    BackgroundTransparency = opt == currentVal and 0.8 or 1,
+                    BackgroundColor3 = Colors.Surface,
+                    Text = opt,
+                    TextColor3 = opt == currentVal and Colors.Success or Colors.TextPrimary,
+                    TextSize = 13,
+                    Font = opt == currentVal and Enum.Font.GothamBold or Enum.Font.Gotham,
+                    ZIndex = 152,
+                    AutoButtonColor = false,
+                })
+                CreateCorner(item, 6)
+                item.MouseEnter:Connect(function() item.BackgroundTransparency = 0.7 item.BackgroundColor3 = Colors.Surface end)
+                item.MouseLeave:Connect(function() item.BackgroundTransparency = opt == currentVal and 0.8 or 1 end)
+                item.MouseButton1Click:Connect(function()
+                    currentVal = opt
+                    States[stateKey] = opt
+                    lbl.Text = label .. "  •  " .. opt
+                    isOpen = false
+                    Tween(arr, {Rotation = 0}, 0.2)
+                    if dropPanel then dropPanel:Destroy() dropPanel = nil end
+                end)
+            end
+        else
+            if dropPanel then dropPanel:Destroy() dropPanel = nil end
+        end
     end)
-    
-    btn.MouseLeave:Connect(function()
-        Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
+
+    UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and isOpen then
+            local mp = UserInputService:GetMouseLocation()
+            if dropPanel then
+                local ap = dropPanel.AbsolutePosition
+                local as = dropPanel.AbsoluteSize
+                if not (mp.X >= ap.X and mp.X <= ap.X + as.X and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y) then
+                    isOpen = false
+                    Tween(arr, {Rotation = 0}, 0.2)
+                    dropPanel:Destroy()
+                    dropPanel = nil
+                end
+            end
+        end
     end)
-    
+
     return container
 end
 
--- Info Text Function
-local function CreateInfoText(parent, title, description)
+-- Multi-select dropdown — pilih beberapa item sekaligus, disimpan ke States[stateKey] (table)
+-- label: judul, options: list string, stateKey: States key (harus berupa table {})
+local function CreateMultiSelect(parent, label, options, stateKey)
+    if type(States[stateKey]) ~= "table" then States[stateKey] = {} end
+    local selected = States[stateKey]  -- reference ke table yang sama
+
+    local function getDisplayText()
+        if #selected == 0 then return label .. "  •  (pilih seed...)" end
+        if #selected == 1 then return label .. "  •  " .. selected[1] end
+        return label .. "  •  " .. #selected .. " seed dipilih"
+    end
+
     local container = Create("Frame", {
-        Name = title .. "Info",
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 60),
+        Size = UDim2.new(1, 0, 0, 40),
         BackgroundTransparency = 1,
     })
-    
-    local titleLabel = Create("TextLabel", {
-        Name = "Title",
+    local btn = Create("TextButton", {
         Parent = container,
-        Size = UDim2.new(1, 0, 0, 20),
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Colors.BackgroundLighter,
+        Text = "",
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+    })
+    CreateCorner(btn, 9)
+    CreateStroke(btn, Colors.Border, 1)
+    local lbl = Create("TextLabel", {
+        Parent = btn,
+        Size = UDim2.new(1, -60, 1, 0),
+        Position = UDim2.new(0, 14, 0, 0),
         BackgroundTransparency = 1,
-        Text = title,
-        TextColor3 = Colors.Accent,
+        Text = getDisplayText(),
+        TextColor3 = Colors.TextPrimary,
+        TextSize = 13,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+    })
+    local arr = Create("TextLabel", {
+        Parent = btn,
+        Size = UDim2.new(0, 30, 1, 0),
+        Position = UDim2.new(1, -32, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "▾",
+        TextColor3 = Colors.TextMuted,
         TextSize = 14,
         Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Left,
     })
-    
-    local descLabel = Create("TextLabel", {
-        Name = "Description",
-        Parent = container,
-        Size = UDim2.new(1, 0, 0, 36),
-        Position = UDim2.new(0, 0, 0, 22),
+    btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.15) end)
+    btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15) end)
+
+    local isOpen = false
+    local dropPanel = nil
+    local itemButtons = {}  -- track button references untuk update visual
+
+    local function refreshItems()
+        for opt, itemBtn in pairs(itemButtons) do
+            local isSel = table.find(selected, opt) ~= nil
+            itemBtn.BackgroundTransparency = isSel and 0.6 or 1
+            itemBtn.BackgroundColor3 = isSel and Colors.ToggleOnDark or Colors.Surface
+            itemBtn.TextColor3 = isSel and Colors.Success or Colors.TextPrimary
+            itemBtn.Font = isSel and Enum.Font.GothamBold or Enum.Font.Gotham
+        end
+        lbl.Text = getDisplayText()
+    end
+
+    btn.MouseButton1Click:Connect(function()
+        isOpen = not isOpen
+        Tween(arr, {Rotation = isOpen and 180 or 0}, 0.2)
+        if isOpen then
+            local panelH = math.min(#options * 30 + 40, 220)
+            dropPanel = Create("Frame", {
+                Parent = ScreenGui,
+                Size = UDim2.new(0, container.AbsoluteSize.X, 0, panelH),
+                Position = UDim2.new(0, container.AbsolutePosition.X, 0, container.AbsolutePosition.Y + 44),
+                BackgroundColor3 = Colors.BackgroundLighter,
+                BorderSizePixel = 0,
+                ZIndex = 155,
+                ClipsDescendants = true,
+            })
+            CreateCorner(dropPanel, 9)
+            CreateStroke(dropPanel, Colors.Border, 1)
+
+            -- Header: Clear All / Select All
+            local headerRow = Create("Frame", {
+                Parent = dropPanel,
+                Size = UDim2.new(1, 0, 0, 32),
+                BackgroundColor3 = Colors.Background,
+                BorderSizePixel = 0,
+                ZIndex = 156,
+            })
+            CreateListLayout(headerRow, 4, Enum.FillDirection.Horizontal)
+            CreatePadding(headerRow, 6)
+
+            local selectAllBtn = Create("TextButton", {
+                Parent = headerRow,
+                Size = UDim2.new(0.5, -6, 0, 22),
+                BackgroundColor3 = Colors.Surface,
+                Text = "✔ All",
+                TextColor3 = Colors.Success,
+                TextSize = 11,
+                Font = Enum.Font.GothamBold,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                ZIndex = 157,
+            })
+            CreateCorner(selectAllBtn, 5)
+            local clearBtn = Create("TextButton", {
+                Parent = headerRow,
+                Size = UDim2.new(0.5, -6, 0, 22),
+                BackgroundColor3 = Colors.Surface,
+                Text = "✗ Clear",
+                TextColor3 = Colors.Error,
+                TextSize = 11,
+                Font = Enum.Font.GothamBold,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+                ZIndex = 157,
+            })
+            CreateCorner(clearBtn, 5)
+
+            local scroll = Create("ScrollingFrame", {
+                Parent = dropPanel,
+                Size = UDim2.new(1, 0, 1, -34),
+                Position = UDim2.new(0, 0, 0, 34),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                ScrollBarThickness = 3,
+                CanvasSize = UDim2.new(0, 0, 0, 0),
+                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+                ZIndex = 156,
+            })
+            CreateListLayout(scroll, 2)
+            CreatePadding(scroll, 4)
+
+            itemButtons = {}
+            for _, opt in ipairs(options) do
+                local isSel = table.find(selected, opt) ~= nil
+                local item = Create("TextButton", {
+                    Parent = scroll,
+                    Size = UDim2.new(1, 0, 0, 26),
+                    BackgroundTransparency = isSel and 0.6 or 1,
+                    BackgroundColor3 = isSel and Colors.ToggleOnDark or Colors.Surface,
+                    Text = (isSel and "✔ " or "  ") .. opt,
+                    TextColor3 = isSel and Colors.Success or Colors.TextPrimary,
+                    TextSize = 12,
+                    Font = isSel and Enum.Font.GothamBold or Enum.Font.Gotham,
+                    ZIndex = 157,
+                    AutoButtonColor = false,
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                })
+                Create("UIPadding", {Parent=item, PaddingLeft=UDim.new(0,8)})
+                CreateCorner(item, 5)
+                itemButtons[opt] = item
+
+                item.MouseEnter:Connect(function() item.BackgroundTransparency = 0.5 end)
+                item.MouseLeave:Connect(function()
+                    item.BackgroundTransparency = table.find(selected, opt) and 0.6 or 1
+                end)
+                item.MouseButton1Click:Connect(function()
+                    local idx = table.find(selected, opt)
+                    if idx then
+                        table.remove(selected, idx)
+                        item.Text = "  " .. opt
+                    else
+                        table.insert(selected, opt)
+                        item.Text = "✔ " .. opt
+                    end
+                    States[stateKey] = selected
+                    refreshItems()
+                end)
+            end
+
+            -- Select All / Clear All buttons
+            selectAllBtn.MouseButton1Click:Connect(function()
+                table.clear(selected)
+                for _, opt in ipairs(options) do table.insert(selected, opt) end
+                States[stateKey] = selected
+                for opt, itemBtn in pairs(itemButtons) do
+                    itemBtn.Text = "✔ " .. opt
+                end
+                refreshItems()
+            end)
+            clearBtn.MouseButton1Click:Connect(function()
+                table.clear(selected)
+                States[stateKey] = selected
+                for opt, itemBtn in pairs(itemButtons) do
+                    itemBtn.Text = "  " .. opt
+                end
+                refreshItems()
+            end)
+
+        else
+            if dropPanel then dropPanel:Destroy() dropPanel = nil end
+            itemButtons = {}
+        end
+    end)
+
+    -- Tutup kalau klik di luar
+    UserInputService.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 and isOpen then
+            local mp = UserInputService:GetMouseLocation()
+            if dropPanel then
+                local ap = dropPanel.AbsolutePosition
+                local as = dropPanel.AbsoluteSize
+                if not (mp.X >= ap.X and mp.X <= ap.X + as.X and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y) then
+                    isOpen = false
+                    Tween(arr, {Rotation = 0}, 0.2)
+                    dropPanel:Destroy()
+                    dropPanel = nil
+                    itemButtons = {}
+                end
+            end
+        end
+    end)
+
+    return container
+end
+
+local function CreateInfoText(parent, title, desc, color)
+    local c = Create("Frame", {
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundColor3 = Colors.BackgroundLighter,
+        BorderSizePixel = 0,
+        AutomaticSize = Enum.AutomaticSize.Y,
+    })
+    CreateCorner(c, 8)
+    CreatePadding(c, 10)
+    CreateListLayout(c, 4)
+    if title then
+        Create("TextLabel", {
+            Parent = c,
+            Size = UDim2.new(1, 0, 0, 16),
+            BackgroundTransparency = 1,
+            Text = title,
+            TextColor3 = color or Colors.Accent,
+            TextSize = 12,
+            Font = Enum.Font.GothamBold,
+            TextXAlignment = Enum.TextXAlignment.Left,
+        })
+    end
+    Create("TextLabel", {
+        Parent = c,
+        Size = UDim2.new(1, 0, 0, 0),
         BackgroundTransparency = 1,
-        Text = description,
+        Text = desc,
+        TextColor3 = Colors.TextMuted,
+        TextSize = 11,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        TextWrapped = true,
+    })
+    return c
+end
+
+local function CreateStatRow(parent, label, value, valColor)
+    local r = Create("Frame", {
+        Parent = parent,
+        Size = UDim2.new(1, 0, 0, 28),
+        BackgroundColor3 = Colors.BackgroundLighter,
+        BorderSizePixel = 0,
+    })
+    CreateCorner(r, 6)
+    Create("TextLabel", {
+        Parent = r,
+        Size = UDim2.new(0.5, 0, 1, 0),
+        Position = UDim2.new(0, 12, 0, 0),
+        BackgroundTransparency = 1,
+        Text = label,
         TextColor3 = Colors.TextMuted,
         TextSize = 12,
         Font = Enum.Font.Gotham,
         TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true,
     })
-    
-    return container
+    local valLbl = Create("TextLabel", {
+        Parent = r,
+        Size = UDim2.new(0.5, -12, 1, 0),
+        Position = UDim2.new(0.5, 0, 0, 0),
+        BackgroundTransparency = 1,
+        Text = tostring(value),
+        TextColor3 = valColor or Colors.TextPrimary,
+        TextSize = 12,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Right,
+    })
+    return r, valLbl
 end
 
--- ==================== PLAYER PAGE ====================
-local function BuildPlayerPage()
-    -- Movement Section
-    local movementCard, movementContent = CreateSectionCard(ContentScroll, "Movement", 1)
-    CreateSubsectionHeader(movementContent, "Speed & Jump")
-    CreateToggle(movementContent, "Lock WalkSpeed", false)
-    CreateSlider(movementContent, "WalkSpeed", 1, 100, 16)
-    CreateToggle(movementContent, "Lock JumpPower", false)
-    CreateSlider(movementContent, "JumpPower", 1, 100, 50)
-    CreateToggle(movementContent, "Infinite Jump", false)
-    
-    -- Utility Section
-    local utilityCard, utilityContent = CreateSectionCard(ContentScroll, "Utility", 2)
-    CreateSubsectionHeader(utilityContent, "Fly & Noclip")
-    CreateToggle(utilityContent, "Fly (WASD + Space/Ctrl)", false)
-    CreateSlider(utilityContent, "Fly Speed", 1, 200, 60)
-    CreateToggle(utilityContent, "Noclip", false)
-    CreateSubsectionHeader(utilityContent, "Misc")
-    CreateToggle(utilityContent, "Anti AFK", true)
+-- ======================== GAME LOGIC HELPERS ========================
+
+-- Get my plot
+local function GetMyPlot()
+    local gardens = game:GetService("Workspace"):FindFirstChild("Gardens")
+    if not gardens then return nil end
+    return gardens:FindFirstChild("Plot" .. MY_PLOT_ID)
 end
 
--- ==================== FARM PAGE ====================
-local function BuildFarmPage()
-    -- Planting Section
-    local plantingCard, plantingContent = CreateSectionCard(ContentScroll, "Planting", 1)
-    CreateSubsectionHeader(plantingContent, "Auto Plant")
-    CreateInfoText(plantingContent, "How it works", "Plants seeds automatically across your plots. Leave empty to plant all seeds, or select specific ones.")
-    CreateToggle(plantingContent, "Auto Plant", false)
-    CreateSelector(plantingContent, "Seeds To Plant", "All Seeds")
-    CreateActionButton(plantingContent, "Plant Once Now", true)
-    CreateActionButton(plantingContent, "Refresh Seed List", true)
-    CreateSelector(plantingContent, "Only These Rarities", "All")
-    CreateSlider(plantingContent, "Keep In Reserve (per seed)", 0, 50, 0)
-    CreateSlider(plantingContent, "Max Plants / Cycle", 1, 100, 40)
-    
-    -- Harvest Section
-    local harvestCard, harvestContent = CreateSectionCard(ContentScroll, "Harvest", 2)
-    CreateSubsectionHeader(harvestContent, "Auto Harvest")
-    CreateInfoText(harvestContent, "Ready fruit only", "Collects grown fruit on your plot. Use filters to only pick up certain fruit or mutations.")
-    CreateToggle(harvestContent, "Auto Harvest", false)
-    CreateSlider(harvestContent, "Per-Fruit Delay", 0, 1, 0.05)
-    CreateSlider(harvestContent, "Loop Delay", 0, 10, 2.0)
-    CreateToggle(harvestContent, "Notify On Harvest", false)
-    CreateActionButton(harvestContent, "Harvest Now", true)
-    CreateSubsectionHeader(harvestContent, "Filters")
-    CreateSelector(harvestContent, "Only These Fruits", "All")
+-- Get plants folder
+local function GetPlantsFolder()
+    local plot = GetMyPlot()
+    if not plot then return nil end
+    return plot:FindFirstChild("Plants")
 end
 
--- ==================== SHOP PAGE ====================
-local function BuildShopPage()
-    -- Auto Buy Section
-    local buyCard, buyContent = CreateSectionCard(ContentScroll, "Auto Buy", 1)
-    CreateSelector(buyContent, "Alert From Rarity", "Legendary")
-    CreateActionButton(buyContent, "Copy Full Restock Odds", true)
-    CreateToggle(buyContent, "Auto Buy Seeds", true)
-    CreateSelector(buyContent, "Seeds To Buy", "Bamboo, Mushroom")
-    
-    -- Crate Section
-    local crateCard, crateContent = CreateSectionCard(ContentScroll, "Crates", 2)
-    CreateToggle(crateContent, "Auto Buy & Open Crates", false)
-    CreateToggle(crateContent, "Buy Before Opening", true)
-    CreateActionButton(crateContent, "Open All Crates Now", true)
-    CreateSlider(crateContent, "Crate Loop Delay", 1, 30, 8)
-    CreateToggle(crateContent, "Notify On Crate", true)
-    
-    -- Shared Section
-    local sharedCard, sharedContent = CreateSectionCard(ContentScroll, "Shared", 3)
-    CreateSlider(sharedContent, "Buy Delay", 0, 1, 0.05)
-    CreateSlider(sharedContent, "Restock Loop Delay", 1, 30, 6)
-    CreateToggle(sharedContent, "Notify On Buy", false)
-    CreateActionButton(sharedContent, "Refresh Shop Lists", true)
+-- Fire packet remote
+local function FirePacket(id, ...)
+    if PacketRemote then
+        PacketRemote:FireServer(id, ...)
+    end
 end
 
--- ==================== UTILITY PAGE ====================
-local function BuildUtilityPage()
-    -- Item Worth Section
-    local worthCard, worthContent = CreateSectionCard(ContentScroll, "Item Worth", 1)
-    CreateInfoText(worthContent, "Held item", "Live worth and stats of whatever you're holding (equip a harvested fruit to see its sell value).")
-    CreateInfoText(worthContent, "Now Holding", "You're not holding anything. Equip a fruit/seed to inspect it.")
-    CreateActionButton(worthContent, "Show Held Item Worth", true)
-    CreateActionButton(worthContent, "Highest Value Fruit In Bag", true)
-    CreateActionButton(worthContent, "Total Bag Worth (preview)", true)
-    CreateActionButton(worthContent, "Count Fruit In Bag", true)
-    
-    -- Quick Tools Section
-    local toolsCard, toolsContent = CreateSectionCard(ContentScroll, "Quick Tools", 2)
-    CreateSubsectionHeader(toolsContent, "Copy & Info")
-    CreateActionButton(toolsContent, "Copy My Position", true)
-    CreateActionButton(toolsContent, "Copy Job Id", true)
-    CreateActionButton(toolsContent, "Show My Stats", true)
-    CreateActionButton(toolsContent, "Show Restock Timers", true)
-    
-    -- Gifts Section
-    local giftsCard, giftsContent = CreateSectionCard(ContentScroll, "Gifts", 3)
-    CreateInfoText(giftsContent, "Gifts", "Automatically accept any gift another player sends you.")
+-- Get mutation from plant/fruit
+local function GetMutation(obj)
+    return obj:GetAttribute("Mutation") or ""
 end
 
--- ==================== VISUALS PAGE ====================
-local function BuildVisualsPage()
-    local visualsCard, visualsContent = CreateSectionCard(ContentScroll, "Visuals", 1)
-    CreateToggle(visualsContent, "ESP Players", false)
-    CreateToggle(visualsContent, "ESP Items", false)
-    CreateToggle(visualsContent, "ESP Fruits", false)
-    CreateToggle(visualsContent, "Full Bright", false)
-    CreateSlider(visualsContent, "Brightness", 0, 10, 5)
-    CreateToggle(visualsContent, "No Fog", false)
-    CreateToggle(visualsContent, "No Shadows", false)
+-- Check if mutation should be skipped/kept
+local function ShouldSkipMutation(mutation)
+    if States.harvestFilterMutation == "None" then return false end
+    return mutation == States.harvestFilterMutation
 end
 
--- ==================== TELEPORT PAGE ====================
-local function BuildTeleportPage()
-    local tpCard, tpContent = CreateSectionCard(ContentScroll, "Teleport", 1)
-    CreateActionButton(tpContent, "Teleport to Shop", false)
-    CreateActionButton(tpContent, "Teleport to Farm", false)
-    CreateActionButton(tpContent, "Teleport to Spawn", false)
-    CreateActionButton(tpContent, "Save Current Position", false)
-    CreateActionButton(tpContent, "Load Saved Position", false)
-    CreateSlider(tpContent, "Teleport Delay", 0, 5, 0)
+-- ======================== HARVEST CORE ========================
+-- Berdasarkan decompile HarvestPromptController + Scanner:
+--   CollectionService tag "HarvestPrompt" dipakai game sendiri — JAUH lebih cepat dari iterasi tree
+--   Fire via: Networking.Garden.CollectFruit:Fire(PlantId, FruitId) → fallback fireproximityprompt
+--   PlantId & FruitId = Attribute pada FruitModel
+--   Buah siap dipanen = prompt.Enabled == true (bukan "PlantGrowthReady" yang tidak ada)
+--   FruitCount check: hanya panen sampai MAX_FRUIT_CAP
+
+local function GetReadyFruitCount()
+    -- Hitung buah siap panen di plot kita pakai CollectionService (cepat)
+    local myPlot = GetMyPlot()
+    if not myPlot then return 0 end
+    local count = 0
+    for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
+        if prompt.Enabled
+            and not prompt:GetAttribute("Collected")
+            and prompt:IsDescendantOf(myPlot) then
+            count += 1
+        end
+    end
+    return count
 end
 
--- ==================== SETTINGS PAGE ====================
-local function BuildSettingsPage()
-    local settingsCard, settingsContent = CreateSectionCard(ContentScroll, "Settings", 1)
-    CreateToggle(settingsContent, "Auto Save Config", true)
-    CreateToggle(settingsContent, "Minimize to Tray", false)
-    CreateToggle(settingsContent, "Show Notifications", true)
-    CreateToggle(settingsContent, "Dark Mode", true)
-    CreateActionButton(settingsContent, "Reset All Settings", false)
-    CreateActionButton(settingsContent, "Export Config", true)
-    CreateActionButton(settingsContent, "Import Config", true)
+local function DoHarvestAll(mutFilter, hardLimit)
+    local myPlot = GetMyPlot()
+    if not myPlot then return 0 end
+
+    -- Hitung sisa kapasitas backpack
+    local currentCount = player:GetAttribute("FruitCount") or 0
+    local cap          = hardLimit or MAX_FRUIT_CAP
+    local remaining    = cap - currentCount
+    if remaining <= 0 then return 0 end
+
+    local harvested = 0
+    local delay     = math.max(States.perFruitDelay or 0, 0)
+
+    -- Pakai CollectionService "HarvestPrompt" — game sendiri pakai cara ini di HarvestPromptController
+    for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
+        -- Stop jika sudah penuh
+        if harvested >= remaining then break end
+
+        -- Harus milik plot kita & aktif di workspace
+        if not prompt:IsDescendantOf(myPlot) then continue end
+        if not prompt:IsDescendantOf(workspace) then continue end
+        if not prompt.Enabled then continue end
+        if prompt:GetAttribute("Collected") then continue end
+
+        -- Struktur: HarvestPrompt ← HarvestPart ← FruitModel
+        local harvestPart = prompt.Parent
+        local fruit = harvestPart and harvestPart.Parent
+        if not (fruit and fruit:IsA("Model")) then continue end
+
+        -- Mutation filter
+        local mut = fruit:GetAttribute("Mutation") or ""
+        if mutFilter and mutFilter ~= "None" and mut == mutFilter then continue end
+
+        -- Ambil IDs dari FruitModel
+        local plantId = fruit:GetAttribute("PlantId")
+        local fruitId = fruit:GetAttribute("FruitId")
+        local fired   = false
+
+        -- Method 1: Networking.Garden.CollectFruit (cara resmi dari game)
+        if Networking then
+            pcall(function()
+                Networking.Garden.CollectFruit:Fire(plantId, fruitId or "")
+                fired = true
+            end)
+        end
+
+        -- Method 2: fireproximityprompt (executor fallback)
+        if not fired then
+            pcall(function()
+                fireproximityprompt(prompt)
+                fired = true
+            end)
+        end
+
+        if fired then
+            harvested += 1
+            if delay > 0 then task.wait(delay) end
+        end
+    end
+
+    return harvested
 end
 
--- Build all pages (stacked, visibility toggled)
-BuildPlayerPage()
-BuildFarmPage()
-BuildShopPage()
-BuildUtilityPage()
-BuildVisualsPage()
-BuildTeleportPage()
-BuildSettingsPage()
+-- ======================== AUTO LOOPS ========================
 
--- ==================== MIRACLE SHIELD LOGO (MINIMIZED STATE) ====================
--- Create the minimized logo container (initially hidden)
+-- AUTO HARVEST LOOP
+-- Pakai busy-wait ringan: cek tiap 0.5s apakah ada buah ready, langsung panen
+-- Loop delay = jeda ANTAR SIKLUS PANEN (bukan jeda cek)
+local _harvestCooldown = 0
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if not States.autoHarvest then continue end
+
+        -- Cek kapasitas dulu (murah, tanpa iterasi)
+        local currentCount = player:GetAttribute("FruitCount") or 0
+        if currentCount >= MAX_FRUIT_CAP then continue end
+
+        -- Cek apakah sudah lewat cooldown loop
+        local now = os.clock()
+        if now < _harvestCooldown then continue end
+
+        -- Cek apakah ada buah siap (pakai CollectionService, ringan)
+        local ready = GetReadyFruitCount()
+        if ready == 0 then continue end
+
+        -- Mulai panen
+        pcall(function()
+            local harvested = DoHarvestAll(States.harvestFilterMutation)
+            if harvested > 0 and States.notifyHarvest then
+                local after = player:GetAttribute("FruitCount") or 0
+                Notify("Auto Harvest ✅", harvested .. " buah | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Warning)
+            end
+        end)
+
+        -- Set cooldown setelah panen (loop delay)
+        _harvestCooldown = os.clock() + math.max(States.harvestLoopDelay or 2, 0.5)
+    end
+end)
+
+-- AUTO PLANT LOOP (fires PacketRemote with PlantSeed=9 OR finds plant prompts)
+task.spawn(function()
+    while true do
+        task.wait(States.harvestLoopDelay or 3)
+        if not States.autoPlant then continue end
+        pcall(function()
+            -- Collect seeds from backpack
+            local seeds = {}
+            for _, tool in ipairs(player.Backpack:GetChildren()) do
+                local sn = tool:GetAttribute("SeedTool") or tool:GetAttribute("SeedName")
+                if sn then
+                    local filter = States.plantSeedFilter
+                    if filter == "All Seeds" or filter == sn then
+                        table.insert(seeds, {tool = tool, name = sn})
+                    end
+                end
+            end
+            if #seeds == 0 then return end
+            local planted = 0
+            for _, seed in ipairs(seeds) do
+                if not States.autoPlant then break end
+                if planted >= (States.maxPlantsCycle or 40) then break end
+                -- Use packet remote if available, otherwise equip and use tool
+                if PacketRemote then
+                    FirePacket(PACKET.PlantSeed, seed.tool)
+                else
+                    -- Equip and activate tool
+                    player.Character:WaitForChild("HumanoidRootPart")
+                    seed.tool.Parent = player.Character
+                    task.wait(0.1)
+                    local toolHandle = seed.tool:FindFirstChildWhichIsA("BasePart")
+                    if toolHandle then
+                        seed.tool.Parent = player.Backpack
+                    end
+                end
+                planted += 1
+                task.wait(States.buyDelay or 0.05)
+            end
+            if planted > 0 then
+                Notify("Auto Plant", "Planted " .. planted .. " seed(s) on Plot " .. MY_PLOT_ID, Colors.Success)
+            end
+        end)
+    end
+end)
+
+-- AUTO WATER LOOP
+task.spawn(function()
+    while true do
+        task.wait(States.harvestLoopDelay or 5)
+        if not States.autoWater then continue end
+        pcall(function()
+            local plants = GetPlantsFolder()
+            if not plants then return end
+            local watered = 0
+            for _, plant in ipairs(plants:GetChildren()) do
+                if not States.autoWater then break end
+                -- Find water prompt or just trigger water via tool
+                local wp = nil
+                for _, desc in ipairs(plant:GetDescendants()) do
+                    if desc:IsA("ProximityPrompt") and (desc.Name == "WaterPrompt" or desc.Name:lower():find("water")) then
+                        wp = desc
+                        break
+                    end
+                end
+                if wp then
+                    SafeFirePrompt(wp)
+                    watered += 1
+                    task.wait(0.1)
+                end
+            end
+            -- Also try equipping watering can if no prompt found
+            if watered == 0 then
+                for _, tool in ipairs(player.Backpack:GetChildren()) do
+                    if tool:GetAttribute("WateringCan") or tool.Name:lower():find("watering") then
+                        tool.Parent = player.Character
+                        task.wait(0.3)
+                        local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                        if hum then hum:ActivateController() end
+                        task.wait(0.5)
+                        tool.Parent = player.Backpack
+                        watered += 1
+                        break
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ======================== AUTO SELL LOOP (FIXED) ========================
+-- Cara kerja benar dari decompile StevenController:
+--   1. Networking.NPCS.SellAll:Fire() → jual semua sekaligus (paling efisien)
+--   2. Networking.NPCS.SellFruit:Fire(fruitId) → jual per buah (kalau mau filter)
+--   3. TIDAK perlu teleport ke Steven — bisa dilakukan dari mana saja
+--   4. fruitId = tool:GetAttribute("Id") (bukan tool object)
+--
+-- Filter mutation/rarity SEBELUM fire jika ada mode selective sell
+
+-- Helper: preview harga total di inventory (tanpa jual)
+local function PreviewSellAll()
+    if not Networking then return nil end
+    local ok, result = pcall(function()
+        return Networking.NPCS.PreviewSellAll:Fire()
+    end)
+    return ok and result or nil
+end
+
+-- Helper: jual semua buah di inventory (tidak ada filter)
+local function SellAllFruits()
+    if not Networking then return nil end
+    local ok, result = pcall(function()
+        return Networking.NPCS.SellAll:Fire()
+    end)
+    return ok and result or nil
+end
+
+-- Helper: jual 1 buah by FruitId (untuk mode filter)
+local function SellFruitById(fruitId)
+    if not Networking then return nil end
+    local ok, result = pcall(function()
+        return Networking.NPCS.SellFruit:Fire(fruitId)
+    end)
+    return ok and result or nil
+end
+
+-- Helper: cek dan gunakan daily deal (bonus 5x harga)
+local function UseDailyDeal()
+    if not Networking then return nil end
+    local ok, result = pcall(function()
+        return Networking.NPCS.UseDailyDealAll:Fire()
+    end)
+    return ok and result or nil
+end
+
+-- Helper: apakah fruit ini harus di-keep (tidak dijual)
+local function ShouldKeepFruit(tool)
+    local mut = GetMutation(tool)
+    -- Keep semua yg punya mutation kalau toggle aktif
+    if States.keepMutations and mut ~= "" and mut ~= "None" then
+        return true
+    end
+    -- Keep mutation spesifik
+    local keepMut = States.harvestFilterMutation or "None"
+    if keepMut ~= "None" and mut == keepMut then
+        return true
+    end
+    return false
+end
+
+-- Cek apakah inventory punya buah yg perlu difilter (butuh selective sell)
+local function NeedsSelectiveSell()
+    if not States.keepMutations and (States.harvestFilterMutation or "None") == "None" then
+        return false -- jual semua, pakai SellAll (lebih cepat)
+    end
+    return true
+end
+
+task.spawn(function()
+    while true do
+        task.wait(States.sellLoopDelay or 3)
+        if not States.autoSell then continue end
+        if not Networking then
+            Notify("Auto Sell", "❌ Networking module tidak ditemukan!", Colors.Error)
+            task.wait(5)
+            continue
+        end
+        pcall(function()
+            -- Hitung berapa buah ada dulu
+            local fruits = {}
+            for _, tool in ipairs(player.Backpack:GetChildren()) do
+                if tool:GetAttribute("HarvestedFruit") or tool:GetAttribute("FruitName") then
+                    table.insert(fruits, tool)
+                end
+            end
+            -- Cek tool di tangan juga
+            if player.Character then
+                local held = player.Character:FindFirstChildOfClass("Tool")
+                if held and (held:GetAttribute("HarvestedFruit") or held:GetAttribute("FruitName")) then
+                    table.insert(fruits, held)
+                end
+            end
+
+            if #fruits == 0 then return end
+
+            -- Mode: pakai daily deal kalau aktif dan tersedia
+            if States.autoUseDailyDeal then
+                local dealInfo = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
+                -- Coba daily deal dulu
+                local dealResult = UseDailyDeal()
+                if dealResult and dealResult.Success then
+                    if States.notifySell then
+                        Notify("Daily Deal! 🌈", "Sold " .. (dealResult.SoldCount or 0) .. " buah = " .. tostring(dealResult.SellPrice or 0) .. "¢ (5x bonus!)", Colors.Success)
+                    end
+                    return
+                end
+            end
+
+            if NeedsSelectiveSell() then
+                -- Mode selective: jual per-buah, skip yg di-keep
+                local soldCount = 0
+                local skippedCount = 0
+                for _, tool in ipairs(fruits) do
+                    if not States.autoSell then break end
+                    if ShouldKeepFruit(tool) then
+                        skippedCount += 1
+                        continue
+                    end
+                    local fruitId = tool:GetAttribute("Id")
+                    if not fruitId then continue end
+                    local result = SellFruitById(fruitId)
+                    if result and result.Success then
+                        soldCount += 1
+                    elseif result and result.Reason == "Favorited" then
+                        skippedCount += 1
+                    end
+                    task.wait(States.sellDelay or 0.1)
+                end
+                if States.notifySell and soldCount > 0 then
+                    Notify("Auto Sell", "Sold " .. soldCount .. " buah (skip " .. skippedCount .. " mutation)", Colors.Gold)
+                end
+            else
+                -- Mode sell all: pakai SellAll sekaligus (paling cepat & aman)
+                local result = SellAllFruits()
+                if result and result.Success then
+                    if States.notifySell then
+                        Notify("Auto Sell ✅", "Sold " .. (result.SoldCount or #fruits) .. " buah = " .. tostring(result.SellPrice or 0) .. "¢", Colors.Gold)
+                    end
+                elseif result then
+                    -- SellAll gagal, tidak ada fruits atau error
+                    if States.notifySell then
+                        Notify("Auto Sell", "Gagal: " .. tostring(result.Reason or "unknown"), Colors.Error)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ======================== AUTO BUY SEEDS LOOP (FIXED) ========================
+-- Cara kerja yg benar (dari investigasi scanner):
+--   1. Stok seed ada di: ReplicatedStorage.StockValues.SeedShop.Items.<SeedName> (NumberValue)
+--   2. Packet beli: PacketRemote:FireServer(120, seedName, quantity)
+--   3. TIDAK perlu teleport ke shop — bisa langsung fire dari mana saja
+--   4. Packet ID 120 = PurchaseSeed (dari Attribute RemoteEvent.PurchaseSeed = 120)
+local function GetSeedStock(seedName)
+    local rs = game:GetService("ReplicatedStorage")
+    local sv = rs:FindFirstChild("StockValues")
+    if not sv then return 0 end
+    local ss = sv:FindFirstChild("SeedShop")
+    if not ss then return 0 end
+    local items = ss:FindFirstChild("Items")
+    if not items then return 0 end
+    local stockVal = items:FindFirstChild(seedName)
+    return stockVal and stockVal.Value or 0
+end
+
+-- BuySeedPacket — 3 layer approach (dari scanner: Sheckles_Shelf path confirmed)
+-- Layer 1: Networking.SeedShop (paling bersih, sama seperti sell)
+-- Layer 2: UI click simulation via Sheckles_Shelf.Main_Frame.Seed_Name + BuyButton
+-- Layer 3: PacketRemote:FireServer fallback
+local function BuySeedPacket(seedName, quantity)
+    quantity = quantity or 1
+
+    -- Layer 1: Coba lewat Networking.SeedShop jika tersedia
+    if Networking then
+        local shop = rawget(Networking, "SeedShop")
+        if shop then
+            local purchase = rawget(shop, "Purchase") or rawget(shop, "BuySeed") or rawget(shop, "PurchaseSeed")
+            if purchase and purchase.Fire then
+                local ok, err = pcall(function()
+                    purchase:Fire(seedName, quantity)
+                end)
+                if ok then return true end
+            end
+        end
+    end
+
+    -- Layer 2: UI click simulation via SeedShop GUI (cara yg dipakai game sendiri)
+    -- Path: PlayerGui.SeedShop.Frame.NormalShop.Sheckles_Shelf.Main_Frame
+    local ok2 = pcall(function()
+        local gui = playerGui:FindFirstChild("SeedShop")
+        if not gui then
+            -- Coba nama alternatif
+            for _, g in ipairs(playerGui:GetChildren()) do
+                if g:IsA("ScreenGui") and (g.Name:lower():find("seed") or g.Name:lower():find("shop")) then
+                    gui = g
+                    break
+                end
+            end
+        end
+        if not gui then error("SeedShop GUI not found") end
+
+        local frame = gui:FindFirstChild("Frame")
+        if not frame then error("Frame not found") end
+        local normalShop = frame:FindFirstChild("NormalShop")
+        if not normalShop then error("NormalShop not found") end
+        local shelf = normalShop:FindFirstChild("Sheckles_Shelf")
+        if not shelf then error("Sheckles_Shelf not found") end
+        local mainFrame = shelf:FindFirstChild("Main_Frame")
+        if not mainFrame then error("Main_Frame not found") end
+
+        -- Set seed target via Seed_Name StringValue
+        local seedNameVal = mainFrame:FindFirstChild("Seed_Name")
+        if seedNameVal and seedNameVal:IsA("StringValue") then
+            seedNameVal.Value = seedName
+            task.wait(0.05)
+        end
+
+        -- Klik seed frame di NormalShop dulu (untuk select seed)
+        local seedFrame = normalShop:FindFirstChild(seedName)
+        if seedFrame then
+            local textBtn = seedFrame:FindFirstChildWhichIsA("TextButton")
+                or seedFrame:FindFirstChild("Main_Frame") and seedFrame.Main_Frame:FindFirstChildWhichIsA("TextButton")
+            if textBtn then
+                textBtn:Invoke()
+            end
+            task.wait(0.05)
+        end
+
+        -- Fire BuyButton sejumlah quantity
+        local buttons = mainFrame:FindFirstChild("Buttons")
+        local buyBtn = buttons and buttons:FindFirstChild("BuyButton")
+        if not buyBtn then
+            -- cari alternatif
+            for _, desc in ipairs(mainFrame:GetDescendants()) do
+                if desc:IsA("GuiButton") and (desc.Name:lower():find("buy") or desc.Name:lower():find("purchase")) then
+                    buyBtn = desc
+                    break
+                end
+            end
+        end
+        if not buyBtn then error("BuyButton not found") end
+
+        for i = 1, quantity do
+            buyBtn:Invoke()
+            if quantity > 1 then task.wait(0.05) end
+        end
+    end)
+    if ok2 then return true end
+
+    -- Layer 3: PacketRemote fallback — coba beberapa format argumen
+    if not PacketRemote then
+        local rs = game:GetService("ReplicatedStorage")
+        local sm = rs:FindFirstChild("SharedModules")
+        local pk = sm and sm:FindFirstChild("Packet")
+        PacketRemote = pk and pk:FindFirstChild("RemoteEvent")
+    end
+    if not PacketRemote then return false end
+
+    -- Format 1: (packetId, seedName, quantity) — format asli
+    local ok3a = pcall(function()
+        PacketRemote:FireServer(PACKET.PurchaseSeed, seedName, quantity)
+    end)
+    if ok3a then return true end
+
+    -- Format 2: (packetId, {SeedName=seedName, Quantity=quantity}) — format table
+    local ok3b = pcall(function()
+        PacketRemote:FireServer(PACKET.PurchaseSeed, {SeedName = seedName, Quantity = quantity})
+    end)
+    if ok3b then return true end
+
+    -- Format 3: (packetId, seedName) — tanpa quantity
+    pcall(function()
+        PacketRemote:FireServer(PACKET.PurchaseSeed, seedName)
+    end)
+    return true -- assume fired
+end
+
+-- ======================== AUTO BUY SEEDS LOOP (REALTIME) ========================
+-- Stok dibaca LANGSUNG dari NumberValue.Value tiap iterasi (realtime, bukan cache)
+-- Support multi-target (States.autoBuySeedTargets = table)
+-- Stop/skip seed otomatis jika stok 0
+task.spawn(function()
+    while true do
+        task.wait(math.max(States.shopLoopDelay or 0.5, 0.1))
+        if not States.autoBuySeed then continue end
+        pcall(function()
+            local qty = tonumber(States.autoBuyQtyStr) or 1
+            local rs = game:GetService("ReplicatedStorage")
+            local items = rs:FindFirstChild("StockValues")
+                and rs.StockValues:FindFirstChild("SeedShop")
+                and rs.StockValues.SeedShop:FindFirstChild("Items")
+
+            if States.autoBuyAll then
+                -- ── Mode: beli SEMUA seed yang stok > 0 ──
+                if not items then return end
+                local anyStock = false
+                for _, stockVal in ipairs(items:GetChildren()) do
+                    if not States.autoBuySeed then return end
+                    -- Baca stok REALTIME langsung
+                    if stockVal:IsA("NumberValue") and stockVal.Value > 0 then
+                        anyStock = true
+                        local currentStock = stockVal.Value
+                        local seedName = stockVal.Name
+                        BuySeedPacket(seedName, qty)
+                        if States.notifyBuy then
+                            Notify("Auto Buy ✅", qty .. "x " .. seedName .. " (stok: " .. currentStock .. ")", Colors.Success)
+                        end
+                        task.wait(States.buyDelay or 0.05)
+                    end
+                end
+                if not anyStock then
+                    -- Semua habis — cek timer restock, diam (tidak spam)
+                    local sv = rs:FindFirstChild("StockValues")
+                    local seedShop = sv and sv:FindFirstChild("SeedShop")
+                    local restockVal = seedShop and seedShop:FindFirstChild("UnixNextRestock")
+                    if restockVal and States.notifyBuy then
+                        local timeLeft = math.max(0, math.floor(restockVal.Value - os.time()))
+                        if timeLeft > 0 then
+                            local m, s = math.floor(timeLeft/60), timeLeft%60
+                            Notify("Auto Buy", "Stok habis. Restock ~" .. m .. "m " .. s .. "s", Colors.TextMuted, 3)
+                        end
+                    end
+                end
+
+            else
+                -- ── Mode: beli seed dari multi-select list ──
+                local targets = States.autoBuySeedTargets or {}
+                if #targets == 0 then
+                    -- Fallback ke legacy single seed
+                    targets = {States.autoBuySeedTarget or "Bamboo"}
+                end
+
+                for _, seedName in ipairs(targets) do
+                    if not States.autoBuySeed then return end
+                    -- Baca stok REALTIME tiap seed
+                    local currentStock = GetSeedStock(seedName)
+                    if currentStock > 0 then
+                        BuySeedPacket(seedName, qty)
+                        if States.notifyBuy then
+                            Notify("Auto Buy ✅", qty .. "x " .. seedName .. " (stok: " .. currentStock .. ")", Colors.Success)
+                        end
+                        task.wait(States.buyDelay or 0.05)
+                    end
+                    -- Stok 0: skip seed ini, lanjut target berikutnya
+                    -- Loop terus (tidak stop) — langsung beli begitu stok restock
+                end
+            end
+        end)
+    end
+end)
+
+-- AUTO CATCH WILD PETS LOOP
+-- Scanner: Workspace.Map.WildPetSpawns.<WildPet_X_WildPet_UUID>.RootPart.BuyPrompt (HoldDuration=1)
+task.spawn(function()
+    while true do
+        task.wait(5)
+        if not States.autoCatchWild then continue end
+        pcall(function()
+            -- WildPetSpawns is under Workspace.Map
+            local map = game:GetService("Workspace"):FindFirstChild("Map")
+            local wps = map and map:FindFirstChild("WildPetSpawns")
+            -- Fallback: check direct workspace
+            if not wps then
+                wps = game:GetService("Workspace"):FindFirstChild("WildPetSpawns")
+            end
+            if not wps then return end
+
+            for _, petModel in ipairs(wps:GetChildren()) do
+                if not States.autoCatchWild then break end
+                -- Parse pet type from model name: WildPet_Bunny_WildPet_<uuid>
+                local parts = petModel.Name:split("_")
+                local petType = parts[2] or "Unknown"
+
+                -- Filter check
+                local filter = States.wildPetFilter or "All"
+                if filter ~= "All" and not filter:lower():find(petType:lower()) then continue end
+
+                -- Check cost from BuyPrompt ObjectText
+                local rootPart = petModel:FindFirstChild("RootPart")
+                if not rootPart then
+                    -- Try any BasePart
+                    rootPart = petModel:FindFirstChildWhichIsA("BasePart")
+                end
+                if not rootPart then continue end
+
+                local buyPrompt = rootPart:FindFirstChild("BuyPrompt")
+                if not buyPrompt then
+                    for _, desc in ipairs(petModel:GetDescendants()) do
+                        if desc:IsA("ProximityPrompt") and desc.Name == "BuyPrompt" then
+                            buyPrompt = desc
+                            break
+                        end
+                    end
+                end
+                if not buyPrompt then continue end
+
+                -- Parse cost from ObjectText e.g. "¢20,000"
+                local costText = buyPrompt.ObjectText or ""
+                local costNum = tonumber(costText:gsub("[^%d]", "")) or 0
+                local maxCost = States.wildPetMaxCost or 99999
+                if costNum > maxCost then continue end
+
+                -- Teleport to pet
+                if player.Character then
+                    player.Character:PivotTo(rootPart.CFrame + Vector3.new(0, 5, 0))
+                    task.wait(0.4)
+                end
+
+                -- Fire buy prompt (HoldDuration=1)
+                SafeFirePrompt(buyPrompt)
+                Notify("Wild Pet", "Catching " .. petType .. " (¢" .. costNum .. ")", Colors.Warning)
+                task.wait(2)
+            end
+        end)
+    end
+end)
+
+-- AUTO EQUIP PETS LOOP
+task.spawn(function()
+    while true do
+        task.wait(5)
+        if not States.autoEquipPets then continue end
+        pcall(function()
+            local pets = {}
+            for _, tool in ipairs(player.Backpack:GetChildren()) do
+                local petName = tool:GetAttribute("Pet")
+                local petSize = tool:GetAttribute("PetSize") or "Normal"
+                if petName then
+                    table.insert(pets, {tool = tool, name = petName, size = petSize})
+                end
+            end
+            -- Sort by priority
+            local priority = States.petEquipPriority or "Biggest First"
+            local sizeOrder = {Giant=4, Huge=3, Big=2, Normal=1}
+            if priority == "Biggest First" then
+                table.sort(pets, function(a, b)
+                    return (sizeOrder[a.size] or 1) > (sizeOrder[b.size] or 1)
+                end)
+            elseif priority == "Alphabetical" then
+                table.sort(pets, function(a, b) return a.name < b.name end)
+            elseif priority:find("First") then
+                local favPet = priority:gsub(" First", "")
+                table.sort(pets, function(a, b)
+                    if a.name == favPet and b.name ~= favPet then return true end
+                    if b.name == favPet and a.name ~= favPet then return false end
+                    return (sizeOrder[a.size] or 1) > (sizeOrder[b.size] or 1)
+                end)
+            end
+            -- Equip top N
+            local maxPets = MAX_EQUIPPED_PETS
+            for i, pet in ipairs(pets) do
+                if i > maxPets then break end
+                -- Equip via packet or tool activation
+                FirePacket(20, pet.tool) -- equip pet packet
+            end
+        end)
+    end
+end)
+
+-- AUTO OPEN EGGS LOOP (PacketID 139)
+task.spawn(function()
+    while true do
+        task.wait(States.eggLoopDelay or 5)
+        if not States.autoOpenEgg then continue end
+        pcall(function()
+            -- Teleport to gear shop
+            local teleports = game:GetService("Workspace"):FindFirstChild("Teleports")
+            if teleports then
+                local gearPart = teleports:FindFirstChild("Gears")
+                if gearPart and player.Character then
+                    player.Character:PivotTo(gearPart.CFrame + Vector3.new(0, 5, 0))
+                    task.wait(0.4)
+                end
+            end
+            -- Find egg prompts in workspace
+            local gearShop = game:GetService("Workspace"):FindFirstChild("Gears") or game:GetService("Workspace"):FindFirstChild("GearShop")
+            if gearShop then
+                for _, desc in ipairs(gearShop:GetDescendants()) do
+                    if desc:IsA("ProximityPrompt") and (desc.Name:lower():find("egg") or desc.Name:lower():find("hatch") or desc.Name:lower():find("open")) then
+                        SafeFirePrompt(desc)
+                        if States.notifyCrate then
+                            Notify("Eggs", "Opened an egg!", Colors.Warning)
+                        end
+                        task.wait(1)
+                    end
+                end
+            end
+            -- Fire open egg packet directly
+            FirePacket(PACKET.OpenEgg)
+        end)
+    end
+end)
+
+-- AUTO ACCEPT GIFTS / MAILBOX LOOP
+task.spawn(function()
+    while true do
+        task.wait(10)
+        if not States.autoAcceptGifts then continue end
+        pcall(function()
+            local plot = GetMyPlot()
+            if not plot then return end
+            local signs = plot:FindFirstChild("Signs")
+            if not signs then return end
+            local mailbox = signs:FindFirstChild("GreyMailBox")
+            if not mailbox then return end
+            local promptPart = mailbox:FindFirstChild("ProximityPromptPart")
+            if not promptPart then
+                promptPart = mailbox:FindFirstChildWhichIsA("BasePart")
+            end
+            if not promptPart then return end
+            local mailPrompt = promptPart:FindFirstChild("MailboxPrompt")
+            if not mailPrompt then
+                for _, desc in ipairs(mailbox:GetDescendants()) do
+                    if desc:IsA("ProximityPrompt") and desc.Name == "MailboxPrompt" then
+                        mailPrompt = desc
+                        break
+                    end
+                end
+            end
+            if mailPrompt then
+                SafeFirePrompt(mailPrompt)
+            end
+        end)
+    end
+end)
+
+-- ======================== ESP SYSTEM ========================
+local espLabels = {}
+
+local function ClearESP()
+    for _, v in pairs(espLabels) do
+        if v and v.Parent then v:Destroy() end
+    end
+    espLabels = {}
+end
+
+local function MakeESPLabel(adornee, text, color)
+    local billboard = Create("BillboardGui", {
+        Parent = game:GetService("Workspace"),
+        Adornee = adornee,
+        Size = UDim2.new(0, 120, 0, 30),
+        StudsOffset = Vector3.new(0, 3, 0),
+        AlwaysOnTop = true,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    })
+    local frame = Create("Frame", {
+        Parent = billboard,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+        BackgroundTransparency = 0.5,
+        BorderSizePixel = 0,
+    })
+    CreateCorner(frame, 5)
+    Create("TextLabel", {
+        Parent = frame,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = text,
+        TextColor3 = color or Colors.TextPrimary,
+        TextSize = 11,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Center,
+    })
+    table.insert(espLabels, billboard)
+    return billboard
+end
+
+RunService.Heartbeat:Connect(function()
+    -- ESP Players
+    if States.espPlayers then
+        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= player and p.Character then
+                local rootPart = p.Character:FindFirstChild("HumanoidRootPart")
+                if rootPart and not rootPart:FindFirstChild("MiracleESP_Player") then
+                    local bb = MakeESPLabel(rootPart, p.DisplayName .. "\n@" .. p.Name, Colors.Electric)
+                    bb.Name = "MiracleESP_Player_" .. p.Name
+                    Create("ObjectValue", {Parent = rootPart, Name = "MiracleESP_Player"})
+                end
+            end
+        end
+    else
+        for _, v in pairs(espLabels) do
+            if v and v.Name and v.Name:find("ESPPlayer") then
+                v:Destroy()
+            end
+        end
+    end
+
+    -- ESP Wild Pets
+    if States.espItems then
+        local map = game:GetService("Workspace"):FindFirstChild("Map")
+        local wps = (map and map:FindFirstChild("WildPetSpawns")) or game:GetService("Workspace"):FindFirstChild("WildPetSpawns")
+        if wps then
+            for _, petModel in ipairs(wps:GetChildren()) do
+                local rootPart = petModel:FindFirstChild("RootPart") or petModel:FindFirstChildWhichIsA("BasePart")
+                if rootPart and not rootPart:FindFirstChild("MiracleESP_WP") then
+                    local parts = petModel.Name:split("_")
+                    local petType = parts[2] or "?"
+                    MakeESPLabel(rootPart, "🐾 " .. petType, Colors.Warning)
+                    Create("ObjectValue", {Parent = rootPart, Name = "MiracleESP_WP"})
+                end
+            end
+        end
+    end
+
+    -- ESP Mutations (fruits on plants)
+    if States.espMutations then
+        local plants = GetPlantsFolder()
+        if plants then
+            for _, plant in ipairs(plants:GetChildren()) do
+                local mut = GetMutation(plant)
+                if mut and mut ~= "" and mut ~= "None" then
+                    local rootPart = plant:FindFirstChildWhichIsA("BasePart")
+                    if rootPart and not rootPart:FindFirstChild("MiracleESP_Mut") then
+                        local sn = plant:GetAttribute("SeedName") or "Plant"
+                        MakeESPLabel(rootPart, mut .. " " .. sn, GetMutationColor(mut))
+                        Create("ObjectValue", {Parent = rootPart, Name = "MiracleESP_Mut"})
+                    end
+                end
+            end
+        end
+    end
+
+    -- Show Plant Age
+    if States.showPlantAge then
+        local plants = GetPlantsFolder()
+        if plants then
+            for _, plant in ipairs(plants:GetChildren()) do
+                local age = plant:GetAttribute("Age")
+                local maxAge = plant:GetAttribute("MaxAge")
+                if age and maxAge then
+                    local rootPart = plant:FindFirstChildWhichIsA("BasePart")
+                    if rootPart and not rootPart:FindFirstChild("MiracleESP_Age") then
+                        local sn = plant:GetAttribute("SeedName") or "Plant"
+                        MakeESPLabel(rootPart, sn .. " " .. age .. "/" .. maxAge, age >= maxAge and Colors.Success or Colors.TextMuted)
+                        Create("ObjectValue", {Parent = rootPart, Name = "MiracleESP_Age"})
+                    end
+                end
+            end
+        end
+    end
+
+    -- Visual Settings (apply every frame)
+    local lighting = game:GetService("Lighting")
+    if States.fullBright then
+        lighting.Brightness = States.brightness
+        lighting.Ambient = Color3.fromRGB(255, 255, 255)
+        lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    end
+    if States.noFog then lighting.FogEnd = 100000 lighting.FogStart = 100000 end
+    if States.noShadows then lighting.GlobalShadows = false end
+    if States.lockWalkSpeed and humanoid then humanoid.WalkSpeed = States.walkSpeed end
+    if States.lockJumpPower and humanoid then humanoid.JumpPower = States.jumpPower end
+end)
+
+-- Noclip
+RunService.Stepped:Connect(function()
+    if States.noclip and player.Character then
+        for _, part in ipairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") then part.CanCollide = false end
+        end
+    end
+end)
+
+-- Fly
+local flyBody = nil
+RunService.Heartbeat:Connect(function()
+    if States.fly and player.Character then
+        local root = player.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            if not flyBody or not flyBody.Parent then
+                flyBody = Instance.new("BodyVelocity")
+                flyBody.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+                flyBody.Parent = root
+            end
+            local vel = Vector3.new()
+            local cam = game:GetService("Workspace").CurrentCamera
+            local cf = cam.CFrame
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then vel += cf.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then vel -= cf.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then vel -= cf.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then vel += cf.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vel += Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then vel -= Vector3.new(0, 1, 0) end
+            flyBody.Velocity = vel.Magnitude > 0 and vel.Unit * States.flySpeed or Vector3.new()
+        end
+    else
+        if flyBody then flyBody:Destroy() flyBody = nil end
+    end
+end)
+
+-- Infinite jump
+UserInputService.JumpRequest:Connect(function()
+    if States.infiniteJump and humanoid then
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- Anti AFK
+player.Idled:Connect(function()
+    if States.antiAfk then
+        local vu = pcall(function()
+            game:GetService("VirtualUser"):Button2Down(Vector2.new(0, 0), game:GetService("Workspace").CurrentCamera.CFrame)
+            task.wait(0.1)
+            game:GetService("VirtualUser"):Button2Up(Vector2.new(0, 0), game:GetService("Workspace").CurrentCamera.CFrame)
+        end)
+    end
+end)
+
+-- Character respawn handler
+player.CharacterAdded:Connect(function(char)
+    character = char
+    humanoid = char:WaitForChild("Humanoid")
+    flyBody = nil
+end)
+
+-- ======================== FEATURE: FARM PAGE ========================
+Pages["Farm"] = function()
+    local plantCard, plantContent = CreateSectionCard("🌱 Auto Plant", 1, Colors.Success)
+    CreateInfoText(plantContent, "How it works", "Plants seeds on Plot " .. MY_PLOT_ID .. " using PacketRemote (PlantSeed=9) or tool activation. Detects seeds via SeedTool attribute in backpack.")
+    CreateToggle(plantContent, "Auto Plant", "autoPlant", "Loops every harvest cycle delay")
+    CreateDropdown(plantContent, "Seeds To Plant", {"All Seeds", table.unpack(SEEDS)}, "plantSeedFilter")
+    CreateDropdown(plantContent, "Only These Rarities", {"All", table.unpack(RARITIES)}, "plantRarityFilter")
+    CreateSlider(plantContent, "Keep In Reserve (per seed)", 0, 50, "keepReserve")
+    CreateSlider(plantContent, "Max Plants / Cycle", 1, 100, "maxPlantsCycle")
+    CreateActionButton(plantContent, "Plant Once Now", function()
+        local seeds = {}
+        for _, tool in ipairs(player.Backpack:GetChildren()) do
+            if tool:GetAttribute("SeedTool") or tool:GetAttribute("SeedName") then
+                table.insert(seeds, tool)
+            end
+        end
+        Notify("Farm", "Planting " .. #seeds .. " seed(s) on Plot " .. MY_PLOT_ID, Colors.Success)
+        for _, tool in ipairs(seeds) do
+            FirePacket(PACKET.PlantSeed, tool)
+            task.wait(0.05)
+        end
+    end, Colors.Success)
+    CreateActionButton(plantContent, "Refresh Seed List", function()
+        local count = 0
+        for _, tool in ipairs(player.Backpack:GetChildren()) do
+            if tool:GetAttribute("SeedTool") or tool:GetAttribute("SeedName") then count += 1 end
+        end
+        Notify("Farm", count .. " seeds detected in backpack.", Colors.TextMuted)
+    end)
+
+    local harvestCard, harvestContent = CreateSectionCard("🍅 Auto Harvest", 2, Colors.Warning)
+    CreateInfoText(harvestContent, "✅ Cara kerja", "Iterasi Gardens.Plot" .. MY_PLOT_ID .. ".Plants → Fruits → HarvestPart → HarvestPrompt. Fire via Networking.Garden.CollectFruit (fallback: fireproximityprompt). Buah siap = prompt.Enabled = true.")
+    CreateToggle(harvestContent, "Auto Harvest", "autoHarvest", "Fires HarvestPrompt on all ready plants")
+    CreateToggle(harvestContent, "Notify On Harvest", "notifyHarvest", "Shows notification after each harvest cycle")
+    CreateSubHeader(harvestContent, "Delay Settings")
+    CreateSlider(harvestContent, "Per-Fruit Delay (s)", 0, 2, "perFruitDelay")
+    CreateSlider(harvestContent, "Loop Delay (s)", 0, 30, "harvestLoopDelay")
+    CreateSubHeader(harvestContent, "Mutation Filter")
+    CreateDropdown(harvestContent, "Skip This Mutation", {"None", table.unpack(MUTATIONS)}, "harvestFilterMutation")
+    CreateActionButton(harvestContent, "⚡ Harvest All Now", function()
+        local myPlot = GetMyPlot()
+        if not myPlot then
+            Notify("Harvest", "❌ Plot " .. MY_PLOT_ID .. " tidak ditemukan!", Colors.Error)
+            return
+        end
+        -- Cek kapasitas backpack
+        local currentCount = player:GetAttribute("FruitCount") or 0
+        local remaining = MAX_FRUIT_CAP - currentCount
+        if remaining <= 0 then
+            Notify("Harvest", "🎒 Backpack penuh! (" .. currentCount .. "/" .. MAX_FRUIT_CAP .. ")", Colors.Warning)
+            return
+        end
+        -- Hitung buah siap via CollectionService (cepat)
+        local ready = GetReadyFruitCount()
+        if ready == 0 then
+            Notify("Harvest", "Tidak ada buah siap panen saat ini.", Colors.TextMuted)
+            return
+        end
+        local willHarvest = math.min(ready, remaining)
+        Notify("Harvest", "Memanen " .. willHarvest .. " buah (bag " .. currentCount .. "/" .. MAX_FRUIT_CAP .. ")...", Colors.Warning)
+        task.spawn(function()
+            local harvested = DoHarvestAll(States.harvestFilterMutation, MAX_FRUIT_CAP)
+            local after = player:GetAttribute("FruitCount") or 0
+            Notify("Harvest ✅", "Panen " .. harvested .. " buah | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Success)
+        end)
+    end, Colors.Warning)
+    CreateActionButton(harvestContent, "🔍 Scan Fruits Ready", function()
+        local myPlot = GetMyPlot()
+        if not myPlot then Notify("Scan", "❌ Plot tidak ditemukan!", Colors.Error) return end
+        local readyList, total = {}, 0
+        for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
+            if not prompt:IsDescendantOf(myPlot) then continue end
+            local harvestPart = prompt.Parent
+            local fruit = harvestPart and harvestPart.Parent
+            if not (fruit and fruit:IsA("Model")) then continue end
+            total += 1
+            if prompt.Enabled and not prompt:GetAttribute("Collected") then
+                local plant = fruit.Parent and fruit.Parent.Parent  -- Fruits folder → plant model
+                local sn = (plant and plant:GetAttribute("SeedName"))
+                    or fruit:GetAttribute("SeedName") or "?"
+                local mut = fruit:GetAttribute("Mutation") or ""
+                table.insert(readyList, sn .. (mut ~= "" and " ["..mut.."]" or ""))
+            end
+        end
+        local currentCount = player:GetAttribute("FruitCount") or 0
+        local msg = #readyList .. "/" .. total .. " siap | Bag " .. currentCount .. "/" .. MAX_FRUIT_CAP
+            .. "\n" .. table.concat(readyList, ", "):sub(1, 80)
+        Notify("Fruit Scanner 🔍", msg, Colors.Success, 7)
+    end)
+
+    local waterCard, waterContent = CreateSectionCard("💧 Watering & Sprinklers", 3, Colors.Electric)
+    CreateInfoText(waterContent, "Gear from scanner", "Common Watering Can ×338, Common Sprinkler ×2 detected via WateringCan/Sprinkler attributes.")
+    CreateToggle(waterContent, "Auto Water Plants", "autoWater", "Fires WaterPrompt or uses WateringCan tool")
+    CreateToggle(waterContent, "Auto Place Sprinklers", "autoSprinkler", "Uses Common Sprinkler from backpack")
+    CreateSlider(waterContent, "Water Loop Delay (s)", 0, 30, "harvestLoopDelay")
+    CreateActionButton(waterContent, "Water All Now", function()
+        local plants = GetPlantsFolder()
+        local watered = 0
+        if plants then
+            for _, plant in ipairs(plants:GetChildren()) do
+                for _, desc in ipairs(plant:GetDescendants()) do
+                    if desc:IsA("ProximityPrompt") and desc.Name:lower():find("water") then
+                        SafeFirePrompt(desc)
+                        watered += 1
+                        task.wait(0.1)
+                        break
+                    end
+                end
+            end
+        end
+        Notify("Watering", "Watered " .. watered .. " plants on Plot " .. MY_PLOT_ID, Colors.Electric)
+    end, Colors.Electric)
+end
+
+-- ======================== FEATURE: PLOT PAGE ========================
+Pages["Plot"] = function()
+    local plotCard, plotContent = CreateSectionCard("📐 My Plot — Plot " .. MY_PLOT_ID, 1, Colors.Accent)
+    CreateInfoText(plotContent, "Detected from scanner", "PlotId = " .. MY_PLOT_ID .. " | Path: Workspace.Gardens.Plot" .. MY_PLOT_ID .. " | GardenExpansion = 1 | SpawnPoint detected | Signs: GreyMailBox, Garden (CustomiseTheme, GardenSign* prompts), Expand model")
+
+    local statsGrid = Create("Frame", {
+        Parent = plotContent,
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y,
+    })
+    CreateListLayout(statsGrid, 5)
+
+    local _, plotLbl = CreateStatRow(statsGrid, "My Plot ID", MY_PLOT_ID, Colors.Success)
+    local _, fruitCntLbl = CreateStatRow(statsGrid, "Fruit Count (Player Attr)", player:GetAttribute("FruitCount") or "?", Colors.Warning)
+    local _, maxFruitLbl = CreateStatRow(statsGrid, "Max Fruit Capacity", MAX_FRUIT_CAP, Colors.Accent)
+    local _, petSlotLbl = CreateStatRow(statsGrid, "Max Equipped Pets", MAX_EQUIPPED_PETS, Colors.Rainbow)
+    local _, gardenLikesLbl = CreateStatRow(statsGrid, "Garden Likes", player:GetAttribute("GardenLikes") or 0, Colors.Gold)
+
+    -- Live plant count
+    local _, plantCntLbl = CreateStatRow(statsGrid, "Plants on Plot", "...", Colors.TextSecondary)
+    local _, readyCntLbl = CreateStatRow(statsGrid, "Ready to Harvest", "...", Colors.Success)
+
+    -- Live plant count — pakai task.spawn + task.wait(1) bukan Heartbeat
+    -- Heartbeat bug: tidak pernah disconnect, setiap buka Plot page nambah listener baru
+    local plotPageAlive = true
+    task.spawn(function()
+        while plotPageAlive and ActivePage == "Plot" do
+            task.wait(1)
+            if not plotPageAlive or ActivePage ~= "Plot" then break end
+            local ok = pcall(function()
+                fruitCntLbl.Text = tostring(player:GetAttribute("FruitCount") or "?")
+                local myPlot = GetMyPlot()
+                if not myPlot then return end
+                local total, readyFruits = 0, 0
+                local plantsF = myPlot:FindFirstChild("Plants")
+                if plantsF then
+                    for _, p in ipairs(plantsF:GetChildren()) do
+                        if p:IsA("Model") then
+                            total += 1
+                        end
+                    end
+                end
+                -- Hitung ready via CollectionService (ringan)
+                for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
+                    if prompt.Enabled and not prompt:GetAttribute("Collected")
+                        and prompt:IsDescendantOf(myPlot) then
+                        readyFruits += 1
+                    end
+                end
+                plantCntLbl.Text = tostring(total)
+                readyCntLbl.Text = tostring(readyFruits)
+            end)
+        end
+    end)
+    -- Stop loop saat halaman pindah
+    local _plotConn
+    _plotConn = game:GetService("RunService").Heartbeat:Connect(function()
+        if ActivePage ~= "Plot" then
+            plotPageAlive = false
+            _plotConn:Disconnect()
+        end
+    end)
+
+    CreateSubHeader(plotContent, "Plot Actions")
+    CreateActionButton(plotContent, "Customise Theme (ProximityPrompt)", function()
+        local plot = GetMyPlot()
+        if plot then
+            local signs = plot:FindFirstChild("Signs")
+            if signs then
+                local garden = signs:FindFirstChild("Garden")
+                if garden then
+                    local core = garden:FindFirstChild("CorePart")
+                    if core then
+                        local prompt = core:FindFirstChild("CustomiseTheme")
+                        if prompt then SafeFirePrompt(prompt) end
+                    end
+                end
+            end
+        end
+        Notify("Plot", "Triggered CustomiseTheme prompt", Colors.Accent)
+    end)
+    CreateActionButton(plotContent, "Like My Garden", function()
+        local plot = GetMyPlot()
+        if plot then
+            for _, desc in ipairs(plot:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") and desc.Name == "GardenSignLike" then
+                    SafeFirePrompt(desc) break
+                end
+            end
+        end
+        Notify("Plot", "Triggered GardenSignLike", Colors.Gold)
+    end)
+    CreateActionButton(plotContent, "Teleport to Plot SpawnPoint", function()
+        local plot = GetMyPlot()
+        if plot then
+            local sp = plot:FindFirstChild("SpawnPoint")
+            if sp and player.Character then
+                player.Character:PivotTo(sp.CFrame + Vector3.new(0, 5, 0))
+                Notify("Teleport", "Teleported to Plot " .. MY_PLOT_ID .. " SpawnPoint", Colors.Success)
+                return
+            end
+        end
+        Notify("Teleport", "SpawnPoint not found.", Colors.Error)
+    end, Colors.Success)
+
+    local pottedCard, pottedContent = CreateSectionCard("🪴 Potted Plants", 2, Colors.Rainbow)
+    CreateInfoText(pottedContent, "Scanner detected", "Blueberry [Rainbow][Potted] in backpack — PottedPlant=true, Age=3/3, SizeMultiplier=1.95, MaxFruitSpawnLocations=3. PickUpPottedPlantPrompt found in workspace.")
+    CreateActionButton(pottedContent, "Auto Pickup Potted Plants", function()
+        local picked = 0
+        for _, desc in ipairs(game:GetService("Workspace"):GetDescendants()) do
+            if desc:IsA("ProximityPrompt") and desc.Name == "PickUpPottedPlantPrompt" then
+                SafeFirePrompt(desc)
+                picked += 1
+                task.wait(0.2)
+            end
+        end
+        Notify("Potted", "Picked up " .. picked .. " potted plant(s)", Colors.Rainbow)
+    end, Colors.Rainbow)
+    CreateToggle(pottedContent, "Auto Place Potted Plants", "autoPlant", "Places potted plants via proximity prompt")
+end
+
+-- ======================== FEATURE: SHOP PAGE ========================
+Pages["Shop"] = function()
+    local buyCard, buyContent = CreateSectionCard("🛒 Auto Buy Seeds", 1, Colors.Success)
+
+    CreateInfoText(buyContent, "✅ Cara kerja", "Beli seed via UI simulation (Sheckles_Shelf) + Networking.SeedShop fallback. Stok dibaca realtime tiap loop. Stop otomatis jika stok habis.")
+
+    CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed", "Loop cepat beli seed yang dipilih, stop jika stok 0")
+    CreateToggle(buyContent, "Beli SEMUA yang ada stok", "autoBuyAll", "ON: beli semua seed yg stok > 0 | OFF: hanya seed dipilih di bawah")
+
+    -- Multi-select seed target
+    CreateMultiSelect(buyContent, "🌱 Pilih Seed Target", SEEDS, "autoBuySeedTargets")
+
+    -- Jumlah beli per fire
+    CreateDropdown(buyContent, "Jumlah Per Beli", {"1", "3", "10", "50"}, "autoBuyQtyStr")
+
+    CreateSlider(buyContent, "Delay Antar Beli (s)", 0, 2, "buyDelay")
+    CreateSlider(buyContent, "Loop Delay (s)", 0, 10, "shopLoopDelay")
+    CreateToggle(buyContent, "Notif Saat Beli", "notifyBuy", "Tampilkan notif setiap seed dibeli")
+
+    -- One-shot buy button
+    CreateActionButton(buyContent, "⚡ Beli Sekarang (One Shot)", function()
+        if not PacketRemote then
+            local rs = game:GetService("ReplicatedStorage")
+            PacketRemote = rs:FindFirstChild("SharedModules")
+                and rs.SharedModules:FindFirstChild("Packet")
+                and rs.SharedModules.Packet:FindFirstChild("RemoteEvent")
+        end
+
+        local qtyStr = States.autoBuyQtyStr or "1"
+        local qty = tonumber(qtyStr) or 1
+
+        if States.autoBuyAll then
+            -- Beli semua yg ada stok
+            local rs = game:GetService("ReplicatedStorage")
+            local items = nil
+            if rs:FindFirstChild("StockValues") then
+                items = rs.StockValues:FindFirstChild("SeedShop") and rs.StockValues.SeedShop:FindFirstChild("Items")
+            end
+            if not items then
+                Notify("Auto Buy", "❌ StockValues tidak ditemukan! Cek console F9.", Colors.Error)
+                return
+            end
+            local bought = 0
+            for _, stockVal in ipairs(items:GetChildren()) do
+                if stockVal:IsA("NumberValue") and stockVal.Value > 0 then
+                    BuySeedPacket(stockVal.Name, qty)
+                    bought += 1
+                    Notify("Auto Buy", "Beli " .. qty .. "x " .. stockVal.Name, Colors.Success)
+                    task.wait(States.buyDelay or 0.05)
+                end
+            end
+            if bought == 0 then
+                Notify("Auto Buy", "Semua seed habis stok saat ini.", Colors.TextMuted)
+            end
+        else
+            -- Beli seed dari multi-select list
+            local targets = States.autoBuySeedTargets or {}
+            -- Fallback ke legacy single target jika list kosong
+            if #targets == 0 then
+                targets = {States.autoBuySeedTarget or "Bamboo"}
+            end
+            local bought = 0
+            for _, seedName in ipairs(targets) do
+                local stock = GetSeedStock(seedName)
+                if stock > 0 then
+                    local ok = BuySeedPacket(seedName, qty)
+                    if ok then
+                        bought += 1
+                        Notify("Auto Buy ✅", qty .. "x " .. seedName .. " (stok: " .. stock .. ")", Colors.Success)
+                        task.wait(States.buyDelay or 0.05)
+                    end
+                else
+                    Notify("Auto Buy", seedName .. " stok 0 — skip", Colors.TextMuted)
+                end
+            end
+            if bought == 0 then
+                Notify("Auto Buy", "Semua target seed habis stok.", Colors.Warning)
+            end
+        end
+    end, Colors.Success)
+
+    -- Cek stok button
+    CreateActionButton(buyContent, "🔍 Cek Stok Semua Seed", function()
+        local rs = game:GetService("ReplicatedStorage")
+        local items = rs:FindFirstChild("StockValues")
+            and rs.StockValues:FindFirstChild("SeedShop")
+            and rs.StockValues.SeedShop:FindFirstChild("Items")
+        if not items then
+            Notify("Stok", "❌ StockValues tidak ditemukan!", Colors.Error)
+            return
+        end
+        local available = {}
+        for _, stockVal in ipairs(items:GetChildren()) do
+            if stockVal:IsA("NumberValue") and stockVal.Value > 0 then
+                table.insert(available, stockVal.Name .. "×" .. stockVal.Value)
+            end
+        end
+        if #available > 0 then
+            Notify("Stok Ada", table.concat(available, ", "):sub(1, 120), Colors.Success, 8)
+        else
+            local restockVal = rs.StockValues.SeedShop:FindFirstChild("UnixNextRestock")
+            local timeLeft = restockVal and math.max(0, math.floor(restockVal.Value - os.time())) or -1
+            local msg = "Semua seed habis."
+            if timeLeft > 0 then
+                local mins = math.floor(timeLeft / 60)
+                local secs = timeLeft % 60
+                msg = msg .. " Restock ~" .. mins .. "m " .. secs .. "s lagi."
+            end
+            Notify("Stok", msg, Colors.Warning, 6)
+        end
+    end)
+
+    -- Personal restock button
+    CreateActionButton(buyContent, "🔄 Personal Restock (Packet 121)", function()
+        if PacketRemote then
+            PacketRemote:FireServer(PACKET.SeedShopRestock)
+            Notify("Shop", "Fired SeedShopPersonalRestock (121)", Colors.Accent)
+        else
+            Notify("Shop", "PacketRemote tidak ditemukan!", Colors.Error)
+        end
+    end)
+
+    -- Debug Auto Buy — scan path dan print semua info ke console
+    CreateActionButton(buyContent, "🛠 Debug Auto Buy (Print F9)", function()
+        local rs = game:GetService("ReplicatedStorage")
+        print("========== [AutoBuy Debug] ==========")
+
+        -- Cek PacketRemote
+        print("[PacketRemote] " .. (PacketRemote and PacketRemote:GetFullName() or "NOT FOUND"))
+
+        -- Cek Networking.SeedShop
+        if Networking then
+            local shop = rawget(Networking, "SeedShop")
+            print("[Networking.SeedShop] " .. (shop and "FOUND" or "NOT FOUND"))
+            if shop then
+                for k, v in pairs(shop) do
+                    print("  .SeedShop." .. tostring(k) .. " = " .. tostring(v))
+                end
+            end
+        else
+            print("[Networking] NIL")
+        end
+
+        -- Cek StockValues paths
+        local paths = {
+            "StockValues.SeedShop.Items",
+            "SeedShop.Items",
+            "SeedShop.Stock",
+        }
+        for _, p in ipairs(paths) do
+            local cur = rs
+            local ok = true
+            for part in p:gmatch("[^%.]+") do
+                cur = cur:FindFirstChild(part)
+                if not cur then ok = false break end
+            end
+            print("[StockValues] " .. p .. " = " .. (ok and cur:GetFullName() or "NOT FOUND"))
+            if ok and cur then
+                local children = cur:GetChildren()
+                print("  " .. #children .. " seeds: " .. table.concat((function()
+                    local t = {}
+                    for i, c in ipairs(children) do
+                        if i > 5 then table.insert(t, "...") break end
+                        table.insert(t, c.Name .. "=" .. tostring(c.Value))
+                    end
+                    return t
+                end)(), ", "))
+            end
+        end
+
+        -- Cek SeedShop GUI path
+        local gui = playerGui:FindFirstChild("SeedShop")
+        print("[SeedShop GUI] " .. (gui and gui:GetFullName() or "NOT FOUND — beli via UI tidak bisa!"))
+        if gui then
+            local shelf = gui:FindFirstChild("Frame") and gui.Frame:FindFirstChild("NormalShop")
+                and gui.Frame.NormalShop:FindFirstChild("Sheckles_Shelf")
+            print("[Sheckles_Shelf] " .. (shelf and shelf:GetFullName() or "NOT FOUND"))
+            if shelf then
+                local mf = shelf:FindFirstChild("Main_Frame")
+                print("[Main_Frame] " .. (mf and mf:GetFullName() or "NOT FOUND"))
+                if mf then
+                    local sn = mf:FindFirstChild("Seed_Name")
+                    local bb = mf:FindFirstChild("Buttons") and mf.Buttons:FindFirstChild("BuyButton")
+                    print("[Seed_Name] " .. (sn and "FOUND val=" .. tostring(sn.Value) or "NOT FOUND"))
+                    print("[BuyButton] " .. (bb and "FOUND" or "NOT FOUND"))
+                end
+            end
+        end
+
+        print("======================================")
+        Notify("Debug", "Auto Buy debug dicetak ke console (F9)", Colors.TextMuted, 5)
+    end)
+
+    local crateCard, crateContent = CreateSectionCard("📦 Crates & Boxes", 2, Colors.Warning)
+    CreateToggle(crateContent, "Auto Buy & Open Crates", "autoCrate", "Buys then opens crates automatically")
+    CreateToggle(crateContent, "Buy Before Opening", "buyBeforeOpen", "Always buys new crate before opening")
+    CreateSlider(crateContent, "Crate Loop Delay (s)", 1, 60, "crateLoopDelay")
+    CreateToggle(crateContent, "Notify On Crate Roll", "notifyCrate", "Shows notification for each roll")
+    CreateActionButton(crateContent, "Open All Crates Now", function()
+        if PacketRemote then
+            PacketRemote:FireServer(PACKET.OpenCrate)
+            Notify("Crates", "Fired OpenCrate (ID " .. PACKET.OpenCrate .. ")", Colors.Warning)
+        else
+            Notify("Crates", "PacketRemote tidak ditemukan!", Colors.Error)
+        end
+    end, Colors.Warning)
+    CreateActionButton(crateContent, "Copy Semua Packet IDs", function()
+        local ids = {}
+        for k, v in pairs(PACKET) do
+            table.insert(ids, k .. "=" .. v)
+        end
+        table.sort(ids)
+        setclipboard(table.concat(ids, ", "))
+        Notify("Dev", "Semua Packet IDs disalin ke clipboard.", Colors.Accent)
+    end)
+end
+
+-- ======================== FEATURE: SELL PAGE ========================
+Pages["Sell"] = function()
+    local sellCard, sellContent = CreateSectionCard("💰 Auto Sell", 1, Colors.Gold)
+
+    -- Status Networking
+    local netStatus = Networking and "✅ Networking OK (Networking.NPCS.SellAll)" or "❌ Networking nil — sell tidak akan work!"
+    CreateInfoText(sellContent, "Sell System (FIXED)", netStatus .. "\nCara benar: Networking.NPCS.SellAll:Fire() atau SellFruit:Fire(fruitId). TANPA teleport, TANPA ProximityPrompt.")
+
+    CreateToggle(sellContent, "Auto Sell Fruits", "autoSell", "Loop otomatis jual semua buah via Networking.NPCS.SellAll")
+    CreateToggle(sellContent, "Auto Daily Deal (5x Harga!)", "autoUseDailyDeal", "Kalau deal tersedia, otomatis pakai UseDailyDealAll (5x multiplier dari SellFlags)")
+    CreateToggle(sellContent, "Keep Mutations (Jangan Dijual)", "keepMutations", "Skip semua buah yg punya mutation apapun (pakai mode selective)")
+    CreateDropdown(sellContent, "Keep Mutation Spesifik", {"None", table.unpack(MUTATIONS)}, "harvestFilterMutation")
+    CreateSlider(sellContent, "Delay Antar Jual (s)", 0, 3, "sellDelay")
+    CreateSlider(sellContent, "Loop Delay (s)", 1, 60, "sellLoopDelay")
+    CreateToggle(sellContent, "Notif Saat Jual", "notifySell", "Tampilkan notif hasil penjualan + total ¢")
+
+    -- Preview harga
+    CreateActionButton(sellContent, "🔍 Preview Harga Inventory", function()
+        if not Networking then
+            Notify("Preview", "❌ Networking nil!", Colors.Error)
+            return
+        end
+        local result = pcall(function() return Networking.NPCS.PreviewSellAll:Fire() end)
+        local ok, data = pcall(function() return Networking.NPCS.PreviewSellAll:Fire() end)
+        if ok and data and data.FruitCount then
+            local dd = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
+            local ddok, dddata = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
+            local ddAvail = ddok and dddata and dddata.Available
+            local msg = data.FruitCount .. " buah | Normal: " .. tostring(data.TotalValue or 0) .. "¢"
+            if ddAvail then
+                local ddPrice = math.max(1, math.floor((data.TotalBaseValue or data.TotalValue or 0) * 5))
+                msg = msg .. " | Daily Deal: " .. tostring(ddPrice) .. "¢ (5x!) ⭐"
+            end
+            Notify("Preview Sell", msg, Colors.Gold, 6)
+        else
+            Notify("Preview Sell", "Tidak ada buah di inventory.", Colors.TextMuted)
+        end
+    end)
+
+    -- Jual semua sekarang (one-shot)
+    CreateActionButton(sellContent, "⚡ Jual Semua Sekarang", function()
+        if not Networking then
+            Notify("Sell", "❌ Networking nil! Coba reload hub.", Colors.Error)
+            return
+        end
+        local ok, result = pcall(function() return Networking.NPCS.SellAll:Fire() end)
+        if ok and result and result.Success then
+            Notify("Sell ✅", "Sold " .. (result.SoldCount or "?") .. " buah = " .. tostring(result.SellPrice or 0) .. "¢", Colors.Gold)
+        else
+            Notify("Sell", "Gagal: " .. tostring(result and result.Reason or "Networking error"), Colors.Error)
+        end
+    end, Colors.Gold)
+
+    -- Daily deal one-shot
+    CreateActionButton(sellContent, "🌈 Jual Daily Deal (5x Harga)", function()
+        if not Networking then
+            Notify("Daily Deal", "❌ Networking nil!", Colors.Error)
+            return
+        end
+        -- Cek dulu apakah tersedia
+        local _, ddCheck = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
+        if not (ddCheck and ddCheck.Available) then
+            Notify("Daily Deal", "Daily deal tidak tersedia saat ini.", Colors.Warning)
+            return
+        end
+        local ok, result = pcall(function() return Networking.NPCS.UseDailyDealAll:Fire() end)
+        if ok and result and result.Success then
+            Notify("Daily Deal 🌈", "SOLD " .. (result.SoldCount or "?") .. " buah = " .. tostring(result.SellPrice or 0) .. "¢ (5x!)", Colors.Success)
+        elseif result and result.Reason == "NotAvailable" then
+            Notify("Daily Deal", "Deal sudah expired!", Colors.Warning)
+        else
+            Notify("Daily Deal", "Gagal: " .. tostring(result and result.Reason or "error"), Colors.Error)
+        end
+    end, Colors.Success)
+
+    -- Jual selective (per-buah, dengan filter)
+    CreateActionButton(sellContent, "🎯 Jual Selective (Pakai Filter)", function()
+        if not Networking then
+            Notify("Sell", "❌ Networking nil!", Colors.Error)
+            return
+        end
+        local fruits = {}
+        for _, tool in ipairs(player.Backpack:GetChildren()) do
+            if tool:GetAttribute("FruitName") or tool:GetAttribute("HarvestedFruit") then
+                table.insert(fruits, tool)
+            end
+        end
+        if #fruits == 0 then
+            Notify("Sell", "Tidak ada buah di backpack.", Colors.TextMuted)
+            return
+        end
+        local sold, skipped = 0, 0
+        for _, tool in ipairs(fruits) do
+            if ShouldKeepFruit(tool) then skipped += 1; continue end
+            local fruitId = tool:GetAttribute("Id")
+            if not fruitId then skipped += 1; continue end
+            local ok, result = pcall(function() return Networking.NPCS.SellFruit:Fire(fruitId) end)
+            if ok and result and result.Success then
+                sold += 1
+            elseif result and result.Reason == "Favorited" then
+                skipped += 1
+            end
+            task.wait(States.sellDelay or 0.1)
+        end
+        Notify("Sell Selective", "Sold " .. sold .. " buah, skip " .. skipped, Colors.Gold)
+    end)
+
+    local bagCard, bagContent = CreateSectionCard("🎒 Bag Inspector", 2, Colors.Accent)
+    CreateInfoText(bagContent, "Fruit attrs from scanner", "Weight, SizeMultiplier, DecayAlpha, OvertimeGrowth, Mutation, Seed, HarvestedFruit | Tomato [1.38kg] | Blueberry [Rainbow][Potted]")
+    local _, fruitLbl = CreateStatRow(bagContent, "Harvested Fruits in Bag", "?", Colors.Warning)
+    local _, seedLbl = CreateStatRow(bagContent, "Seeds in Bag", "?", Colors.Success)
+    local _, petCntLbl = CreateStatRow(bagContent, "Pets in Bag", "?", Colors.Frozen)
+    local _, capLbl = CreateStatRow(bagContent, "Capacity", "? / " .. MAX_FRUIT_CAP, Colors.Accent)
+
+    RunService.Heartbeat:Connect(function()
+        if ActivePage == "Sell" then
+            local fruits, seeds, pets = 0, 0, 0
+            for _, t in ipairs(player.Backpack:GetChildren()) do
+                if t:GetAttribute("HarvestedFruit") then fruits += 1
+                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds += 1
+                elseif t:GetAttribute("Pet") then pets += 1 end
+            end
+            fruitLbl.Text = tostring(fruits)
+            seedLbl.Text = tostring(seeds)
+            petCntLbl.Text = tostring(pets)
+            capLbl.Text = fruits .. " / " .. MAX_FRUIT_CAP
+        end
+    end)
+
+    CreateActionButton(bagContent, "Show Highest Value Fruit", function()
+        local best, bestWeight = nil, 0
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            local w = t:GetAttribute("Weight")
+            if w and w > bestWeight then bestWeight = w best = t end
+        end
+        if best then
+            local fn = best:GetAttribute("FruitName") or best.Name
+            local mut = GetMutation(best)
+            local sm = best:GetAttribute("SizeMultiplier") or 1
+            Notify("Best Fruit", fn .. " | " .. mut .. " | " .. string.format("%.2f",bestWeight) .. "kg | x"..string.format("%.2f",sm), Colors.Gold, 6)
+        else
+            Notify("Bag", "No harvested fruits found.", Colors.TextMuted)
+        end
+    end, Colors.Gold)
+    CreateActionButton(bagContent, "💎 Cek Harga Akurat (Server)", function()
+        if Networking then
+            -- Pakai server untuk harga akurat (sama persis yang akan diterima)
+            local ok, data = pcall(function() return Networking.NPCS.PreviewSellAll:Fire() end)
+            if ok and data and data.FruitCount and data.FruitCount > 0 then
+                -- Cek daily deal juga
+                local ddOk, ddData = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
+                local ddAvail = ddOk and ddData and ddData.Available
+                local normalPrice = data.TotalValue or data.TotalBaseValue or 0
+                local msg = data.FruitCount .. " buah | Jual Normal: " .. tostring(normalPrice) .. "¢"
+                if ddAvail then
+                    local ddPrice = math.max(1, math.floor((data.TotalBaseValue or normalPrice) * 5))
+                    msg = msg .. "\n🌈 Daily Deal: " .. tostring(ddPrice) .. "¢ (5x lebih untung!)"
+                end
+                Notify("Harga Inventory (Real)", msg, Colors.Gold, 8)
+            else
+                Notify("Preview", "Inventory kosong / tidak ada buah.", Colors.TextMuted)
+            end
+        else
+            -- Fallback: estimasi lokal dengan SellValueData
+            local total = 0
+            local count = 0
+            for _, t in ipairs(player.Backpack:GetChildren()) do
+                local fn = t:GetAttribute("FruitName")
+                if fn and SELL_VALUE_DATA[fn] then
+                    local base = SELL_VALUE_DATA[fn]
+                    local sm = t:GetAttribute("SizeMultiplier") or 1
+                    local mut = GetMutation(t)
+                    local mutBonus = mut == "Gold" and 2.5 or mut == "Rainbow" and 3 or mut == "Electric" and 2 or mut == "Frozen" and 1.5 or 1
+                    total += math.floor(base * sm * mutBonus)
+                    count += 1
+                end
+            end
+            Notify("Estimasi Lokal", count .. " buah ~" .. math.floor(total) .. "¢ (Networking offline)", Colors.Warning)
+        end
+    end, Colors.Gold)
+
+    CreateActionButton(bagContent, "📋 List Semua Buah di Bag", function()
+        local items = {}
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            local fn = t:GetAttribute("FruitName")
+            if fn then
+                local mut = GetMutation(t)
+                local sm = t:GetAttribute("SizeMultiplier") or 1
+                local entry = fn
+                if mut ~= "" and mut ~= "None" then entry = "[" .. mut .. "] " .. entry end
+                entry = entry .. " x" .. string.format("%.2f", sm)
+                table.insert(items, entry)
+            end
+        end
+        if #items == 0 then
+            Notify("Bag", "Tidak ada buah di backpack.", Colors.TextMuted)
+        else
+            -- Tampilkan max 5 per notif karena character limit
+            local preview = table.concat(items, ", "):sub(1, 150)
+            Notify("Bag (" .. #items .. " buah)", preview .. (#items > 5 and "..." or ""), Colors.Accent, 7)
+        end
+    end)
+end
+
+-- ======================== FEATURE: PETS PAGE ========================
+Pages["Pets"] = function()
+    local petCard, petContent = CreateSectionCard("🐾 Pet Manager", 1, Colors.Frozen)
+
+    local playerPets = {}
+    for _, t in ipairs(player.Backpack:GetChildren()) do
+        local petName = t:GetAttribute("Pet")
+        local petId = t:GetAttribute("PetId")
+        local petSize = t:GetAttribute("PetSize") or "Normal"
+        if petName then
+            table.insert(playerPets, {name=petName, id=petId, size=petSize, tool=t})
+        end
+    end
+
+    CreateInfoText(petContent, "Pets from scanner", "Frog ×3 · Bunny ×5 · Big Frog ×1 · Robin ×1 | MaxEquippedPets = " .. MAX_EQUIPPED_PETS)
+    CreateSubHeader(petContent, "Detected Pets (" .. #playerPets .. " in bag)")
+    for i, pet in ipairs(playerPets) do
+        if i > 8 then break end
+        local sizeColor = pet.size == "Big" and Colors.Warning or pet.size == "Huge" and Colors.Electric or Colors.TextSecondary
+        CreateStatRow(petContent, i .. ". " .. pet.name, pet.size .. (pet.id and " — "..pet.id:sub(1,8).."..." or ""), sizeColor)
+    end
+
+    CreateSubHeader(petContent, "Auto Pet")
+    CreateToggle(petContent, "Auto Equip Best Pets", "autoEquipPets", "Equips top " .. MAX_EQUIPPED_PETS .. " pets by priority")
+    CreateDropdown(petContent, "Equip Priority", {"Biggest First", "Alphabetical", "Frog First", "Bunny First", "Robin First"}, "petEquipPriority")
+    CreateActionButton(petContent, "Equip All Pets Now", function()
+        local count = 0
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            if t:GetAttribute("Pet") and count < MAX_EQUIPPED_PETS then
+                FirePacket(20, t)
+                count += 1
+                task.wait(0.1)
+            end
+        end
+        Notify("Pets", "Equipped " .. count .. "/" .. MAX_EQUIPPED_PETS .. " pets!", Colors.Frozen)
+    end, Colors.Frozen)
+    CreateActionButton(petContent, "Unequip All Pets", function()
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            if t:GetAttribute("Pet") then
+                FirePacket(21, t) -- unequip pet packet
+                task.wait(0.05)
+            end
+        end
+        Notify("Pets", "Unequipping all pets...", Colors.TextMuted)
+    end)
+
+    local wildCard, wildContent = CreateSectionCard("🦉 Wild Pets", 2, Colors.Warning)
+    CreateInfoText(wildContent, "Wild Pets from scanner", "Workspace.Map.WildPetSpawns folder found. WildPet_Bunny (¢20,000) ×2 · WildPet_Frog (¢10,000) ×2. BuyPrompt HoldDuration=1, MaxActivationDistance=12.")
+    CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild", "Teleports to wild pets and fires BuyPrompt")
+    CreateDropdown(wildContent, "Catch Filter", {"All", "Bunny Only", "Frog Only", "Owl Only"}, "wildPetFilter")
+    CreateSlider(wildContent, "Max Cost To Catch (¢)", 0, 50000, "wildPetMaxCost")
+    CreateActionButton(wildContent, "Scan Wild Pets Now", function()
+        local map = game:GetService("Workspace"):FindFirstChild("Map")
+        local wps = (map and map:FindFirstChild("WildPetSpawns")) or game:GetService("Workspace"):FindFirstChild("WildPetSpawns")
+        if wps then
+            local names = {}
+            for _, pet in ipairs(wps:GetChildren()) do
+                local parts = pet.Name:split("_")
+                if #parts >= 2 then
+                    local petType = parts[2]
+                    local rootPart = pet:FindFirstChild("RootPart") or pet:FindFirstChildWhichIsA("BasePart")
+                    local costText = ""
+                    if rootPart then
+                        local bp = rootPart:FindFirstChild("BuyPrompt")
+                        if bp then costText = " (" .. bp.ObjectText .. ")" end
+                    end
+                    table.insert(names, petType .. costText)
+                end
+            end
+            Notify("Wild Pets", #names .. " found: " .. table.concat(names, ", "), Colors.Warning)
+        else
+            Notify("Wild Pets", "WildPetSpawns not found in Map or Workspace.", Colors.Error)
+        end
+    end, Colors.Warning)
+    CreateActionButton(wildContent, "TP to Nearest Wild Pet", function()
+        local map = game:GetService("Workspace"):FindFirstChild("Map")
+        local wps = (map and map:FindFirstChild("WildPetSpawns")) or game:GetService("Workspace"):FindFirstChild("WildPetSpawns")
+        if wps and player.Character then
+            local nearest, nearDist = nil, math.huge
+            for _, pet in ipairs(wps:GetChildren()) do
+                local root = pet:FindFirstChild("RootPart") or pet:FindFirstChildWhichIsA("BasePart")
+                if root then
+                    local dist = (player.Character:GetPivot().Position - root.Position).Magnitude
+                    if dist < nearDist then nearDist = dist nearest = root end
+                end
+            end
+            if nearest then
+                player.Character:PivotTo(nearest.CFrame + Vector3.new(0, 5, 0))
+                Notify("Wild Pets", "Teleported to nearest wild pet!", Colors.Warning)
+            else
+                Notify("Wild Pets", "No wild pets found.", Colors.Error)
+            end
+        end
+    end)
+end
+
+-- ======================== FEATURE: EGGS PAGE ========================
+Pages["Eggs"] = function()
+    local eggCard, eggContent = CreateSectionCard("🥚 Egg Hatching", 1, Colors.Warning)
+    CreateInfoText(eggContent, "Egg system", "Packet IDs from scanner: OpenEgg=" .. PACKET.OpenEgg .. ", ReplicateOpenEgg=" .. PACKET.ReplicateOpenEgg .. ". Teleport path: Workspace.Teleports.Gears.")
+    CreateToggle(eggContent, "Auto Open Eggs", "autoOpenEgg", "Teleports to Gears shop and opens eggs")
+    CreateSlider(eggContent, "Egg Loop Delay (s)", 1, 30, "eggLoopDelay")
+    CreateToggle(eggContent, "Notify On Hatch", "notifyCrate", "Shows notification for each egg hatch")
+    CreateActionButton(eggContent, "Open Egg Now (Packet)", function()
+        if PacketRemote then
+            PacketRemote:FireServer(PACKET.OpenEgg)
+            Notify("Eggs", "Fired OpenEgg packet (ID " .. PACKET.OpenEgg .. ")", Colors.Warning)
+        else
+            Notify("Eggs", "PacketRemote not found!", Colors.Error)
+        end
+    end, Colors.Warning)
+    CreateActionButton(eggContent, "Teleport to Gear Shop", function()
+        local tp = game:GetService("Workspace"):FindFirstChild("Teleports")
+        if tp then
+            local gearPart = tp:FindFirstChild("Gears")
+            if gearPart and player.Character then
+                player.Character:PivotTo(gearPart.CFrame + Vector3.new(0, 5, 0))
+                Notify("Teleport", "Teleported to Gear/Egg shop", Colors.Warning)
+            end
+        end
+    end)
+    CreateActionButton(eggContent, "Find Egg Prompts in World", function()
+        local found = 0
+        for _, desc in ipairs(game:GetService("Workspace"):GetDescendants()) do
+            if desc:IsA("ProximityPrompt") and (desc.Name:lower():find("egg") or desc.Name:lower():find("hatch")) then
+                found += 1
+            end
+        end
+        Notify("Eggs", found .. " egg prompt(s) found in workspace.", Colors.Accent)
+    end)
+end
+
+-- ======================== FEATURE: PLAYER PAGE ========================
+Pages["Player"] = function()
+    local statsCard, statsContent = CreateSectionCard("📊 Live Player Stats", 1, Colors.Accent)
+    local _, hpLbl = CreateStatRow(statsContent, "Health", "100 / 100", Colors.Success)
+    local _, wsLbl = CreateStatRow(statsContent, "WalkSpeed", tostring(humanoid and humanoid.WalkSpeed or "?"), Colors.Accent)
+    local _, jpLbl = CreateStatRow(statsContent, "JumpPower", tostring(humanoid and humanoid.JumpPower or "?"), Colors.Accent)
+    local _, plotLbl2 = CreateStatRow(statsContent, "Plot ID", MY_PLOT_ID, Colors.Warning)
+    local _, bpLbl = CreateStatRow(statsContent, "Backpack Items", #player.Backpack:GetChildren(), Colors.TextSecondary)
+
+    RunService.Heartbeat:Connect(function()
+        if ActivePage == "Player" and humanoid then
+            hpLbl.Text = math.floor(humanoid.Health) .. " / " .. humanoid.MaxHealth
+            wsLbl.Text = string.format("%.1f", humanoid.WalkSpeed)
+            jpLbl.Text = string.format("%.1f", humanoid.JumpPower)
+        end
+    end)
+
+    local moveCard, moveContent = CreateSectionCard("🏃 Movement", 2, Colors.Electric)
+    CreateToggle(moveContent, "Lock WalkSpeed", "lockWalkSpeed")
+    CreateSlider(moveContent, "WalkSpeed", 1, 500, "walkSpeed")
+    CreateToggle(moveContent, "Lock JumpPower", "lockJumpPower")
+    CreateSlider(moveContent, "JumpPower", 1, 500, "jumpPower")
+    CreateToggle(moveContent, "Infinite Jump", "infiniteJump")
+
+    local utilCard, utilContent = CreateSectionCard("✈️ Fly & Noclip", 3, Colors.TextSecondary)
+    CreateInfoText(utilContent, "Controls", "[F] — Toggle Fly  |  [W/A/S/D] — Move  |  [Space] — Up  |  [Ctrl] — Down")
+    CreateToggle(utilContent, "Fly", "fly", "Hold WASD to fly, Space=up, Ctrl=down")
+    CreateSlider(utilContent, "Fly Speed", 1, 300, "flySpeed")
+    CreateToggle(utilContent, "Noclip", "noclip", "Walk through walls")
+    CreateToggle(utilContent, "Anti AFK", "antiAfk", "Prevents auto-disconnect")
+
+    CreateActionButton(utilContent, "Reset Character", function()
+        if humanoid then humanoid.Health = 0 end
+        Notify("Player", "Resetting character...", Colors.Warning)
+    end)
+    CreateActionButton(utilContent, "Respawn To Plot", function()
+        local plot = GetMyPlot()
+        if plot then
+            local sp = plot:FindFirstChild("SpawnPoint")
+            if sp and player.Character then
+                player.Character:PivotTo(sp.CFrame + Vector3.new(0, 5, 0))
+                Notify("Player", "Respawned to Plot " .. MY_PLOT_ID, Colors.Success)
+                return
+            end
+        end
+        Notify("Player", "SpawnPoint not found.", Colors.Error)
+    end, Colors.Success)
+end
+
+-- ======================== FEATURE: VISUALS PAGE ========================
+Pages["Visuals"] = function()
+    local espCard, espContent = CreateSectionCard("👁 ESP & Highlights", 1, Colors.Electric)
+    CreateInfoText(espContent, "ESP system", "Renders BillboardGuis on targets. Wild Pets in WildPetSpawns, mutations from CollectionService tags, plant ages from Age/MaxAge attrs.")
+    CreateToggle(espContent, "ESP Players", "espPlayers", "Shows player names/tags above heads")
+    CreateToggle(espContent, "ESP Wild Pets", "espItems", "Highlights wild pets in workspace")
+    CreateToggle(espContent, "ESP Mutations", "espMutations", "Shows mutation tags on plants")
+    CreateToggle(espContent, "Show Plant Age", "showPlantAge", "Shows Age/MaxAge above each plant")
+    CreateToggle(espContent, "Show Fruit Weight", "showFruitWeight", "Shows weight above harvested fruits")
+
+    -- Mutation color swatches
+    CreateSubHeader(espContent, "Mutation Colors")
+    local mutGrid = Create("Frame", {
+        Parent = espContent,
+        Size = UDim2.new(1, 0, 0, 30),
+        BackgroundTransparency = 1,
+    })
+    Create("UIListLayout", {Parent=mutGrid, FillDirection=Enum.FillDirection.Horizontal, Padding=UDim.new(0,8)})
+    for _, mut in ipairs({"Gold", "Electric", "Rainbow", "Frozen"}) do
+        local badge = Create("TextLabel", {
+            Parent = mutGrid,
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundColor3 = GetMutationColor(mut),
+            BackgroundTransparency = 0.6,
+            Text = " " .. mut .. " ",
+            TextColor3 = GetMutationColor(mut),
+            TextSize = 11,
+            Font = Enum.Font.GothamBold,
+        })
+        CreateCorner(badge, 5)
+    end
+
+    CreateActionButton(espContent, "Clear All ESP Labels", function()
+        ClearESP()
+        Notify("Visuals", "All ESP labels cleared.", Colors.TextMuted)
+    end)
+
+    local visCard, visContent = CreateSectionCard("🌈 Visual Settings", 2, Colors.Accent)
+    CreateToggle(visContent, "Full Bright", "fullBright", "Sets ambient to maximum brightness")
+    CreateSlider(visContent, "Brightness", 0, 10, "brightness")
+    CreateToggle(visContent, "No Fog", "noFog", "Removes environmental fog")
+    CreateToggle(visContent, "No Shadows", "noShadows", "Disables global shadows")
+    CreateActionButton(visContent, "Reset Visuals to Default", function()
+        local lighting = game:GetService("Lighting")
+        lighting.Brightness = 1
+        lighting.Ambient = Color3.fromRGB(70, 70, 70)
+        lighting.OutdoorAmbient = Color3.fromRGB(140, 140, 140)
+        lighting.FogEnd = 100000
+        lighting.GlobalShadows = true
+        States.fullBright = false
+        States.noFog = false
+        States.noShadows = false
+        Notify("Visuals", "Reset to default lighting.", Colors.TextMuted)
+    end)
+end
+
+-- ======================== FEATURE: TELEPORT PAGE ========================
+Pages["Teleport"] = function()
+    local tpCard, tpContent = CreateSectionCard("📍 Quick Teleport", 1, Colors.Accent)
+    CreateInfoText(tpContent, "Scanner data", "Workspace.Teleports: Seeds, Sell, Gears, Props — all BasePart objects confirmed by scanner.")
+
+    local gameTeleports = {
+        {"🌱 Seeds Shop", "Seeds", Colors.Success},
+        {"💰 Sell Area", "Sell", Colors.Gold},
+        {"⚙ Gear Shop", "Gears", Colors.Electric},
+        {"🏡 Props Shop", "Props", Colors.Accent},
+    }
+    CreateSubHeader(tpContent, "Game Locations")
+    for _, tp in ipairs(gameTeleports) do
+        CreateActionButton(tpContent, "Teleport to " .. tp[1], function()
+            local teleports = game:GetService("Workspace"):FindFirstChild("Teleports")
+            if teleports then
+                local part = teleports:FindFirstChild(tp[2])
+                if part and player.Character then
+                    player.Character:PivotTo(part.CFrame + Vector3.new(0, 5, 0))
+                    Notify("Teleport", "→ " .. tp[1], tp[3])
+                else
+                    Notify("Teleport", "Part '" .. tp[2] .. "' not found!", Colors.Error)
+                end
+            end
+        end, tp[3])
+    end
+
+    CreateSubHeader(tpContent, "Player Locations")
+    CreateActionButton(tpContent, "Teleport to My Plot (Plot " .. MY_PLOT_ID .. ")", function()
+        local plot = GetMyPlot()
+        if plot then
+            local sp = plot:FindFirstChild("SpawnPoint")
+            if sp and player.Character then
+                player.Character:PivotTo(sp.CFrame + Vector3.new(0, 5, 0))
+                Notify("Teleport", "Teleported to Plot " .. MY_PLOT_ID, Colors.Success)
+                return
+            end
+        end
+        Notify("Teleport", "Plot SpawnPoint not found.", Colors.Error)
+    end, Colors.Success)
+
+    -- Teleport to specific player
+    CreateSubHeader(tpContent, "Teleport to Player")
+    local playerList = {}
+    for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        if p ~= player then table.insert(playerList, p.Name) end
+    end
+    if #playerList > 0 then
+        CreateDropdown(tpContent, "Target Player", playerList, "tpTargetPlayer")
+        CreateActionButton(tpContent, "Teleport to Selected Player", function()
+            local targetName = States.tpTargetPlayer
+            if not targetName then Notify("Teleport", "Select a player first.", Colors.Error) return end
+            local target = game:GetService("Players"):FindFirstChild(targetName)
+            if target and target.Character and player.Character then
+                player.Character:PivotTo(target.Character:GetPivot() * CFrame.new(3, 0, 3))
+                Notify("Teleport", "Teleported to " .. targetName, Colors.Electric)
+            else
+                Notify("Teleport", target and "Target has no character." or "Player not found.", Colors.Error)
+            end
+        end, Colors.Electric)
+    end
+
+    local savedCard, savedContent = CreateSectionCard("💾 Saved Positions", 2, Colors.TextSecondary)
+    local savedPos = nil
+    CreateActionButton(savedContent, "Save Current Position", function()
+        if player.Character then
+            savedPos = player.Character:GetPivot().Position
+            Notify("Teleport", "Saved: " .. string.format("%.1f, %.1f, %.1f", savedPos.X, savedPos.Y, savedPos.Z), Colors.Success)
+        end
+    end)
+    CreateActionButton(savedContent, "Load Saved Position", function()
+        if savedPos and player.Character then
+            player.Character:PivotTo(CFrame.new(savedPos + Vector3.new(0, 3, 0)))
+            Notify("Teleport", "Loaded saved position.", Colors.Accent)
+        else
+            Notify("Teleport", "No position saved yet.", Colors.Error)
+        end
+    end)
+    CreateSlider(savedContent, "Teleport Delay (s)", 0, 10, "tpDelay")
+end
+
+-- ======================== FEATURE: UTILITY PAGE ========================
+Pages["Utility"] = function()
+    local worthCard, worthContent = CreateSectionCard("💎 Item Inspector", 1, Colors.Gold)
+    CreateInfoText(worthContent, "Fruit attrs from scanner", "Weight, SizeMultiplier, DecayAlpha, OvertimeGrowth, Mutation | Tomato [1.38kg, x1.53 size] | Blueberry [Rainbow][Potted, x1.95 size]")
+
+    local toolNameLbl
+    do
+        local currentTool = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+        local r, v = CreateStatRow(worthContent, "Currently Holding", currentTool and currentTool.Name or "Nothing", Colors.TextPrimary)
+        toolNameLbl = v
+    end
+    RunService.Heartbeat:Connect(function()
+        if ActivePage == "Utility" and toolNameLbl and toolNameLbl.Parent then
+            local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+            toolNameLbl.Text = ct and ct.Name or "Nothing"
+        end
+    end)
+
+    CreateActionButton(worthContent, "Inspect Held Item", function()
+        local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+        if ct then
+            local weight = ct:GetAttribute("Weight")
+            local mut = GetMutation(ct)
+            local sm = ct:GetAttribute("SizeMultiplier")
+            local decay = ct:GetAttribute("DecayAlpha")
+            local fn = ct:GetAttribute("FruitName") or ct:GetAttribute("Fruit") or ct.Name
+            if weight then
+                Notify("Inspect: " .. fn,
+                    string.format("Wt:%.2fkg | Mut:%s | x%.2f size | Decay:%.4f", weight, mut, sm or 1, decay or 0),
+                    GetMutationColor(mut), 6)
+            else
+                local seedName = ct:GetAttribute("SeedTool") or ct:GetAttribute("SeedName")
+                if seedName then
+                    Notify("Inspect: Seed", "Type: " .. seedName, Colors.Success)
+                else
+                    Notify("Inspect", ct.Name .. " — no fruit/seed attrs.", Colors.TextMuted)
+                end
+            end
+        else
+            Notify("Inspect", "Not holding anything.", Colors.TextMuted)
+        end
+    end, Colors.Gold)
+    CreateActionButton(worthContent, "Show Best Fruit in Bag", function()
+        local best, bestScore = nil, 0
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            local w = t:GetAttribute("Weight") or 0
+            local sm = t:GetAttribute("SizeMultiplier") or 1
+            if w * sm > bestScore then bestScore = w * sm best = t end
+        end
+        if best then
+            local mut = GetMutation(best)
+            local fn = best:GetAttribute("FruitName") or best.Name
+            Notify("Best Fruit", fn .. " | " .. mut .. " | Score: " .. string.format("%.3f", bestScore), GetMutationColor(mut), 5)
+        else
+            Notify("Bag", "No fruits found in backpack.", Colors.TextMuted)
+        end
+    end)
+    CreateActionButton(worthContent, "Count Bag Contents", function()
+        local f, s, p2, g = 0, 0, 0, 0
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            if t:GetAttribute("HarvestedFruit") then f += 1
+            elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then s += 1
+            elseif t:GetAttribute("Pet") then p2 += 1
+            else g += 1 end
+        end
+        Notify("Bag Contents", "Fruits:" .. f .. " | Seeds:" .. s .. " | Pets:" .. p2 .. " | Other:" .. g .. " | Cap:" .. MAX_FRUIT_CAP, Colors.Accent)
+    end)
+
+    local toolCard, toolContent = CreateSectionCard("🔧 Quick Tools", 2)
+    CreateActionButton(toolContent, "Copy My Position", function()
+        if player.Character then
+            local pos = player.Character:GetPivot().Position
+            setclipboard(string.format("%.2f, %.2f, %.2f", pos.X, pos.Y, pos.Z))
+            Notify("Copied", string.format("%.1f, %.1f, %.1f", pos.X, pos.Y, pos.Z), Colors.Success)
+        end
+    end)
+    CreateActionButton(toolContent, "Copy Job ID", function()
+        setclipboard(game.JobId)
+        Notify("Copied", "Job ID: " .. game.JobId:sub(1, 20) .. "...", Colors.Accent)
+    end)
+    CreateActionButton(toolContent, "Show All Player Attributes", function()
+        local attrList = {}
+        for k, v in pairs(player:GetAttributes()) do
+            table.insert(attrList, k .. "=" .. tostring(v))
+        end
+        table.sort(attrList)
+        Notify("Player Attrs", table.concat(attrList, " | "):sub(1, 120), Colors.Accent, 8)
+    end)
+    CreateActionButton(toolContent, "Print Full Attrs to Console", function()
+        print("[Miracle Hub] Player Attributes:")
+        for k, v in pairs(player:GetAttributes()) do
+            print("  " .. k .. " = " .. tostring(v))
+        end
+        Notify("Dev", "Attributes printed to console (F9)", Colors.TextMuted)
+    end)
+
+    local giftCard, giftContent = CreateSectionCard("🎁 Gifts & Mailbox", 3, Colors.Rainbow)
+    CreateInfoText(giftContent, "Mailbox from scanner", "GreyMailBox in Plot" .. MY_PLOT_ID .. ".Signs with MailboxPrompt (ProximityPromptPart). BidPrice/BidsAsked attrs detected on Tomato fruit.")
+    CreateToggle(giftContent, "Auto Accept Gifts", "autoAcceptGifts", "Triggers MailboxPrompt every 10 seconds")
+    CreateToggle(giftContent, "Auto Accept Bids", "autoBidAccept", "BidPrice/BidsAsked attrs detected on fruits")
+    CreateActionButton(giftContent, "Check Mailbox Now", function()
+        local plot = GetMyPlot()
+        if not plot then Notify("Mailbox", "Plot " .. MY_PLOT_ID .. " not found!", Colors.Error) return end
+        local signs = plot:FindFirstChild("Signs")
+        if not signs then Notify("Mailbox", "Signs folder not found!", Colors.Error) return end
+        local mailbox = signs:FindFirstChild("GreyMailBox")
+        if not mailbox then Notify("Mailbox", "GreyMailBox not found!", Colors.Error) return end
+        local found = false
+        for _, desc in ipairs(mailbox:GetDescendants()) do
+            if desc:IsA("ProximityPrompt") and desc.Name == "MailboxPrompt" then
+                SafeFirePrompt(desc)
+                found = true
+                break
+            end
+        end
+        Notify("Mailbox", found and "Checked mailbox on Plot " .. MY_PLOT_ID or "MailboxPrompt not found!", found and Colors.Rainbow or Colors.Error)
+    end, Colors.Rainbow)
+end
+
+-- ======================== FEATURE: MAILER PAGE ========================
+Pages["Mailer"] = function()
+    local mailerCard, mailerContent = CreateSectionCard("✉ Mailer System", 1, Colors.Accent)
+    CreateInfoText(mailerContent, "Mailer info", "Send items via GreyMailBox on plots. BidPrice and BidsAsked attrs detected on Tomato fruit — trading system active in game.")
+
+    CreateSubHeader(mailerContent, "Outbox")
+    CreateActionButton(mailerContent, "Open My Mailbox", function()
+        local plot = GetMyPlot()
+        if plot then
+            for _, desc in ipairs(plot:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") and desc.Name == "MailboxPrompt" then
+                    SafeFirePrompt(desc)
+                    Notify("Mailer", "Opened mailbox!", Colors.Accent)
+                    return
+                end
+            end
+        end
+        Notify("Mailer", "Mailbox prompt not found.", Colors.Error)
+    end, Colors.Accent)
+
+    CreateSubHeader(mailerContent, "Trading")
+    CreateInfoText(mailerContent, "Bid system detected", "Tomato fruit has BidPrice and BidsAsked attributes. Scanner found these attrs on harvested fruits in backpack.")
+    CreateActionButton(mailerContent, "Show Bid Info (Held Item)", function()
+        local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+        if ct then
+            local bidPrice = ct:GetAttribute("BidPrice")
+            local bidsAsked = ct:GetAttribute("BidsAsked")
+            if bidPrice or bidsAsked then
+                Notify("Bid Info", "BidPrice: " .. tostring(bidPrice) .. " | BidsAsked: " .. tostring(bidsAsked), Colors.Gold, 6)
+            else
+                Notify("Bid", "No bid attrs on: " .. ct.Name, Colors.TextMuted)
+            end
+        else
+            Notify("Bid", "Not holding anything.", Colors.TextMuted)
+        end
+    end)
+    CreateActionButton(mailerContent, "Scan Biddable Fruits in Bag", function()
+        local biddable = {}
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            if t:GetAttribute("BidPrice") or t:GetAttribute("BidsAsked") then
+                local fn = t:GetAttribute("FruitName") or t.Name
+                local bp = t:GetAttribute("BidPrice") or "?"
+                table.insert(biddable, fn .. "@" .. bp)
+            end
+        end
+        if #biddable > 0 then
+            Notify("Bids", #biddable .. " biddable: " .. table.concat(biddable, ", "):sub(1, 80), Colors.Gold)
+        else
+            Notify("Bids", "No biddable fruits in backpack.", Colors.TextMuted)
+        end
+    end)
+end
+
+-- ======================== FEATURE: INFO PAGE ========================
+Pages["Info"] = function()
+    local infoCard, infoContent = CreateSectionCard("ℹ About Miracle Hub", 1, Colors.Success)
+    CreateStatRow(infoContent, "Hub Name", "Miracle Hub", Colors.Success)
+    CreateStatRow(infoContent, "Game", "Grow A Garden 2", Colors.TextSecondary)
+    CreateStatRow(infoContent, "Player", player.DisplayName or player.Name, Colors.Accent)
+    CreateStatRow(infoContent, "UserId", player.UserId, Colors.TextMuted)
+    CreateStatRow(infoContent, "PlotId (detected)", MY_PLOT_ID, Colors.Warning)
+    CreateStatRow(infoContent, "Account Age", player:GetAttribute("AccountAge") or (player.AccountAge .. "d"), Colors.TextMuted)
+    CreateStatRow(infoContent, "Prime Status", (player:GetAttribute("PrimeEnabled") and "✅ Enabled" or "❌ Disabled"), Colors.Warning)
+    CreateStatRow(infoContent, "Packet Remote", PacketRemote and "✅ Found" or "⚠ Not Found", PacketRemote and Colors.Success or Colors.Error)
+
+    local scanCard, scanContent = CreateSectionCard("🔍 Scanner Data Summary", 2, Colors.Accent)
+    CreateInfoText(scanContent, "Seeds in Backpack", "Bamboo ×295, Blueberry ×1, Apple ×2, Sunflower ×1")
+    CreateInfoText(scanContent, "Gear in Backpack", "Common Watering Can ×338, Trowel ×141, Common Sprinkler ×2, Flashbang ×22")
+    CreateInfoText(scanContent, "Pets in Backpack", "Frog ×3, Bunny ×5, Big Frog ×1, Robin ×1  (total: 10)")
+    CreateInfoText(scanContent, "Mutations Found", "Gold, Electric, Rainbow, Frozen (CollectionService tags)")
+    CreateInfoText(scanContent, "Plants on Plot " .. MY_PLOT_ID, "Mushroom (89/89 ✅), Bamboo ×many, Tomato [Gold] ✅, Tomato [Electric] ✅, Pineapple [Gold] ✅, Blueberry [Rainbow][Potted]")
+    CreateInfoText(scanContent, "Wild Pets (WildPetSpawns)", "WildPet_Bunny ×2 (¢20,000 each), WildPet_Frog ×2 (¢10,000 each) — in Workspace.Map.WildPetSpawns")
+    CreateInfoText(scanContent, "Remote System (FIXED)", "ReplicatedStorage.SharedModules.Packet.RemoteEvent | PlantSeed=9, PurchaseSeed=120, SeedShopRestock=121, PurchaseCrate=122, SellFruit=167, OpenCrate=130, OpenEgg=139, LikeGarden=221 | StockValues: ReplicatedStorage.StockValues.SeedShop.Items.<SeedName>")
+    CreateInfoText(scanContent, "Teleport Parts", "Workspace.Teleports: Seeds, Sell, Gears, Props")
+    CreateInfoText(scanContent, "ProximityPrompts", "HarvestPrompt (on all fruits), MailboxPrompt, CustomiseTheme, GardenSign*, PickUpPottedPlantPrompt, BuyPrompt (wild pets & shop)")
+
+    local keybindCard, keybindContent = CreateSectionCard("⌨ Keybinds", 3, Colors.TextSecondary)
+    CreateInfoText(keybindContent, nil, "[Insert] — Toggle GUI (minimize/restore)\n[F] — Toggle Fly\n[W/A/S/D] + Fly — Move direction\n[Space] + Fly — Ascend\n[Ctrl] + Fly — Descend")
+end
+
+-- ======================== FEATURE: SERVER PAGE ========================
+Pages["Server"] = function()
+    local serverCard, serverContent = CreateSectionCard("🌐 Server Info", 1, Colors.Electric)
+    CreateStatRow(serverContent, "Job ID", game.JobId:sub(1, 20) .. "...", Colors.TextMuted)
+    CreateStatRow(serverContent, "Place ID", tostring(game.PlaceId), Colors.TextMuted)
+    local playerCount = #game:GetService("Players"):GetPlayers()
+    local _, pcLbl = CreateStatRow(serverContent, "Players in Server", playerCount, Colors.Success)
+
+    RunService.Heartbeat:Connect(function()
+        if ActivePage == "Server" then
+            pcLbl.Text = tostring(#game:GetService("Players"):GetPlayers())
+        end
+    end)
+
+    CreateSubHeader(serverContent, "Other Players")
+    for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        if p ~= player then
+            local r, pPlotLbl = CreateStatRow(serverContent, p.DisplayName .. " (@" .. p.Name .. ")", "Plot " .. (p:GetAttribute("PlotId") or "?"), Colors.TextMuted)
+        end
+    end
+
+    CreateActionButton(serverContent, "Rejoin Server", function()
+        Notify("Server", "Rejoining in 2s...", Colors.Warning)
+        task.wait(2)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+    end, Colors.Warning)
+    CreateActionButton(serverContent, "Copy Job ID", function()
+        setclipboard(game.JobId)
+        Notify("Server", "Job ID copied.", Colors.Accent)
+    end)
+
+    local autoCard, autoContent = CreateSectionCard("🔄 Auto Rejoin", 2, Colors.Warning)
+    CreateToggle(autoContent, "Auto Rejoin on Disconnect", "autoRejoin", "Rejoins automatically when kicked/disconnected")
+    CreateDropdown(autoContent, "Rejoin Condition", {"Server Full", "FPS Drop", "Disconnected", "Manual"}, "rejoinCondition")
+
+    -- Auto rejoin implementation
+    game:GetService("Players").PlayerRemoving:Connect(function(p)
+        if p == player and States.autoRejoin then
+            task.wait(2)
+            game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+        end
+    end)
+end
+
+-- ======================== FEATURE: SETTINGS PAGE ========================
+Pages["Settings"] = function()
+    local settCard, settContent = CreateSectionCard("⚙ General Settings", 1, Colors.Accent)
+    CreateToggle(settContent, "Auto Save Config", "autoSaveConfig", "Saves your config automatically")
+    CreateToggle(settContent, "Minimize to Tray on Close", "minimizeToTray", "Minimizes to M shield instead of closing")
+    CreateToggle(settContent, "Show Notifications", "showNotifications", "Shows popup notifications")
+
+    CreateSubHeader(settContent, "Config")
+    CreateActionButton(settContent, "Export Config to Clipboard", function()
+        local cfg = {}
+        for k, v in pairs(States) do
+            table.insert(cfg, k .. "=" .. tostring(v))
+        end
+        table.sort(cfg)
+        setclipboard(table.concat(cfg, "\n"))
+        Notify("Settings", "Full config exported to clipboard.", Colors.Success)
+    end)
+    CreateActionButton(settContent, "Reset All States", function()
+        States.autoPlant = false
+        States.autoHarvest = false
+        States.autoSell = false
+        States.autoBuySeed = false
+        States.autoCrate = false
+        States.autoEquipPets = false
+        States.autoCatchWild = false
+        States.autoOpenEgg = false
+        States.autoAcceptGifts = false
+        States.fly = false
+        States.noclip = false
+        States.espPlayers = false
+        States.espItems = false
+        States.espMutations = false
+        States.fullBright = false
+        States.noFog = false
+        States.noShadows = false
+        ClearESP()
+        Notify("Settings", "All automation states reset to OFF.", Colors.Warning)
+    end, Colors.Error)
+
+    local keybindCard, keybindContent = CreateSectionCard("⌨ Keybinds", 2, Colors.TextSecondary)
+    CreateInfoText(keybindContent, nil, "[Insert] — Toggle GUI (minimize/restore)\n[F] — Toggle Fly\n[Space] + Fly — Ascend\n[Ctrl] + Fly — Descend")
+
+    local debugCard, debugContent = CreateSectionCard("🛠 Debug", 3, Colors.TextMuted)
+    CreateActionButton(debugContent, "Test RemoteEvent Connection", function()
+        if PacketRemote then
+            Notify("Debug", "✅ PacketRemote found: " .. PacketRemote:GetFullName(), Colors.Success, 6)
+        else
+            -- Try to re-find it
+            local rs = game:GetService("ReplicatedStorage")
+            local sm = rs:FindFirstChild("SharedModules")
+            local pk = sm and sm:FindFirstChild("Packet")
+            local re = pk and pk:FindFirstChild("RemoteEvent")
+            PacketRemote = re
+            Notify("Debug", re and "✅ Found on retry!" or "❌ PacketRemote NOT found. Check ReplicatedStorage.SharedModules.Packet.RemoteEvent", re and Colors.Success or Colors.Error, 6)
+        end
+    end)
+    CreateActionButton(debugContent, "Print Packet IDs", function()
+        print("[Miracle Hub] Packet IDs:")
+        if PacketRemote then
+            for k, v in pairs(PacketRemote:GetAttributes()) do
+                print("  " .. k .. " = " .. tostring(v))
+            end
+        else
+            print("  PacketRemote not found!")
+        end
+        Notify("Debug", "Packet IDs printed to console (F9)", Colors.TextMuted)
+    end)
+    CreateActionButton(debugContent, "Print Gardens Tree", function()
+        local gardens = game:GetService("Workspace"):FindFirstChild("Gardens")
+        if gardens then
+            for _, plot in ipairs(gardens:GetChildren()) do
+                local plants = plot:FindFirstChild("Plants")
+                local cnt = plants and #plants:GetChildren() or 0
+                print("[Miracle Hub] " .. plot.Name .. ": " .. cnt .. " plants")
+            end
+        end
+        Notify("Debug", "Gardens tree printed to console.", Colors.TextMuted)
+    end)
+end
+
+-- ======================== SIDEBAR CONNECTIONS ========================
+local pageMap = {
+    [BtnFarm] = "Farm", [BtnPlot] = "Plot", [BtnShop] = "Shop",
+    [BtnSell] = "Sell", [BtnPets] = "Pets", [BtnEggs] = "Eggs",
+    [BtnPlayer] = "Player", [BtnVisuals] = "Visuals", [BtnTeleport] = "Teleport",
+    [BtnUtility] = "Utility", [BtnMailer] = "Mailer", [BtnInfo] = "Info",
+    [BtnServer] = "Server", [BtnSettings] = "Settings",
+}
+for btn, pageName in pairs(pageMap) do
+    btn.MouseButton1Click:Connect(function()
+        SetActivePage(pageName)
+    end)
+end
+
+-- ======================== SEARCH FUNCTIONALITY ========================
+local searchAllItems = {
+    -- Map: keyword -> page name
+    {"auto plant", "Farm"}, {"plant seed", "Farm"}, {"auto harvest", "Farm"}, {"harvest", "Farm"},
+    {"water", "Farm"}, {"sprinkler", "Farm"}, {"bamboo", "Farm"}, {"blueberry", "Farm"},
+    {"auto buy", "Shop"}, {"buy seed", "Shop"}, {"crate", "Shop"}, {"restock", "Shop"}, {"shop", "Shop"},
+    {"sell", "Sell"}, {"auto sell", "Sell"}, {"bag", "Sell"}, {"fruit", "Sell"},
+    {"pet", "Pets"}, {"wild pet", "Pets"}, {"bunny", "Pets"}, {"frog", "Pets"}, {"equip pet", "Pets"},
+    {"egg", "Eggs"}, {"hatch", "Eggs"}, {"open egg", "Eggs"},
+    {"walk", "Player"}, {"speed", "Player"}, {"fly", "Player"}, {"jump", "Player"}, {"noclip", "Player"},
+    {"esp", "Visuals"}, {"highlight", "Visuals"}, {"bright", "Visuals"}, {"fog", "Visuals"},
+    {"teleport", "Teleport"}, {"tp", "Teleport"}, {"seeds shop", "Teleport"},
+    {"inspect", "Utility"}, {"mailbox", "Utility"}, {"gift", "Utility"}, {"bid", "Mailer"},
+    {"server", "Server"}, {"rejoin", "Server"},
+    {"settings", "Settings"}, {"config", "Settings"}, {"keybind", "Settings"},
+}
+
+SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local query = SearchBox.Text:lower():gsub("^%s+", ""):gsub("%s+$", "")
+    if query == "" then
+        if ActivePage and Pages[ActivePage] then
+            ClearContent()
+            Pages[ActivePage]()
+        end
+        return
+    end
+    -- Find best matching page
+    local bestPage = nil
+    for _, item in ipairs(searchAllItems) do
+        if item[1]:find(query, 1, true) or query:find(item[1], 1, true) then
+            bestPage = item[2]
+            break
+        end
+    end
+    if bestPage and bestPage ~= ActivePage then
+        SetActivePage(bestPage)
+    end
+end)
+
+-- ======================== MINIMIZED M LOGO ========================
 local MinimizedLogo = Create("Frame", {
-    Name = "MinimizedLogo",
     Parent = ScreenGui,
     Size = UDim2.new(0, 60, 0, 60),
     Position = UDim2.new(0.5, -30, 0.5, -30),
@@ -1204,9 +3758,7 @@ local MinimizedLogo = Create("Frame", {
 CreateCorner(MinimizedLogo, 12)
 CreateStroke(MinimizedLogo, Colors.BorderLight, 2)
 
--- Shield outer shape (using Frame with corner radius)
 local ShieldOuter = Create("Frame", {
-    Name = "ShieldOuter",
     Parent = MinimizedLogo,
     Size = UDim2.new(0, 44, 0, 44),
     Position = UDim2.new(0.5, -22, 0.5, -22),
@@ -1215,136 +3767,37 @@ local ShieldOuter = Create("Frame", {
     BorderSizePixel = 0,
     ZIndex = 51,
 })
--- Shield shape using UICorner
 CreateCorner(ShieldOuter, 4)
-
--- Shield border stroke
 local ShieldStroke = CreateStroke(ShieldOuter, Colors.Accent, 2)
 ShieldStroke.Transparency = 1
 
--- Inner "M" letter - constructed with frames for elegant look
--- Left vertical stroke of M
-local M_Left = Create("Frame", {
-    Name = "MLeft",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 3, 0, 20),
-    Position = UDim2.new(0, 10, 0.5, -10),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 52,
-})
-CreateCorner(M_Left, 2)
+local mParts = {}
+local mDefs = {
+    {name="ML",  Size=UDim2.new(0,3,0,20), Position=UDim2.new(0,10,0.5,-10), Rotation=0},
+    {name="MR",  Size=UDim2.new(0,3,0,20), Position=UDim2.new(1,-13,0.5,-10), Rotation=0},
+    {name="MDL", Size=UDim2.new(0,3,0,12), Position=UDim2.new(0.5,-1,0.5,-10), Rotation=-30},
+    {name="MDR", Size=UDim2.new(0,3,0,12), Position=UDim2.new(0.5,-1,0.5,-10), Rotation=30},
+    {name="MC",  Size=UDim2.new(0,3,0,10), Position=UDim2.new(0.5,-1,0.5,0), Rotation=0},
+}
+for _, def in ipairs(mDefs) do
+    local part = Create("Frame", {
+        Parent = ShieldOuter,
+        Size = def.Size,
+        Position = def.Position,
+        BackgroundColor3 = Colors.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Rotation = def.Rotation,
+        ZIndex = 52,
+    })
+    CreateCorner(part, 2)
+    table.insert(mParts, part)
+end
 
--- Right vertical stroke of M
-local M_Right = Create("Frame", {
-    Name = "MRight",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 3, 0, 20),
-    Position = UDim2.new(1, -13, 0.5, -10),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 52,
-})
-CreateCorner(M_Right, 2)
-
--- Left diagonal stroke of M (center going up-left)
-local M_DiagLeft = Create("Frame", {
-    Name = "MDiagLeft",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 3, 0, 12),
-    Position = UDim2.new(0.5, -1, 0.5, -10),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    Rotation = -30,
-    ZIndex = 52,
-})
-CreateCorner(M_DiagLeft, 2)
-
--- Right diagonal stroke of M (center going up-right)
-local M_DiagRight = Create("Frame", {
-    Name = "MDiagRight",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 3, 0, 12),
-    Position = UDim2.new(0.5, -1, 0.5, -10),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    Rotation = 30,
-    ZIndex = 52,
-})
-CreateCorner(M_DiagRight, 2)
-
--- Center V bottom of M
-local M_Center = Create("Frame", {
-    Name = "MCenter",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 3, 0, 10),
-    Position = UDim2.new(0.5, -1, 0.5, 0),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 52,
-})
-CreateCorner(M_Center, 2)
-
--- Decorative corner accents (small dots at shield corners)
-local CornerTL = Create("Frame", {
-    Name = "CornerTL",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 4, 0, 4),
-    Position = UDim2.new(0, 4, 0, 4),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 52,
-})
-CreateCorner(CornerTL, 2)
-
-local CornerTR = Create("Frame", {
-    Name = "CornerTR",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 4, 0, 4),
-    Position = UDim2.new(1, -8, 0, 4),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 52,
-})
-CreateCorner(CornerTR, 2)
-
-local CornerBL = Create("Frame", {
-    Name = "CornerBL",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 4, 0, 4),
-    Position = UDim2.new(0, 4, 1, -8),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 52,
-})
-CreateCorner(CornerBL, 2)
-
-local CornerBR = Create("Frame", {
-    Name = "CornerBR",
-    Parent = ShieldOuter,
-    Size = UDim2.new(0, 4, 0, 4),
-    Position = UDim2.new(1, -8, 1, -8),
-    BackgroundColor3 = Colors.Accent,
-    BackgroundTransparency = 1,
-    BorderSizePixel = 0,
-    ZIndex = 52,
-})
-CreateCorner(CornerBR, 2)
-
--- Glow effect behind logo
 local LogoGlow = Create("Frame", {
-    Name = "LogoGlow",
     Parent = MinimizedLogo,
-    Size = UDim2.new(1, 20, 1, 20),
-    Position = UDim2.new(0, -10, 0, -10),
+    Size = UDim2.new(1,20,1,20),
+    Position = UDim2.new(0,-10,0,-10),
     BackgroundColor3 = Colors.Accent,
     BackgroundTransparency = 1,
     BorderSizePixel = 0,
@@ -1352,464 +3805,253 @@ local LogoGlow = Create("Frame", {
 })
 CreateCorner(LogoGlow, 20)
 
--- Click detector for minimized logo
 local LogoClick = Create("TextButton", {
-    Name = "LogoClick",
     Parent = MinimizedLogo,
-    Size = UDim2.new(1, 0, 1, 0),
+    Size = UDim2.new(1,0,1,0),
     BackgroundTransparency = 1,
     Text = "",
     ZIndex = 60,
 })
 
--- Subtle hover effect for minimized logo (opacity only, no scale)
+local function AnimateLogoParts(alpha)
+    Tween(ShieldStroke, {Transparency = alpha}, 0.35)
+    for _, p in ipairs(mParts) do
+        Tween(p, {BackgroundTransparency = alpha}, 0.35)
+    end
+    Tween(LogoGlow, {BackgroundTransparency = alpha + 0.65}, 0.35)
+end
+
 LogoClick.MouseEnter:Connect(function()
-    Tween(ShieldStroke, {Color = Colors.TextPrimary}, 0.25)
-    Tween(M_Left, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
-    Tween(M_Right, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
-    Tween(M_DiagLeft, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
-    Tween(M_DiagRight, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
-    Tween(M_Center, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
-    Tween(CornerTL, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
-    Tween(CornerTR, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
-    Tween(CornerBL, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
-    Tween(CornerBR, {BackgroundColor3 = Colors.TextPrimary}, 0.25)
+    for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = Colors.TextPrimary}, 0.2) end
+    Tween(ShieldStroke, {Color = Colors.TextPrimary}, 0.2)
 end)
-
 LogoClick.MouseLeave:Connect(function()
-    Tween(ShieldStroke, {Color = Colors.Accent}, 0.25)
-    Tween(M_Left, {BackgroundColor3 = Colors.Accent}, 0.25)
-    Tween(M_Right, {BackgroundColor3 = Colors.Accent}, 0.25)
-    Tween(M_DiagLeft, {BackgroundColor3 = Colors.Accent}, 0.25)
-    Tween(M_DiagRight, {BackgroundColor3 = Colors.Accent}, 0.25)
-    Tween(M_Center, {BackgroundColor3 = Colors.Accent}, 0.25)
-    Tween(CornerTL, {BackgroundColor3 = Colors.Accent}, 0.25)
-    Tween(CornerTR, {BackgroundColor3 = Colors.Accent}, 0.25)
-    Tween(CornerBL, {BackgroundColor3 = Colors.Accent}, 0.25)
-    Tween(CornerBR, {BackgroundColor3 = Colors.Accent}, 0.25)
+    for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = Colors.Accent}, 0.2) end
+    Tween(ShieldStroke, {Color = Colors.Accent}, 0.2)
 end)
 
--- ==================== MINIMIZED LOGO DRAGGING ====================
-local logoDragging = false
-local logoDragStart = nil
-local logoStartPos = nil
-local logoDragThreshold = 5
-local logoHasMoved = false
-
+local logoDragging, logoDragStart, logoStartPos, logoHasMoved = false, nil, nil, false
 LogoClick.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         logoDragging = true
         logoHasMoved = false
         logoDragStart = input.Position
         logoStartPos = MinimizedLogo.Position
     end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
-    if logoDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+    if logoDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Position - logoDragStart
-        if math.abs(delta.X) > logoDragThreshold or math.abs(delta.Y) > logoDragThreshold then
-            logoHasMoved = true
-        end
+        if delta.Magnitude > 5 then logoHasMoved = true end
         if logoHasMoved then
-            MinimizedLogo.Position = UDim2.new(
-                logoStartPos.X.Scale, logoStartPos.X.Offset + delta.X,
-                logoStartPos.Y.Scale, logoStartPos.Y.Offset + delta.Y
-            )
+            MinimizedLogo.Position = UDim2.new(logoStartPos.X.Scale, logoStartPos.X.Offset + delta.X, logoStartPos.Y.Scale, logoStartPos.Y.Offset + delta.Y)
         end
     end
 end)
-
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        logoDragging = false
-    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then logoDragging = false end
 end)
 
--- ==================== WINDOW DRAGGING ====================
-local dragging = false
-local dragStart = nil
-local startPos = nil
-
+-- ======================== WINDOW DRAG ========================
+local dragging, dragStart, startPos = false, nil, nil
 TopBar.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
         dragStart = input.Position
         startPos = MainFrame.Position
     end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
         local delta = input.Position - dragStart
-        MainFrame.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
-        )
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = false
-    end
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
 end)
 
--- ==================== CONFIRMATION MODAL ====================
+-- ======================== MINIMIZE / RESTORE ========================
+local minimized = false
+
+local function DoMinimize()
+    minimized = true
+    local ap = MainFrame.AbsolutePosition
+    local as = MainFrame.AbsoluteSize
+    local cx = ap.X + as.X / 2
+    local cy = ap.Y + as.Y / 2
+
+    MinimizedLogo.Position = UDim2.new(0, cx - 30, 0, cy - 30)
+
+    Tween(MainFrame, {Size = UDim2.new(0,60,0,60), Position = UDim2.new(0, cx-30, 0, cy-30)}, 0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+    task.delay(0.25, function()
+        Sidebar.Visible = false
+        ContentArea.Visible = false
+        TopBar.Visible = false
+    end)
+    task.delay(0.4, function()
+        MinimizedLogo.Visible = true
+        Tween(MinimizedLogo, {BackgroundTransparency = 0}, 0.3)
+        AnimateLogoParts(0)
+    end)
+end
+
+local function DoRestore()
+    minimized = false
+    AnimateLogoParts(1)
+    Tween(MinimizedLogo, {BackgroundTransparency = 1}, 0.25)
+    task.delay(0.2, function()
+        MinimizedLogo.Visible = false
+        TopBar.Visible = true
+        Sidebar.Visible = true
+        ContentArea.Visible = true
+        MainFrame.BackgroundTransparency = 0
+        Tween(MainFrame, {Size = originalSize, Position = UDim2.new(0.5,-450,0.5,-300)}, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    end)
+end
+
+MinimizeButton.MouseButton1Click:Connect(function()
+    if minimized then DoRestore() else DoMinimize() end
+end)
+LogoClick.MouseButton1Click:Connect(function()
+    if minimized and not logoHasMoved then DoRestore() end
+end)
+
+-- ======================== CONFIRM CLOSE MODAL ========================
 local ConfirmModal = Create("Frame", {
-    Name = "ConfirmModal",
     Parent = ScreenGui,
-    Size = UDim2.new(1, 0, 1, 0),
-    BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+    Size = UDim2.new(1,0,1,0),
+    BackgroundColor3 = Color3.fromRGB(0,0,0),
     BackgroundTransparency = 1,
-    BorderSizePixel = 0,
     Visible = false,
     ZIndex = 1000,
 })
-
 local ConfirmBox = Create("Frame", {
-    Name = "ConfirmBox",
     Parent = ConfirmModal,
     Size = UDim2.new(0, 380, 0, 200),
-    Position = UDim2.new(0.5, -190, 0.5, -100),
+    Position = UDim2.new(0.5,-190,0.5,-100),
     BackgroundColor3 = Colors.BackgroundLight,
     BorderSizePixel = 0,
     ZIndex = 1001,
 })
 CreateCorner(ConfirmBox, 16)
 CreateStroke(ConfirmBox, Colors.Border, 1)
+local confContent = Create("Frame", {Parent=ConfirmBox, Size=UDim2.new(1,-48,1,-48), Position=UDim2.new(0,24,0,24), BackgroundTransparency=1, ZIndex=1002})
+Create("UIListLayout", {Parent=confContent, Padding=UDim.new(0,10), HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center, SortOrder=Enum.SortOrder.LayoutOrder})
+Create("TextLabel", {Parent=confContent, Size=UDim2.new(1,0,0,28), BackgroundTransparency=1, Text="Close Miracle Hub?", TextColor3=Colors.TextPrimary, TextSize=20, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Center, LayoutOrder=1, ZIndex=1002})
+Create("TextLabel", {Parent=confContent, Size=UDim2.new(1,0,0,36), BackgroundTransparency=1, Text="All automation loops will stop. Re-inject to use again.", TextColor3=Colors.TextSecondary, TextSize=13, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Center, TextWrapped=true, LayoutOrder=2, ZIndex=1002})
+local btnRow = Create("Frame", {Parent=confContent, Size=UDim2.new(1,0,0,38), BackgroundTransparency=1, LayoutOrder=3, ZIndex=1002})
+Create("UIListLayout", {Parent=btnRow, Padding=UDim.new(0,12), FillDirection=Enum.FillDirection.Horizontal, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center})
+local ConfYes = Create("TextButton", {Parent=btnRow, Size=UDim2.new(0,110,0,36), BackgroundColor3=Color3.fromRGB(180,80,80), Text="Yes, Close", TextColor3=Colors.TextPrimary, TextSize=13, Font=Enum.Font.GothamBold, BorderSizePixel=0, ZIndex=1002, AutoButtonColor=false})
+CreateCorner(ConfYes, 8)
+local ConfNo = Create("TextButton", {Parent=btnRow, Size=UDim2.new(0,110,0,36), BackgroundColor3=Colors.Surface, Text="Cancel", TextColor3=Colors.TextPrimary, TextSize=13, Font=Enum.Font.GothamBold, BorderSizePixel=0, ZIndex=1002, AutoButtonColor=false})
+CreateCorner(ConfNo, 8)
 
--- Centered content container using UIListLayout
-local ConfirmContent = Create("Frame", {
-    Name = "ConfirmContent",
-    Parent = ConfirmBox,
-    Size = UDim2.new(1, -48, 1, -48),
-    Position = UDim2.new(0, 24, 0, 24),
-    BackgroundTransparency = 1,
-    ZIndex = 1002,
-})
-
-local ConfirmLayout = Create("UIListLayout", {
-    Parent = ConfirmContent,
-    Padding = UDim.new(0, 12),
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    HorizontalAlignment = Enum.HorizontalAlignment.Center,
-    VerticalAlignment = Enum.VerticalAlignment.Center,
-})
-
-local ConfirmTitle = Create("TextLabel", {
-    Name = "ConfirmTitle",
-    Parent = ConfirmContent,
-    Size = UDim2.new(1, 0, 0, 28),
-    BackgroundTransparency = 1,
-    Text = "Close Miracle Hub?",
-    TextColor3 = Colors.TextPrimary,
-    TextSize = 20,
-    Font = Enum.Font.GothamBold,
-    TextXAlignment = Enum.TextXAlignment.Center,
-    LayoutOrder = 1,
-    ZIndex = 1002,
-})
-
-local ConfirmDesc = Create("TextLabel", {
-    Name = "ConfirmDesc",
-    Parent = ConfirmContent,
-    Size = UDim2.new(1, 0, 0, 40),
-    BackgroundTransparency = 1,
-    Text = "Are you sure you want to close? You will need to reinject to use it again.",
-    TextColor3 = Colors.TextSecondary,
-    TextSize = 14,
-    Font = Enum.Font.Gotham,
-    TextXAlignment = Enum.TextXAlignment.Center,
-    TextWrapped = true,
-    LayoutOrder = 2,
-    ZIndex = 1002,
-})
-
--- Button row container
-local ButtonRow = Create("Frame", {
-    Name = "ButtonRow",
-    Parent = ConfirmContent,
-    Size = UDim2.new(1, 0, 0, 40),
-    BackgroundTransparency = 1,
-    LayoutOrder = 3,
-    ZIndex = 1002,
-})
-
-local ButtonRowLayout = Create("UIListLayout", {
-    Parent = ButtonRow,
-    Padding = UDim.new(0, 12),
-    SortOrder = Enum.SortOrder.LayoutOrder,
-    FillDirection = Enum.FillDirection.Horizontal,
-    HorizontalAlignment = Enum.HorizontalAlignment.Center,
-    VerticalAlignment = Enum.VerticalAlignment.Center,
-})
-
-local ConfirmYes = Create("TextButton", {
-    Name = "ConfirmYes",
-    Parent = ButtonRow,
-    Size = UDim2.new(0, 110, 0, 36),
-    BackgroundColor3 = Color3.fromRGB(180, 80, 80),
-    Text = "Yes, Close",
-    TextColor3 = Colors.TextPrimary,
-    TextSize = 14,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    ZIndex = 1002,
-    AutoButtonColor = false,
-})
-CreateCorner(ConfirmYes, 8)
-
-local ConfirmNo = Create("TextButton", {
-    Name = "ConfirmNo",
-    Parent = ButtonRow,
-    Size = UDim2.new(0, 110, 0, 36),
-    BackgroundColor3 = Colors.Surface,
-    Text = "Cancel",
-    TextColor3 = Colors.TextPrimary,
-    TextSize = 14,
-    Font = Enum.Font.GothamBold,
-    BorderSizePixel = 0,
-    ZIndex = 1002,
-    AutoButtonColor = false,
-})
-CreateCorner(ConfirmNo, 8)
-
-ConfirmYes.MouseEnter:Connect(function()
-    Tween(ConfirmYes, {BackgroundColor3 = Color3.fromRGB(200, 90, 90)}, 0.2)
-end)
-ConfirmYes.MouseLeave:Connect(function()
-    Tween(ConfirmYes, {BackgroundColor3 = Color3.fromRGB(180, 80, 80)}, 0.2)
-end)
-
-ConfirmNo.MouseEnter:Connect(function()
-    Tween(ConfirmNo, {BackgroundColor3 = Colors.SurfaceLight}, 0.2)
-end)
-ConfirmNo.MouseLeave:Connect(function()
-    Tween(ConfirmNo, {BackgroundColor3 = Colors.Surface}, 0.2)
-end)
-
--- Close button with confirmation popup
-local originalSize = UDim2.new(0, 900, 0, 600)
 CloseButton.MouseButton1Click:Connect(function()
+    if States.minimizeToTray then
+        DoMinimize()
+        return
+    end
     ConfirmModal.Visible = true
-    ConfirmModal.BackgroundTransparency = 1
-    ConfirmBox.Size = UDim2.new(0, 360, 0, 190)
-    ConfirmBox.Position = UDim2.new(0.5, -180, 0.5, -95)
-    Tween(ConfirmModal, {BackgroundTransparency = 0.6}, 0.25)
-    Tween(ConfirmBox, {Size = UDim2.new(0, 380, 0, 200), Position = UDim2.new(0.5, -190, 0.5, -100)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    Tween(ConfirmModal, {BackgroundTransparency = 0.55}, 0.25)
+    Tween(ConfirmBox, {Size=UDim2.new(0,380,0,200)}, 0.3, Enum.EasingStyle.Back)
 end)
-
-ConfirmNo.MouseButton1Click:Connect(function()
-    -- Smooth close animation
-    Tween(ConfirmBox, {Size = UDim2.new(0, 360, 0, 190), Position = UDim2.new(0.5, -180, 0.5, -95)}, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+ConfNo.MouseButton1Click:Connect(function()
+    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
     task.wait(0.3)
     ConfirmModal.Visible = false
 end)
-
-ConfirmYes.MouseButton1Click:Connect(function()
+ConfYes.MouseButton1Click:Connect(function()
     Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
-    Tween(ConfirmBox, {Size = UDim2.new(0, 360, 0, 190), Position = UDim2.new(0.5, -180, 0.5, -95)}, 0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
     task.wait(0.25)
-    Tween(MainFrame, {Size = UDim2.new(0, 900, 0, 0)}, 0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-    task.wait(0.35)
+    Tween(MainFrame, {Size=UDim2.new(0,900,0,0)}, 0.3)
+    task.wait(0.3)
     ScreenGui:Destroy()
 end)
 
--- ==================== MINIMIZE WITH MIRACLE LOGO ANIMATION ====================
-local minimized = false
-
--- Helper function to animate logo parts
-local function AnimateLogoParts(transparency, duration)
-    duration = duration or 0.4
-    Tween(ShieldOuter, {BackgroundTransparency = transparency > 0.5 and 1 or 0.1}, duration)
-    Tween(ShieldStroke, {Transparency = transparency}, duration)
-    Tween(M_Left, {BackgroundTransparency = transparency}, duration)
-    Tween(M_Right, {BackgroundTransparency = transparency}, duration)
-    Tween(M_DiagLeft, {BackgroundTransparency = transparency}, duration)
-    Tween(M_DiagRight, {BackgroundTransparency = transparency}, duration)
-    Tween(M_Center, {BackgroundTransparency = transparency}, duration)
-    Tween(CornerTL, {BackgroundTransparency = transparency}, duration)
-    Tween(CornerTR, {BackgroundTransparency = transparency}, duration)
-    Tween(CornerBL, {BackgroundTransparency = transparency}, duration)
-    Tween(CornerBR, {BackgroundTransparency = transparency}, duration)
-    Tween(LogoGlow, {BackgroundTransparency = transparency + 0.7}, duration)
-end
-
--- Minimize / Restore function (reusable)
-local function DoMinimize()
-    minimized = true
-    -- Get current position for logo placement
-    local currentPos = MainFrame.AbsolutePosition
-    local centerX = currentPos.X + MainFrame.AbsoluteSize.X / 2
-    local centerY = currentPos.Y + MainFrame.AbsoluteSize.Y / 2
-    
-    -- Position logo at center of main frame
-    MinimizedLogo.Position = UDim2.new(0, centerX - 30, 0, centerY - 30)
-    
-    -- Fade out main frame content first
-    Tween(MainFrame, {BackgroundTransparency = 1}, 0.25)
-    Tween(TopBar, {BackgroundTransparency = 1}, 0.25)
-    
-    -- Shrink main frame to center
-    Tween(MainFrame, {
-        Size = UDim2.new(0, 60, 0, 60),
-        Position = UDim2.new(0, centerX - 30, 0, centerY - 30)
-    }, 0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
-    
-    task.delay(0.3, function()
-        Sidebar.Visible = false
-        ContentArea.Visible = false
-        -- Hide all top bar elements
-        for _, child in ipairs(TopBar:GetDescendants()) do
-            if child:IsA("GuiObject") then
-                child.Visible = false
-            end
-        end
-        TopBar.Visible = false
-    end)
-    
-    -- Show and animate logo
-    task.delay(0.45, function()
-        MinimizedLogo.Visible = true
-        MinimizedLogo.BackgroundTransparency = 1
-        Tween(MinimizedLogo, {BackgroundTransparency = 0}, 0.3)
-        AnimateLogoParts(0, 0.4)
-        
-        -- Subtle pulse animation
-        task.delay(0.5, function()
-            Tween(LogoGlow, {BackgroundTransparency = 0.85}, 0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-        end)
-    end)
-end
-
-local function DoRestore()
-    minimized = false
-    -- Fade out logo parts
-    AnimateLogoParts(1, 0.25)
-    Tween(MinimizedLogo, {BackgroundTransparency = 1}, 0.3)
-    
-    task.delay(0.2, function()
-        MinimizedLogo.Visible = false
-        
-        -- Restore main frame
-        MainFrame.BackgroundTransparency = 0
-        TopBar.BackgroundTransparency = 0
-        TopBar.Visible = true
-        
-        -- Show all top bar elements
-        for _, child in ipairs(TopBar:GetDescendants()) do
-            if child:IsA("GuiObject") then
-                child.Visible = true
-            end
-        end
-        
-        Sidebar.Visible = true
-        ContentArea.Visible = true
-        
-        -- Animate back to full size
-        Tween(MainFrame, {
-            Size = originalSize,
-            Position = UDim2.new(0.5, -450, 0.5, -300)
-        }, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-    end)
-end
-
-MinimizeButton.MouseButton1Click:Connect(function()
-    if minimized then
-        DoRestore()
-    else
-        DoMinimize()
+-- ======================== KEYBINDS ========================
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    -- Insert: toggle minimize
+    if input.KeyCode == Enum.KeyCode.Insert then
+        if minimized then DoRestore() else DoMinimize() end
+    end
+    -- F: toggle fly
+    if input.KeyCode == Enum.KeyCode.F then
+        States.fly = not States.fly
+        Notify("Player", "Fly " .. (States.fly and "ON ✅" or "OFF ❌"), States.fly and Colors.Success or Colors.TextMuted)
     end
 end)
 
--- Click on minimized logo to restore (only if not dragged)
-LogoClick.MouseButton1Click:Connect(function()
-    if minimized and not logoHasMoved then
-        DoRestore()
-    end
-end)
-
--- ==================== INSERT KEY TOGGLE (MINIMIZE / MAXIMIZE) ====================
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.Insert then
-        if minimized then
-            DoRestore()
-        else
-            DoMinimize()
-        end
-    end
-end)
-
--- ==================== REALTIME LOADING SCREEN ====================
-local loadingSteps = {
-    {text = "Initializing core...", duration = 0.4},
-    {text = "Loading player data...", duration = 0.5},
-    {text = "Building UI components...", duration = 0.6},
-    {text = "Setting up sidebar...", duration = 0.4},
-    {text = "Loading player page...", duration = 0.3},
-    {text = "Loading farm page...", duration = 0.3},
-    {text = "Loading shop page...", duration = 0.3},
-    {text = "Loading utility page...", duration = 0.3},
-    {text = "Loading visuals page...", duration = 0.3},
-    {text = "Loading teleport page...", duration = 0.3},
-    {text = "Loading settings page...", duration = 0.3},
-    {text = "Finalizing...", duration = 0.4},
+-- ======================== LOADING SCREEN ========================
+local loadSteps = {
+    {text = "Initializing core systems...", d = 0.3},
+    {text = "Reading player attributes...", d = 0.3},
+    {text = "Detecting PlotId = " .. MY_PLOT_ID .. "...", d = 0.3},
+    {text = "Scanning backpack (Seeds, Pets, Gear)...", d = 0.4},
+    {text = "Mapping Gardens.Plot" .. MY_PLOT_ID .. ".Plants...", d = 0.3},
+    {text = "Locating Packet RemoteEvent...", d = 0.3},
+    {text = "Packet IDs: PlantSeed=9, OpenEgg=139...", d = 0.3},
+    {text = "Found mutations: Gold, Electric, Rainbow, Frozen...", d = 0.3},
+    {text = "Mapping WildPetSpawns (BuyPrompt system)...", d = 0.3},
+    {text = "Mapping teleport parts (Seeds, Sell, Gears, Props)...", d = 0.25},
+    {text = "Building Farm & Harvest features...", d = 0.25},
+    {text = "Building Shop & Auto-Buy (PurchaseSeed=120)...", d = 0.25},
+    {text = "Building Sell & Bag Inspector...", d = 0.25},
+    {text = "Building Pet Manager & Wild Pet Catcher...", d = 0.25},
+    {text = "Building Visuals ESP system...", d = 0.25},
+    {text = "Building Utility & Mailbox...", d = 0.2},
+    {text = "Connecting search & keybinds...", d = 0.2},
+    {text = "Finalizing Miracle Hub...", d = 0.3},
 }
 
-local totalDuration = 0
-for _, step in ipairs(loadingSteps) do
-    totalDuration = totalDuration + step.duration
-end
+local totalDur = 0
+for _, s in ipairs(loadSteps) do totalDur += s.d end
 
-local currentTime = 0
-local connection
+local elapsed = 0
+local conn
+conn = RunService.Heartbeat:Connect(function(dt)
+    elapsed = elapsed + dt
+    local pct = math.clamp(elapsed / totalDur, 0, 1)
+    Tween(LoadingBarFill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
+    LoadingPercent.Text = math.floor(pct * 100) .. "%"
 
-connection = RunService.Heartbeat:Connect(function(dt)
-    currentTime = currentTime + dt
-    local progress = math.clamp(currentTime / totalDuration, 0, 1)
-    local percent = math.floor(progress * 100)
-    
-    -- Update bar
-    Tween(LoadingBarFill, {Size = UDim2.new(progress, 0, 1, 0)}, 0.05)
-    LoadingPercent.Text = percent .. "%"
-    
-    -- Update status text based on current step
-    local accumulated = 0
-    for _, step in ipairs(loadingSteps) do
-        accumulated = accumulated + step.duration
-        if currentTime <= accumulated then
-            LoadingStatus.Text = step.text
+    local acc = 0
+    for _, s in ipairs(loadSteps) do
+        acc += s.d
+        if elapsed <= acc then
+            LoadingStatus.Text = s.text
             break
         end
     end
-    
-    if progress >= 1 then
-        connection:Disconnect()
-        LoadingStatus.Text = "Done!"
-        task.wait(0.3)
-        
-        -- Fade out loading screen
+
+    if pct >= 1 then
+        conn:Disconnect()
+        LoadingStatus.Text = "✅ Ready!"
+        task.wait(0.4)
+
         Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
-        Tween(LoadingTitle, {TextTransparency = 1}, 0.4)
-        Tween(LoadingSubtitle, {TextTransparency = 1}, 0.4)
-        Tween(LoadingBarBg, {BackgroundTransparency = 1}, 0.4)
-        Tween(LoadingBarFill, {BackgroundTransparency = 1}, 0.4)
-        Tween(LoadingPercent, {TextTransparency = 1}, 0.4)
-        Tween(LoadingStatus, {TextTransparency = 1}, 0.4)
-        Tween(LoadingScreen, {BackgroundTransparency = 1}, 0.5)
-        
+        for _, c in ipairs(LoadingContainer:GetDescendants()) do
+            if c:IsA("TextLabel") then Tween(c, {TextTransparency = 1}, 0.4)
+            elseif c:IsA("Frame") then Tween(c, {BackgroundTransparency = 1}, 0.4) end
+        end
         task.wait(0.5)
         LoadingScreen:Destroy()
-        
-        -- Show main GUI
+
         MainFrame.Visible = true
         MainFrame.Size = UDim2.new(0, 900, 0, 0)
         Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        
-        -- Print green console messages (using RichText for output window)
-        print("[Miracle Hub] GUI Loaded Successfully for player: " .. (player.DisplayName ~= "" and player.DisplayName or player.Name))
-        print("[Miracle Hub] Press Insert to toggle the GUI")
+
+        task.wait(0.3)
+        SetActivePage("Farm")
+
+        task.wait(0.8)
+        local remoteStatus = PacketRemote and "Remote ✅" or "Remote ⚠ (check console)"
+        Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | [Insert] toggle | [F] fly", Colors.Success, 6)
     end
 end)
+
+print("[Miracle Hub] Full build loaded — Player: " .. player.Name)
+print("[Miracle Hub] PlotId: " .. MY_PLOT_ID .. " | MaxPets: " .. MAX_EQUIPPED_PETS .. " | MaxFruits: " .. MAX_FRUIT_CAP)
+print("[Miracle Hub] PacketRemote: " .. (PacketRemote and PacketRemote:GetFullName() or "NOT FOUND"))
+print("[Miracle Hub] Keybinds: [Insert] = toggle GUI | [F] = toggle Fly")
