@@ -9,6 +9,10 @@ local playerGui = player:WaitForChild("PlayerGui")
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 
+-- Kill semua loop dari inject sebelumnya (cegah double loop)
+_G._MiracleHubSession = (_G._MiracleHubSession or 0) + 1
+local _SESSION = _G._MiracleHubSession
+
 -- Remove existing GUI if any
 local existingGui = playerGui:FindFirstChild("MiracleHub")
 if existingGui then existingGui:Destroy() end
@@ -54,6 +58,51 @@ local SEEDS = {
     "Moon Bloom", "Dragon's Breath", "Ghost Pepper", "Poison Ivy",
     "Baby Cactus", "Glow Mushroom", "Romanesco", "Horned Melon",
     "Hypnobloom", "Gold", "Rainbow",
+}
+-- Gear list dari GearShopData (semua item yg ada di GearShop, exclude HideFromShop jika diinginkan)
+local GEARS = {
+    "Common Watering Can", "Common Sprinkler", "Sign", "Megaphone",
+    "Uncommon Sprinkler", "Rare Sprinkler", "Legendary Sprinkler", "Super Sprinkler",
+    "Wheelbarrow", "Strawberry Sniper", "Trowel",
+    "Speed Mushroom", "Jump Mushroom", "Shrink Mushroom", "Supersize Mushroom",
+    "Invisibility Mushroom", "Gnome", "Teleporter",
+    "Super Watering Can", "Basic Pot", "Flashbang",
+    "Player Magnet", "Grappling Hook",
+    "Legendary Pet Teleporter", "Mythic Pet Teleporter", "Super Pet Teleporter",
+}
+local CRATES = {
+    "Arch Crate",
+    "Bear Trap Crate",
+    "Bench Crate",
+    "Bridge Crate",
+    "Conveyor Crate",
+    "Fence Crate",
+    "Ladder Crate",
+    "Light Crate",
+    "Owner Door Crate",
+    "Picture Frame Crate",
+    "Roleplay Crate",
+    "Seesaw Crate",
+    "Sign Crate",
+    "Spring Crate",
+    "Teleporter Pad Crate",
+}
+local CRATE_COST = {
+    ["Arch Crate"]          = 200000,
+    ["Bear Trap Crate"]     = 500000,
+    ["Bench Crate"]         = 60000,
+    ["Bridge Crate"]        = 700000,
+    ["Conveyor Crate"]      = 700000,
+    ["Fence Crate"]         = 7000000,
+    ["Ladder Crate"]        = 30000,
+    ["Light Crate"]         = 90000,
+    ["Owner Door Crate"]    = 1500000,
+    ["Picture Frame Crate"] = 350000,
+    ["Roleplay Crate"]      = 300000,
+    ["Seesaw Crate"]        = 1500000,
+    ["Sign Crate"]          = 150000,
+    ["Spring Crate"]        = 900000,
+    ["Teleporter Pad Crate"]= 20000000,
 }
 local MUTATIONS = {"None", "Gold", "Electric", "Rainbow", "Frozen"}
 local RARITIES = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical"}
@@ -126,14 +175,29 @@ local States = {
     notifyHarvest = false,
     -- Shop
     autoBuySeed = false,
-    autoBuySeedTarget = "Bamboo",      -- legacy (fallback jika targets kosong)
+    autoBuySeedTarget = nil,            -- legacy (tidak dipakai jika targets kosong)
     autoBuySeedTargets = {},           -- TABLE: daftar seed dipilih (multi-select)
     autoBuyQuantity = 1,               -- jumlah yg dibeli per cycle (1/3/10/50)
     autoBuyQtyStr = "1",               -- versi string untuk dropdown
     autoBuyAll = false,                -- beli semua seed yg ada stoknya
+    autoBuyGear = false,
+    autoBuyGearTargets = {},           -- TABLE: daftar gear dipilih (multi-select)
+    autoBuyGearAll = false,            -- beli semua gear yg ada stoknya
+    gearBuyDelay = 0.05,               -- delay antar beli gear
+    gearShopLoopDelay = 0.5,           -- loop delay cek stok gear
+    notifyBuyGear = true,
     autoCrate = false,
     buyBeforeOpen = true,
     crateLoopDelay = 8,
+    autoBuyCrate = false,
+    autoBuyCrateTargets = {},          -- TABLE: daftar crate dipilih (multi-select)
+    autoBuyCrateAll = false,           -- beli semua crate yg ada stoknya
+    crateBuyDelay = 0.05,              -- delay antar beli crate
+    crateShopLoopDelay = 0.5,          -- loop delay cek stok crate
+    notifyBuyCrate = true,
+    autoOpenCrate = false,
+    crateOpenDelay = 8,                -- delay antar open (biar efek selesai)
+    notifyOpenCrate = true,
     buyDelay = 0.05,                   -- delay antar beli (cepat)
     shopLoopDelay = 0.5,               -- loop delay (cek stock tiap 0.5s)
     notifyBuy = true,
@@ -298,7 +362,7 @@ local function Notify(title, message, color, duration)
 
     Create("TextLabel", {
         Parent = notifFrame,
-        Size = UDim2.new(1, -20, 0, 20),
+        Size = UDim2.new(1, -44, 0, 20),
         Position = UDim2.new(0, 12, 0, 8),
         BackgroundTransparency = 1,
         Text = title,
@@ -322,15 +386,161 @@ local function Notify(title, message, color, duration)
         TextTruncate = Enum.TextTruncate.AtEnd,
     })
 
+    -- Tombol close (×) di sudut kanan atas
+    local closeBtn = Create("TextButton", {
+        Parent = notifFrame,
+        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(1, -26, 0, 6),
+        BackgroundTransparency = 1,
+        Text = "×",
+        TextColor3 = Colors.TextMuted,
+        TextSize = 15,
+        Font = Enum.Font.GothamBold,
+        BorderSizePixel = 0,
+        ZIndex = 202,
+        AutoButtonColor = false,
+    })
+
     notifFrame.Position = UDim2.new(1, 10, 0, 16 + yOffset)
     Tween(notifFrame, {Position = UDim2.new(1, -290, 0, 16 + yOffset)}, 0.3, Enum.EasingStyle.Back)
 
-    task.delay(duration, function()
+    local dismissed = false
+    local function DismissNotif()
+        if dismissed then return end
+        dismissed = true
         Tween(notifFrame, {Position = UDim2.new(1, 10, 0, 16 + yOffset)}, 0.3)
         task.wait(0.35)
         if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
         notifCount = math.max(0, notifCount - 1)
-    end)
+    end
+
+    closeBtn.MouseButton1Click:Connect(DismissNotif)
+    task.delay(duration, DismissNotif)
+end
+
+-- Notifikasi stok khusus: vertikal, scrollable, ada tombol close, durasi panjang
+local _stockNotif = nil
+local function NotifyStok(available, color, duration)
+    if not States.showNotifications then return end
+    duration = duration or 30
+
+    -- Tutup notif stok sebelumnya jika masih tampil
+    if _stockNotif and _stockNotif.Parent then
+        _stockNotif:Destroy()
+        _stockNotif = nil
+    end
+
+    local lineH      = 20
+    local headerH    = 36
+    local maxVisible = 8
+    local visibleCount = math.min(#available, maxVisible)
+    local listH      = visibleCount * lineH
+    local totalH     = headerH + listH + 16
+
+    local notifFrame = Create("Frame", {
+        Parent = playerGui:FindFirstChild("MiracleHub"),
+        Size = UDim2.new(0, 290, 0, totalH),
+        Position = UDim2.new(1, 10, 0, 16),
+        BackgroundColor3 = Colors.BackgroundLight,
+        BorderSizePixel = 0,
+        ZIndex = 200,
+    })
+    CreateCorner(notifFrame, 10)
+    CreateStroke(notifFrame, color or Colors.Success, 1)
+    _stockNotif = notifFrame
+
+    -- Left color bar
+    Create("Frame", {
+        Parent = notifFrame,
+        Size = UDim2.new(0, 3, 1, 0),
+        BackgroundColor3 = color or Colors.Success,
+        BorderSizePixel = 0,
+        ZIndex = 201,
+    })
+
+    -- Judul
+    Create("TextLabel", {
+        Parent = notifFrame,
+        Size = UDim2.new(1, -50, 0, 22),
+        Position = UDim2.new(0, 12, 0, 7),
+        BackgroundTransparency = 1,
+        Text = "🌱 Stok Ada (" .. #available .. " seed)",
+        TextColor3 = Colors.TextPrimary,
+        TextSize = 13,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 201,
+    })
+
+    -- Tombol close
+    local closeBtn = Create("TextButton", {
+        Parent = notifFrame,
+        Size = UDim2.new(0, 22, 0, 22),
+        Position = UDim2.new(1, -28, 0, 7),
+        BackgroundColor3 = Colors.Surface,
+        Text = "x",
+        TextColor3 = Colors.TextMuted,
+        TextSize = 14,
+        Font = Enum.Font.GothamBold,
+        BorderSizePixel = 0,
+        ZIndex = 202,
+        AutoButtonColor = false,
+    })
+    CreateCorner(closeBtn, 5)
+
+    -- Separator
+    Create("Frame", {
+        Parent = notifFrame,
+        Size = UDim2.new(1, -18, 0, 1),
+        Position = UDim2.new(0, 9, 0, 31),
+        BackgroundColor3 = Colors.Border,
+        BorderSizePixel = 0,
+        ZIndex = 201,
+    })
+
+    -- Scrollable list baris per baris
+    local scrollFrame = Create("ScrollingFrame", {
+        Parent = notifFrame,
+        Size = UDim2.new(1, -18, 0, listH),
+        Position = UDim2.new(0, 12, 0, headerH),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Colors.Border,
+        CanvasSize = UDim2.new(0, 0, 0, #available * lineH),
+        ZIndex = 201,
+    })
+    CreateListLayout(scrollFrame, 0)
+
+    for _, entry in ipairs(available) do
+        Create("TextLabel", {
+            Parent = scrollFrame,
+            Size = UDim2.new(1, 0, 0, lineH),
+            BackgroundTransparency = 1,
+            Text = "• " .. entry,
+            TextColor3 = Colors.TextSecondary,
+            TextSize = 11,
+            Font = Enum.Font.Gotham,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 202,
+        })
+    end
+
+    -- Slide in dari kanan
+    Tween(notifFrame, {Position = UDim2.new(1, -300, 0, 16)}, 0.3, Enum.EasingStyle.Back)
+
+    local dismissed = false
+    local function DismissStok()
+        if dismissed then return end
+        dismissed = true
+        Tween(notifFrame, {Position = UDim2.new(1, 10, 0, 16)}, 0.3)
+        task.wait(0.35)
+        if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+        _stockNotif = nil
+    end
+
+    closeBtn.MouseButton1Click:Connect(DismissStok)
+    task.delay(duration, DismissStok)
 end
 
 local function GetMutationColor(mutation)
@@ -815,7 +1025,7 @@ local function CreateSubHeader(parent, text)
     return h
 end
 
-local function CreateToggle(parent, text, stateKey, description)
+local function CreateToggle(parent, text, stateKey, description, onToggle)
     local defaultState = States[stateKey] or false
     local container = Create("Frame", {
         Parent = parent,
@@ -877,6 +1087,15 @@ local function CreateToggle(parent, text, stateKey, description)
         States[stateKey] = state
         Tween(toggleBg, {BackgroundColor3 = state and Colors.ToggleOn or Colors.ToggleOff}, 0.2)
         Tween(knob, {Position = UDim2.new(0, state and 25 or 3, 0.5, -10)}, 0.2)
+        if onToggle then
+            onToggle(state, function()
+                -- revert: paksa balik ke off
+                state = false
+                States[stateKey] = false
+                Tween(toggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2)
+                Tween(knob, {Position = UDim2.new(0, 3, 0.5, -10)}, 0.2)
+            end)
+        end
     end)
     return container, function() return state end
 end
@@ -1137,224 +1356,294 @@ local function CreateDropdown(parent, label, options, stateKey)
     return container
 end
 
--- Multi-select dropdown — pilih beberapa item sekaligus, disimpan ke States[stateKey] (table)
--- label: judul, options: list string, stateKey: States key (harus berupa table {})
+-- Multi-select dropdown — style Axon Hub: inline expand, checkmark kiri
+-- Inline: panel expand di bawah trigger, bagian dari layout card (AutomaticSize.Y).
 local function CreateMultiSelect(parent, label, options, stateKey)
     if type(States[stateKey]) ~= "table" then States[stateKey] = {} end
-    local selected = States[stateKey]  -- reference ke table yang sama
+    local selected = States[stateKey]
 
-    local function getDisplayText()
-        if #selected == 0 then return label .. "  •  (pilih seed...)" end
-        if #selected == 1 then return label .. "  •  " .. selected[1] end
-        return label .. "  •  " .. #selected .. " seed dipilih"
+    -- Pisah emoji (karakter pertama) dari sisa teks label
+    local pillIcon = label:match("^([%z\1-\127\194-\244][\128-\191]*)") or "•"
+    local pillText = label:gsub("^[%z\1-\127\194-\244][\128-\191]*%s*", "")
+
+    local function getShortText()
+        if #selected == 0 then return pillText .. "  •  (belum dipilih)" end
+        if #selected <= 2 then
+            local names = {}
+            for _, s in ipairs(selected) do names[#names+1] = s end
+            return pillText .. "  •  " .. table.concat(names, ", ")
+        end
+        return pillText .. "  •  " .. #selected .. " dipilih"
     end
 
-    local container = Create("Frame", {
+    -- ── Wrapper utama ──
+    local wrapper = Create("Frame", {
         Parent = parent,
-        Size = UDim2.new(1, 0, 0, 40),
+        Size = UDim2.new(1, 0, 0, 0),
         BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y,
     })
-    local btn = Create("TextButton", {
-        Parent = container,
+    CreateListLayout(wrapper, 0)
+
+    -- ── Header pill (trigger buka/tutup) ──
+    local pillOuter = Create("Frame", {
+        Parent = wrapper,
+        Size = UDim2.new(1, 0, 0, 42),
+        BackgroundTransparency = 1,
+        LayoutOrder = 0,
+    })
+    local pill = Create("TextButton", {
+        Parent = pillOuter,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Colors.BackgroundLighter,
         Text = "",
         BorderSizePixel = 0,
         AutoButtonColor = false,
     })
-    CreateCorner(btn, 9)
-    CreateStroke(btn, Colors.Border, 1)
-    local lbl = Create("TextLabel", {
-        Parent = btn,
-        Size = UDim2.new(1, -60, 1, 0),
-        Position = UDim2.new(0, 14, 0, 0),
+    CreateCorner(pill, 9)
+    local pillStroke = CreateStroke(pill, Colors.Border, 1)
+
+    Create("TextLabel", {
+        Parent = pill,
+        Size = UDim2.new(0, 28, 1, 0),
+        Position = UDim2.new(0, 12, 0, 0),
         BackgroundTransparency = 1,
-        Text = getDisplayText(),
+        Text = pillIcon,
+        TextSize = 14,
+        Font = Enum.Font.Gotham,
+        TextColor3 = Colors.TextPrimary,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    local pillLabel = Create("TextLabel", {
+        Parent = pill,
+        Size = UDim2.new(1, -76, 1, 0),
+        Position = UDim2.new(0, 40, 0, 0),
+        BackgroundTransparency = 1,
+        Text = getShortText(),
         TextColor3 = Colors.TextPrimary,
         TextSize = 13,
         Font = Enum.Font.Gotham,
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
     })
-    local arr = Create("TextLabel", {
-        Parent = btn,
-        Size = UDim2.new(0, 30, 1, 0),
-        Position = UDim2.new(1, -32, 0, 0),
+    local arrowLbl = Create("TextLabel", {
+        Parent = pill,
+        Size = UDim2.new(0, 28, 1, 0),
+        Position = UDim2.new(1, -34, 0, 0),
         BackgroundTransparency = 1,
-        Text = "▾",
+        Text = "›",
         TextColor3 = Colors.TextMuted,
-        TextSize = 14,
+        TextSize = 18,
         Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Center,
     })
-    btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.15) end)
-    btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15) end)
+    pill.MouseEnter:Connect(function() Tween(pill, {BackgroundColor3 = Colors.Surface}, 0.12) end)
+    pill.MouseLeave:Connect(function() Tween(pill, {BackgroundColor3 = Colors.BackgroundLighter}, 0.12) end)
 
-    local isOpen = false
-    local dropPanel = nil
-    local itemButtons = {}  -- track button references untuk update visual
+    -- ── Panel inline ──
+    local panel = Create("Frame", {
+        Parent = wrapper,
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundColor3 = Colors.BackgroundLighter,
+        BorderSizePixel = 0,
+        LayoutOrder = 1,
+        Visible = false,
+        ClipsDescendants = true,
+        AutomaticSize = Enum.AutomaticSize.Y,
+    })
+    CreateCorner(panel, 9)
+    CreateStroke(panel, Colors.Border, 1)
 
-    local function refreshItems()
-        for opt, itemBtn in pairs(itemButtons) do
-            local isSel = table.find(selected, opt) ~= nil
-            itemBtn.BackgroundTransparency = isSel and 0.6 or 1
-            itemBtn.BackgroundColor3 = isSel and Colors.ToggleOnDark or Colors.Surface
-            itemBtn.TextColor3 = isSel and Colors.Success or Colors.TextPrimary
-            itemBtn.Font = isSel and Enum.Font.GothamBold or Enum.Font.Gotham
-        end
-        lbl.Text = getDisplayText()
+    -- ── Header row: Select All + Clear ──
+    local headerRow = Create("Frame", {
+        Parent = panel,
+        Size = UDim2.new(1, 0, 0, 34),
+        BackgroundColor3 = Colors.Background,
+        BorderSizePixel = 0,
+    })
+    CreateCorner(headerRow, 9)
+    -- tutup pojok bawah header agar nyambung dengan list
+    Create("Frame", {
+        Parent = headerRow,
+        Size = UDim2.new(1, 0, 0, 9),
+        Position = UDim2.new(0, 0, 1, -9),
+        BackgroundColor3 = Colors.Background,
+        BorderSizePixel = 0,
+        ZIndex = 2,
+    })
+
+    local selAllBtn = Create("TextButton", {
+        Parent = headerRow,
+        Size = UDim2.new(0, 60, 0, 22),
+        Position = UDim2.new(0, 10, 0.5, -11),
+        BackgroundColor3 = Colors.Surface,
+        Text = "✔ All",
+        TextColor3 = Colors.Accent,
+        TextSize = 11,
+        Font = Enum.Font.GothamBold,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        ZIndex = 3,
+    })
+    CreateCorner(selAllBtn, 5)
+    selAllBtn.MouseEnter:Connect(function() Tween(selAllBtn, {BackgroundColor3 = Colors.SurfaceLight}, 0.1) end)
+    selAllBtn.MouseLeave:Connect(function() Tween(selAllBtn, {BackgroundColor3 = Colors.Surface}, 0.1) end)
+
+    local clearBtn = Create("TextButton", {
+        Parent = headerRow,
+        Size = UDim2.new(0, 52, 0, 22),
+        Position = UDim2.new(0, 78, 0.5, -11),
+        BackgroundColor3 = Colors.Surface,
+        Text = "✗ Clear",
+        TextColor3 = Colors.TextMuted,
+        TextSize = 11,
+        Font = Enum.Font.GothamBold,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+        ZIndex = 3,
+    })
+    CreateCorner(clearBtn, 5)
+    clearBtn.MouseEnter:Connect(function() Tween(clearBtn, {BackgroundColor3 = Colors.SurfaceLight}, 0.1) end)
+    clearBtn.MouseLeave:Connect(function() Tween(clearBtn, {BackgroundColor3 = Colors.Surface}, 0.1) end)
+
+    -- ── Scrolling list ──
+    local LIST_MAX_H = 200
+    local scroll = Create("ScrollingFrame", {
+        Parent = panel,
+        Size = UDim2.new(1, 0, 0, math.min(#options * 30, LIST_MAX_H)),
+        Position = UDim2.new(0, 0, 0, 36),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Colors.BorderLight,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ZIndex = 2,
+    })
+    CreateListLayout(scroll, 0)
+    Create("UIPadding", {Parent=scroll, PaddingLeft=UDim.new(0,6), PaddingRight=UDim.new(0,6), PaddingTop=UDim.new(0,4), PaddingBottom=UDim.new(0,6)})
+
+    -- ── Build item rows ──
+    local itemFrames = {}
+
+    local function isSelected(opt)
+        return table.find(selected, opt) ~= nil
     end
 
-    btn.MouseButton1Click:Connect(function()
+    local function updateRow(t)
+        local sel = isSelected(t.opt)
+        t.frame.BackgroundColor3 = sel and Colors.Surface or Colors.BackgroundLighter
+        t.frame.BackgroundTransparency = sel and 0 or 1
+        t.checkLbl.Text = sel and "✓" or ""
+        t.checkLbl.TextColor3 = Colors.Accent
+        t.nameLbl.TextColor3 = sel and Colors.Accent or Colors.TextPrimary
+        t.nameLbl.Font = sel and Enum.Font.GothamBold or Enum.Font.Gotham
+    end
+
+    local function updatePill()
+        pillLabel.Text = getShortText()
+        pillLabel.TextColor3 = #selected > 0 and Colors.Accent or Colors.TextPrimary
+        pillStroke.Color = #selected > 0 and Colors.BorderLight or Colors.Border
+    end
+
+    for _, opt in ipairs(options) do
+        local sel = isSelected(opt)
+        local row = Create("Frame", {
+            Parent = scroll,
+            Size = UDim2.new(1, 0, 0, 30),
+            BackgroundColor3 = sel and Colors.Surface or Colors.BackgroundLighter,
+            BackgroundTransparency = sel and 0 or 1,
+            BorderSizePixel = 0,
+            ZIndex = 3,
+        })
+        CreateCorner(row, 6)
+
+        local checkLbl = Create("TextLabel", {
+            Parent = row,
+            Size = UDim2.new(0, 22, 1, 0),
+            Position = UDim2.new(0, 8, 0, 0),
+            BackgroundTransparency = 1,
+            Text = sel and "✓" or "",
+            TextColor3 = Colors.Accent,
+            TextSize = 13,
+            Font = Enum.Font.GothamBold,
+            TextXAlignment = Enum.TextXAlignment.Center,
+            ZIndex = 4,
+        })
+        local nameLbl = Create("TextLabel", {
+            Parent = row,
+            Size = UDim2.new(1, -36, 1, 0),
+            Position = UDim2.new(0, 30, 0, 0),
+            BackgroundTransparency = 1,
+            Text = opt,
+            TextColor3 = sel and Colors.Accent or Colors.TextPrimary,
+            TextSize = 13,
+            Font = sel and Enum.Font.GothamBold or Enum.Font.Gotham,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 4,
+        })
+        local hitBtn = Create("TextButton", {
+            Parent = row,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            ZIndex = 5,
+        })
+
+        local entry = {frame=row, checkLbl=checkLbl, nameLbl=nameLbl, opt=opt}
+        itemFrames[#itemFrames+1] = entry
+
+        hitBtn.MouseEnter:Connect(function()
+            if not isSelected(opt) then
+                Tween(row, {BackgroundColor3 = Colors.Surface, BackgroundTransparency = 0.5}, 0.1)
+            end
+        end)
+        hitBtn.MouseLeave:Connect(function()
+            if not isSelected(opt) then row.BackgroundTransparency = 1 end
+        end)
+        hitBtn.MouseButton1Click:Connect(function()
+            local idx = table.find(selected, opt)
+            if idx then table.remove(selected, idx)
+            else table.insert(selected, opt) end
+            States[stateKey] = selected
+            updateRow(entry)
+            updatePill()
+        end)
+    end
+
+    selAllBtn.MouseButton1Click:Connect(function()
+        table.clear(selected)
+        for _, opt in ipairs(options) do table.insert(selected, opt) end
+        States[stateKey] = selected
+        for _, t in ipairs(itemFrames) do updateRow(t) end
+        updatePill()
+    end)
+    clearBtn.MouseButton1Click:Connect(function()
+        table.clear(selected)
+        States[stateKey] = selected
+        for _, t in ipairs(itemFrames) do updateRow(t) end
+        updatePill()
+    end)
+
+    -- ── Toggle buka/tutup ──
+    local isOpen = false
+    pill.MouseButton1Click:Connect(function()
         isOpen = not isOpen
-        Tween(arr, {Rotation = isOpen and 180 or 0}, 0.2)
+        Tween(arrowLbl, {Rotation = isOpen and 90 or 0}, 0.2)
         if isOpen then
-            local panelH = math.min(#options * 30 + 40, 220)
-            dropPanel = Create("Frame", {
-                Parent = ScreenGui,
-                Size = UDim2.new(0, container.AbsoluteSize.X, 0, panelH),
-                Position = UDim2.new(0, container.AbsolutePosition.X, 0, container.AbsolutePosition.Y + 44),
-                BackgroundColor3 = Colors.BackgroundLighter,
-                BorderSizePixel = 0,
-                ZIndex = 155,
-                ClipsDescendants = true,
-            })
-            CreateCorner(dropPanel, 9)
-            CreateStroke(dropPanel, Colors.Border, 1)
-
-            -- Header: Clear All / Select All
-            local headerRow = Create("Frame", {
-                Parent = dropPanel,
-                Size = UDim2.new(1, 0, 0, 32),
-                BackgroundColor3 = Colors.Background,
-                BorderSizePixel = 0,
-                ZIndex = 156,
-            })
-            CreateListLayout(headerRow, 4, Enum.FillDirection.Horizontal)
-            CreatePadding(headerRow, 6)
-
-            local selectAllBtn = Create("TextButton", {
-                Parent = headerRow,
-                Size = UDim2.new(0.5, -6, 0, 22),
-                BackgroundColor3 = Colors.Surface,
-                Text = "✔ All",
-                TextColor3 = Colors.Success,
-                TextSize = 11,
-                Font = Enum.Font.GothamBold,
-                BorderSizePixel = 0,
-                AutoButtonColor = false,
-                ZIndex = 157,
-            })
-            CreateCorner(selectAllBtn, 5)
-            local clearBtn = Create("TextButton", {
-                Parent = headerRow,
-                Size = UDim2.new(0.5, -6, 0, 22),
-                BackgroundColor3 = Colors.Surface,
-                Text = "✗ Clear",
-                TextColor3 = Colors.Error,
-                TextSize = 11,
-                Font = Enum.Font.GothamBold,
-                BorderSizePixel = 0,
-                AutoButtonColor = false,
-                ZIndex = 157,
-            })
-            CreateCorner(clearBtn, 5)
-
-            local scroll = Create("ScrollingFrame", {
-                Parent = dropPanel,
-                Size = UDim2.new(1, 0, 1, -34),
-                Position = UDim2.new(0, 0, 0, 34),
-                BackgroundTransparency = 1,
-                BorderSizePixel = 0,
-                ScrollBarThickness = 3,
-                CanvasSize = UDim2.new(0, 0, 0, 0),
-                AutomaticCanvasSize = Enum.AutomaticSize.Y,
-                ZIndex = 156,
-            })
-            CreateListLayout(scroll, 2)
-            CreatePadding(scroll, 4)
-
-            itemButtons = {}
-            for _, opt in ipairs(options) do
-                local isSel = table.find(selected, opt) ~= nil
-                local item = Create("TextButton", {
-                    Parent = scroll,
-                    Size = UDim2.new(1, 0, 0, 26),
-                    BackgroundTransparency = isSel and 0.6 or 1,
-                    BackgroundColor3 = isSel and Colors.ToggleOnDark or Colors.Surface,
-                    Text = (isSel and "✔ " or "  ") .. opt,
-                    TextColor3 = isSel and Colors.Success or Colors.TextPrimary,
-                    TextSize = 12,
-                    Font = isSel and Enum.Font.GothamBold or Enum.Font.Gotham,
-                    ZIndex = 157,
-                    AutoButtonColor = false,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                })
-                Create("UIPadding", {Parent=item, PaddingLeft=UDim.new(0,8)})
-                CreateCorner(item, 5)
-                itemButtons[opt] = item
-
-                item.MouseEnter:Connect(function() item.BackgroundTransparency = 0.5 end)
-                item.MouseLeave:Connect(function()
-                    item.BackgroundTransparency = table.find(selected, opt) and 0.6 or 1
-                end)
-                item.MouseButton1Click:Connect(function()
-                    local idx = table.find(selected, opt)
-                    if idx then
-                        table.remove(selected, idx)
-                        item.Text = "  " .. opt
-                    else
-                        table.insert(selected, opt)
-                        item.Text = "✔ " .. opt
-                    end
-                    States[stateKey] = selected
-                    refreshItems()
-                end)
-            end
-
-            -- Select All / Clear All buttons
-            selectAllBtn.MouseButton1Click:Connect(function()
-                table.clear(selected)
-                for _, opt in ipairs(options) do table.insert(selected, opt) end
-                States[stateKey] = selected
-                for opt, itemBtn in pairs(itemButtons) do
-                    itemBtn.Text = "✔ " .. opt
-                end
-                refreshItems()
-            end)
-            clearBtn.MouseButton1Click:Connect(function()
-                table.clear(selected)
-                States[stateKey] = selected
-                for opt, itemBtn in pairs(itemButtons) do
-                    itemBtn.Text = "  " .. opt
-                end
-                refreshItems()
-            end)
-
+            panel.Visible = true
+            panel.Size = UDim2.new(1, 0, 0, 0)
+            local targetH = 36 + math.min(#options * 30, LIST_MAX_H) + 10
+            Tween(panel, {Size = UDim2.new(1, 0, 0, targetH)}, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
         else
-            if dropPanel then dropPanel:Destroy() dropPanel = nil end
-            itemButtons = {}
+            Tween(panel, {Size = UDim2.new(1, 0, 0, 0)}, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            task.delay(0.19, function()
+                if not isOpen then panel.Visible = false end
+            end)
         end
     end)
 
-    -- Tutup kalau klik di luar
-    UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 and isOpen then
-            local mp = UserInputService:GetMouseLocation()
-            if dropPanel then
-                local ap = dropPanel.AbsolutePosition
-                local as = dropPanel.AbsoluteSize
-                if not (mp.X >= ap.X and mp.X <= ap.X + as.X and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y) then
-                    isOpen = false
-                    Tween(arr, {Rotation = 0}, 0.2)
-                    dropPanel:Destroy()
-                    dropPanel = nil
-                    itemButtons = {}
-                end
-            end
-        end
-    end)
-
-    return container
+    return wrapper
 end
 
 local function CreateInfoText(parent, title, desc, color)
@@ -1555,7 +1844,7 @@ end
 -- Loop delay = jeda ANTAR SIKLUS PANEN (bukan jeda cek)
 local _harvestCooldown = 0
 task.spawn(function()
-    while true do
+    while _G._MiracleHubSession == _SESSION do
         task.wait(0.5)
         if not States.autoHarvest then continue end
 
@@ -1587,7 +1876,7 @@ end)
 
 -- AUTO PLANT LOOP (fires PacketRemote with PlantSeed=9 OR finds plant prompts)
 task.spawn(function()
-    while true do
+    while _G._MiracleHubSession == _SESSION do
         task.wait(States.harvestLoopDelay or 3)
         if not States.autoPlant then continue end
         pcall(function()
@@ -1632,7 +1921,7 @@ end)
 
 -- AUTO WATER LOOP
 task.spawn(function()
-    while true do
+    while _G._MiracleHubSession == _SESSION do
         task.wait(States.harvestLoopDelay or 5)
         if not States.autoWater then continue end
         pcall(function()
@@ -1743,7 +2032,7 @@ local function NeedsSelectiveSell()
 end
 
 task.spawn(function()
-    while true do
+    while _G._MiracleHubSession == _SESSION do
         task.wait(States.sellLoopDelay or 3)
         if not States.autoSell then continue end
         if not Networking then
@@ -1841,187 +2130,406 @@ local function GetSeedStock(seedName)
     return stockVal and stockVal.Value or 0
 end
 
--- BuySeedPacket — 3 layer approach (dari scanner: Sheckles_Shelf path confirmed)
--- Layer 1: Networking.SeedShop (paling bersih, sama seperti sell)
--- Layer 2: UI click simulation via Sheckles_Shelf.Main_Frame.Seed_Name + BuyButton
--- Layer 3: PacketRemote:FireServer fallback
+-- BuySeedPacket — kirim packet langsung ke server tanpa UI (UI simulation dihapus: trigger error sound)
+-- Layer 1: Networking.SeedShop.PurchaseSeed:Fire (cara resmi)
+-- Layer 2: PacketRemote:FireServer fallback
 local function BuySeedPacket(seedName, quantity)
     quantity = quantity or 1
 
-    -- Layer 1: Coba lewat Networking.SeedShop jika tersedia
+    -- Layer 1: Networking.SeedShop
     if Networking then
         local shop = rawget(Networking, "SeedShop")
         if shop then
             local purchase = rawget(shop, "Purchase") or rawget(shop, "BuySeed") or rawget(shop, "PurchaseSeed")
             if purchase and purchase.Fire then
-                local ok, err = pcall(function()
-                    purchase:Fire(seedName, quantity)
-                end)
-                if ok then return true end
+                pcall(function() purchase:Fire(seedName, quantity) end)
+                return true
             end
         end
     end
 
-    -- Layer 2: UI click simulation via SeedShop GUI (cara yg dipakai game sendiri)
-    -- Path: PlayerGui.SeedShop.Frame.NormalShop.Sheckles_Shelf.Main_Frame
-    local ok2 = pcall(function()
-        local gui = playerGui:FindFirstChild("SeedShop")
-        if not gui then
-            -- Coba nama alternatif
-            for _, g in ipairs(playerGui:GetChildren()) do
-                if g:IsA("ScreenGui") and (g.Name:lower():find("seed") or g.Name:lower():find("shop")) then
-                    gui = g
-                    break
-                end
-            end
-        end
-        if not gui then error("SeedShop GUI not found") end
-
-        local frame = gui:FindFirstChild("Frame")
-        if not frame then error("Frame not found") end
-        local normalShop = frame:FindFirstChild("NormalShop")
-        if not normalShop then error("NormalShop not found") end
-        local shelf = normalShop:FindFirstChild("Sheckles_Shelf")
-        if not shelf then error("Sheckles_Shelf not found") end
-        local mainFrame = shelf:FindFirstChild("Main_Frame")
-        if not mainFrame then error("Main_Frame not found") end
-
-        -- Set seed target via Seed_Name StringValue
-        local seedNameVal = mainFrame:FindFirstChild("Seed_Name")
-        if seedNameVal and seedNameVal:IsA("StringValue") then
-            seedNameVal.Value = seedName
-            task.wait(0.05)
-        end
-
-        -- Klik seed frame di NormalShop dulu (untuk select seed)
-        local seedFrame = normalShop:FindFirstChild(seedName)
-        if seedFrame then
-            local textBtn = seedFrame:FindFirstChildWhichIsA("TextButton")
-                or seedFrame:FindFirstChild("Main_Frame") and seedFrame.Main_Frame:FindFirstChildWhichIsA("TextButton")
-            if textBtn then
-                textBtn:Invoke()
-            end
-            task.wait(0.05)
-        end
-
-        -- Fire BuyButton sejumlah quantity
-        local buttons = mainFrame:FindFirstChild("Buttons")
-        local buyBtn = buttons and buttons:FindFirstChild("BuyButton")
-        if not buyBtn then
-            -- cari alternatif
-            for _, desc in ipairs(mainFrame:GetDescendants()) do
-                if desc:IsA("GuiButton") and (desc.Name:lower():find("buy") or desc.Name:lower():find("purchase")) then
-                    buyBtn = desc
-                    break
-                end
-            end
-        end
-        if not buyBtn then error("BuyButton not found") end
-
-        for i = 1, quantity do
-            buyBtn:Invoke()
-            if quantity > 1 then task.wait(0.05) end
-        end
-    end)
-    if ok2 then return true end
-
-    -- Layer 3: PacketRemote fallback — coba beberapa format argumen
+    -- Layer 2: PacketRemote fallback
     if not PacketRemote then
         local rs = game:GetService("ReplicatedStorage")
         local sm = rs:FindFirstChild("SharedModules")
-        local pk = sm and sm:FindFirstChild("Packet")
-        PacketRemote = pk and pk:FindFirstChild("RemoteEvent")
+        PacketRemote = sm and sm:FindFirstChild("Packet") and sm.Packet:FindFirstChild("RemoteEvent")
     end
     if not PacketRemote then return false end
 
-    -- Format 1: (packetId, seedName, quantity) — format asli
-    local ok3a = pcall(function()
-        PacketRemote:FireServer(PACKET.PurchaseSeed, seedName, quantity)
-    end)
-    if ok3a then return true end
-
-    -- Format 2: (packetId, {SeedName=seedName, Quantity=quantity}) — format table
-    local ok3b = pcall(function()
-        PacketRemote:FireServer(PACKET.PurchaseSeed, {SeedName = seedName, Quantity = quantity})
-    end)
-    if ok3b then return true end
-
-    -- Format 3: (packetId, seedName) — tanpa quantity
-    pcall(function()
-        PacketRemote:FireServer(PACKET.PurchaseSeed, seedName)
-    end)
-    return true -- assume fired
+    pcall(function() PacketRemote:FireServer(PACKET.PurchaseSeed, seedName, quantity) end)
+    return true
 end
 
--- ======================== AUTO BUY SEEDS LOOP (REALTIME) ========================
--- Stok dibaca LANGSUNG dari NumberValue.Value tiap iterasi (realtime, bukan cache)
--- Support multi-target (States.autoBuySeedTargets = table)
--- Stop/skip seed otomatis jika stok 0
+-- GetGearStock — baca stok gear dari ReplicatedStorage.StockValues.GearShop.Items
+local function GetGearStock(gearName)
+    local rs = game:GetService("ReplicatedStorage")
+    local sv = rs:FindFirstChild("StockValues")
+    if not sv then return 0 end
+    local gs = sv:FindFirstChild("GearShop")
+    if not gs then return 0 end
+    local items = gs:FindFirstChild("Items")
+    if not items then return 0 end
+    local stockVal = items:FindFirstChild(gearName)
+    return stockVal and stockVal.Value or 0
+end
+
+-- BuyGearPacket — kirim packet beli gear ke server
+-- Layer 1: Networking.GearShop.Purchase:Fire (cara resmi)
+-- Layer 2: PacketRemote:FireServer fallback (EquipGear=126)
+local function BuyGearPacket(gearName, quantity)
+    quantity = quantity or 1
+
+    -- Layer 1: Networking.GearShop
+    if Networking then
+        local shop = rawget(Networking, "GearShop")
+        if shop then
+            local purchase = rawget(shop, "Purchase") or rawget(shop, "BuyGear") or rawget(shop, "PurchaseGear")
+            if purchase and purchase.Fire then
+                pcall(function() purchase:Fire(gearName, quantity) end)
+                return true
+            end
+        end
+    end
+
+    -- Layer 2: PacketRemote fallback
+    if not PacketRemote then
+        local rs = game:GetService("ReplicatedStorage")
+        local sm = rs:FindFirstChild("SharedModules")
+        PacketRemote = sm and sm:FindFirstChild("Packet") and sm.Packet:FindFirstChild("RemoteEvent")
+    end
+    if not PacketRemote then return false end
+
+    pcall(function() PacketRemote:FireServer(PACKET.EquipGear, gearName, quantity) end)
+    return true
+end
+
+-- ======================== FAILED SOUND MUTE (persistent) ========================
+-- Game memainkan SFX.Failed setiap kali server menolak request beli (stok 0).
+-- Karena auto buy loop jalan terus, suara error ikut bunyi tiap cycle.
+-- Fix: Volume=0 + RollOffMaxDistance=0, lalu pasang listener agar tidak
+-- di-reset oleh game. Koneksi disimpan agar bisa di-disconnect saat session berakhir.
+local _sfxMuteConn = nil
+
+local function MuteSFX_Failed()
+    local ss = game:GetService("SoundService")
+    local sfx = ss:FindFirstChild("SFX")
+    local failedSnd = sfx and sfx:FindFirstChild("Failed")
+    if not failedSnd then return end
+
+    -- Set langsung
+    failedSnd.Volume = 0
+    failedSnd.RollOffMaxDistance = 0
+
+    -- Putus koneksi lama kalau ada (re-enable lalu disable lagi)
+    if _sfxMuteConn then
+        _sfxMuteConn:Disconnect()
+        _sfxMuteConn = nil
+    end
+
+    -- Pasang guard: kalau game coba kembalikan Volume, langsung di-reset ke 0
+    _sfxMuteConn = failedSnd:GetPropertyChangedSignal("Volume"):Connect(function()
+        if failedSnd.Volume ~= 0 then
+            failedSnd.Volume = 0
+        end
+    end)
+end
+
+-- Jalankan sekali saat inject
+pcall(MuteSFX_Failed)
+
+-- Jaga-jaga kalau SFX belum ada saat inject (game masih loading)
 task.spawn(function()
-    while true do
+    local ss = game:GetService("SoundService")
+    local sfx = ss:WaitForChild("SFX", 15)
+    if sfx then
+        local failedSnd = sfx:WaitForChild("Failed", 10)
+        if failedSnd then
+            pcall(MuteSFX_Failed)
+        end
+    end
+end)
+
+-- ======================== AUTO BUY SEEDS LOOP ========================
+-- Logika simpel: cek stok server tiap loop, kalau > 0 beli, kalau 0 skip.
+-- Loop tetap jalan saat stok habis — langsung beli begitu server restock.
+local _notifiedEmpty = {}  -- [seedName] = true → sudah notif habis, cegah spam
+
+task.spawn(function()
+    while _G._MiracleHubSession == _SESSION do
         task.wait(math.max(States.shopLoopDelay or 0.5, 0.1))
         if not States.autoBuySeed then continue end
         pcall(function()
-            local qty = tonumber(States.autoBuyQtyStr) or 1
             local rs = game:GetService("ReplicatedStorage")
             local items = rs:FindFirstChild("StockValues")
                 and rs.StockValues:FindFirstChild("SeedShop")
                 and rs.StockValues.SeedShop:FindFirstChild("Items")
 
+            local targets = {}
             if States.autoBuyAll then
-                -- ── Mode: beli SEMUA seed yang stok > 0 ──
                 if not items then return end
-                local anyStock = false
                 for _, stockVal in ipairs(items:GetChildren()) do
-                    if not States.autoBuySeed then return end
-                    -- Baca stok REALTIME langsung
-                    if stockVal:IsA("NumberValue") and stockVal.Value > 0 then
-                        anyStock = true
-                        local currentStock = stockVal.Value
-                        local seedName = stockVal.Name
-                        BuySeedPacket(seedName, qty)
-                        if States.notifyBuy then
-                            Notify("Auto Buy ✅", qty .. "x " .. seedName .. " (stok: " .. currentStock .. ")", Colors.Success)
-                        end
-                        task.wait(States.buyDelay or 0.05)
+                    if stockVal:IsA("NumberValue") then
+                        table.insert(targets, stockVal.Name)
                     end
                 end
-                if not anyStock then
-                    -- Semua habis — cek timer restock, diam (tidak spam)
-                    local sv = rs:FindFirstChild("StockValues")
-                    local seedShop = sv and sv:FindFirstChild("SeedShop")
-                    local restockVal = seedShop and seedShop:FindFirstChild("UnixNextRestock")
-                    if restockVal and States.notifyBuy then
-                        local timeLeft = math.max(0, math.floor(restockVal.Value - os.time()))
-                        if timeLeft > 0 then
-                            local m, s = math.floor(timeLeft/60), timeLeft%60
-                            Notify("Auto Buy", "Stok habis. Restock ~" .. m .. "m " .. s .. "s", Colors.TextMuted, 3)
-                        end
-                    end
-                end
-
             else
-                -- ── Mode: beli seed dari multi-select list ──
-                local targets = States.autoBuySeedTargets or {}
+                targets = States.autoBuySeedTargets or {}
+                if #targets == 0 then return end
+            end
+
+            for _, seedName in ipairs(targets) do
+                if not States.autoBuySeed then return end
+                local stock = GetSeedStock(seedName)
+                if stock > 0 then
+                    _notifiedEmpty[seedName] = false
+                    BuySeedPacket(seedName, 1)
+                    task.wait(States.buyDelay or 0.05)
+                else
+                    if States.notifyBuy and not _notifiedEmpty[seedName] then
+                        _notifiedEmpty[seedName] = true
+                        Notify("Auto Buy", seedName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ======================== AUTO BUY GEAR LOOP ========================
+-- Sama persis pola dengan auto buy seeds: cek stok tiap loop, beli jika > 0, skip jika 0.
+-- Loop tetap jalan saat stok habis — langsung beli begitu server restock.
+local _notifiedEmptyGear = {}  -- [gearName] = true → sudah notif habis, cegah spam
+
+task.spawn(function()
+    while _G._MiracleHubSession == _SESSION do
+        task.wait(math.max(States.gearShopLoopDelay or 0.5, 0.1))
+        if not States.autoBuyGear then continue end
+        pcall(function()
+            local rs = game:GetService("ReplicatedStorage")
+            local items = rs:FindFirstChild("StockValues")
+                and rs.StockValues:FindFirstChild("GearShop")
+                and rs.StockValues.GearShop:FindFirstChild("Items")
+
+            local targets = {}
+            if States.autoBuyGearAll then
+                if not items then return end
+                for _, stockVal in ipairs(items:GetChildren()) do
+                    if stockVal:IsA("NumberValue") then
+                        table.insert(targets, stockVal.Name)
+                    end
+                end
+            else
+                targets = States.autoBuyGearTargets or {}
+                if #targets == 0 then return end
+            end
+
+            for _, gearName in ipairs(targets) do
+                if not States.autoBuyGear then return end
+                local stock = GetGearStock(gearName)
+                if stock > 0 then
+                    _notifiedEmptyGear[gearName] = false
+                    BuyGearPacket(gearName, 1)
+                    if States.notifyBuyGear then
+                        Notify("Auto Buy Gear", "✅ Beli: " .. gearName .. " (stok: " .. stock .. ")", Colors.Electric, 3)
+                    end
+                    task.wait(States.gearBuyDelay or 0.05)
+                else
+                    if States.notifyBuyGear and not _notifiedEmptyGear[gearName] then
+                        _notifiedEmptyGear[gearName] = true
+                        Notify("Auto Buy Gear", gearName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ======================== AUTO BUY CRATE HELPERS ========================
+-- GetCrateStock — baca stok crate dari ReplicatedStorage.StockValues.CrateShop.Items
+local function GetCrateStock(crateName)
+    local rs = game:GetService("ReplicatedStorage")
+    local sv = rs:FindFirstChild("StockValues")
+    if not sv then return 0 end
+    local cs = sv:FindFirstChild("CrateShop")
+    if not cs then return 0 end
+    local items = cs:FindFirstChild("Items")
+    if not items then return 0 end
+    local stockVal = items:FindFirstChild(crateName)
+    return stockVal and stockVal.Value or 0
+end
+
+-- BuyCratePacket — kirim packet beli crate ke server
+-- Layer 1: Networking.CrateShop.Purchase (cara resmi)
+-- Layer 2: PacketRemote:FireServer fallback (PurchaseCrate=122)
+local function BuyCratePacket(crateName, quantity)
+    quantity = quantity or 1
+
+    -- Layer 1: Networking.CrateShop
+    if Networking then
+        local shop = rawget(Networking, "CrateShop")
+        if shop then
+            local purchase = rawget(shop, "Purchase") or rawget(shop, "BuyCrate") or rawget(shop, "PurchaseCrate")
+            if purchase and purchase.Fire then
+                pcall(function() purchase:Fire(crateName, quantity) end)
+                return true
+            end
+        end
+    end
+
+    -- Layer 2: PacketRemote fallback
+    if not PacketRemote then
+        local rs = game:GetService("ReplicatedStorage")
+        local sm = rs:FindFirstChild("SharedModules")
+        PacketRemote = sm and sm:FindFirstChild("Packet") and sm.Packet:FindFirstChild("RemoteEvent")
+    end
+    if not PacketRemote then return false end
+
+    pcall(function() PacketRemote:FireServer(PACKET.PurchaseCrate, crateName, quantity) end)
+    return true
+end
+
+-- OpenCrateViaNetworking — buka crate by name (cara benar dari CrateController)
+-- CrateController menggunakan: Networking.Crate.OpenCrate:Fire(crateName)
+local function OpenCrateViaNetworking(crateName)
+    if Networking then
+        local crateNS = rawget(Networking, "Crate")
+        if crateNS then
+            local openFn = rawget(crateNS, "OpenCrate")
+            if openFn and openFn.Fire then
+                local ok, result = pcall(function()
+                    return openFn:Fire(crateName)
+                end)
+                if ok and result then
+                    return result
+                end
+                return ok
+            end
+        end
+    end
+    -- Fallback PacketRemote
+    if PacketRemote then
+        pcall(function() PacketRemote:FireServer(PACKET.OpenCrate, crateName) end)
+        return true
+    end
+    return false
+end
+
+-- GetCratesInInventory — cari crate tools di backpack player
+local function GetCratesInInventory()
+    local found = {}
+    for _, tool in ipairs(player.Backpack:GetChildren()) do
+        local crateName = tool:GetAttribute("Crate")
+        if crateName then
+            table.insert(found, {tool = tool, name = crateName})
+        end
+    end
+    -- Cek tangan juga
+    if player.Character then
+        local held = player.Character:FindFirstChildOfClass("Tool")
+        if held and held:GetAttribute("Crate") then
+            table.insert(found, {tool = held, name = held:GetAttribute("Crate")})
+        end
+    end
+    return found
+end
+
+-- ======================== AUTO BUY CRATE LOOP ========================
+-- Pola sama persis dengan auto buy seeds/gear:
+-- Cek stok server tiap loop, kalau > 0 beli, kalau 0 skip.
+local _notifiedEmptyCrate = {}  -- [crateName] = true → sudah notif habis, cegah spam
+
+task.spawn(function()
+    while _G._MiracleHubSession == _SESSION do
+        task.wait(math.max(States.crateShopLoopDelay or 0.5, 0.1))
+        if not States.autoBuyCrate then continue end
+        pcall(function()
+            local rs = game:GetService("ReplicatedStorage")
+            local items = rs:FindFirstChild("StockValues")
+                and rs.StockValues:FindFirstChild("CrateShop")
+                and rs.StockValues.CrateShop:FindFirstChild("Items")
+
+            local targets = {}
+            if States.autoBuyCrateAll then
+                if not items then return end
+                for _, stockVal in ipairs(items:GetChildren()) do
+                    if stockVal:IsA("NumberValue") then
+                        table.insert(targets, stockVal.Name)
+                    end
+                end
+                -- Fallback: pakai CRATES list kalau StockValues.CrateShop tidak ada
                 if #targets == 0 then
-                    -- Fallback ke legacy single seed
-                    targets = {States.autoBuySeedTarget or "Bamboo"}
+                    targets = CRATES
+                end
+            else
+                targets = States.autoBuyCrateTargets or {}
+                if #targets == 0 then return end
+            end
+
+            for _, crateName in ipairs(targets) do
+                if not States.autoBuyCrate then return end
+                local stock = GetCrateStock(crateName)
+                if stock > 0 then
+                    _notifiedEmptyCrate[crateName] = false
+                    BuyCratePacket(crateName, 1)
+                    if States.notifyBuyCrate then
+                        Notify("Auto Buy Crate", "✅ Beli: " .. crateName .. " (stok: " .. stock .. ")", Colors.Warning, 3)
+                    end
+                    task.wait(States.crateBuyDelay or 0.05)
+                else
+                    -- Stok habis: notif sekali saja (tidak spam)
+                    if States.notifyBuyCrate and not _notifiedEmptyCrate[crateName] then
+                        _notifiedEmptyCrate[crateName] = true
+                        Notify("Auto Buy Crate", crateName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                    end
+                end
+            end
+        end)
+    end
+end)
+
+-- ======================== AUTO OPEN CRATE LOOP ========================
+-- Cek inventory tiap loop apakah ada crate tool, kalau ada open via Networking.
+-- Delay crateOpenDelay detik antar open (beri waktu efek animasi selesai).
+task.spawn(function()
+    while _G._MiracleHubSession == _SESSION do
+        task.wait(math.max(States.crateOpenDelay or 8, 1))
+        if not States.autoOpenCrate then continue end
+        pcall(function()
+            local cratesInBag = GetCratesInInventory()
+            if #cratesInBag == 0 then return end
+
+            for _, entry in ipairs(cratesInBag) do
+                if not States.autoOpenCrate then return end
+
+                -- Equip tool dulu (wajib agar server terima)
+                local tool = entry.tool
+                local crateName = entry.name
+                if tool.Parent ~= player.Character then
+                    tool.Parent = player.Character
+                    task.wait(0.2)
                 end
 
-                for _, seedName in ipairs(targets) do
-                    if not States.autoBuySeed then return end
-                    -- Baca stok REALTIME tiap seed
-                    local currentStock = GetSeedStock(seedName)
-                    if currentStock > 0 then
-                        BuySeedPacket(seedName, qty)
-                        if States.notifyBuy then
-                            Notify("Auto Buy ✅", qty .. "x " .. seedName .. " (stok: " .. currentStock .. ")", Colors.Success)
-                        end
-                        task.wait(States.buyDelay or 0.05)
+                -- Open via Networking (cara benar dari CrateController)
+                local ok, result = pcall(function()
+                    return OpenCrateViaNetworking(crateName)
+                end)
+
+                if ok and States.notifyOpenCrate then
+                    local wonItem = type(result) == "table" and result.WonItem
+                    if wonItem then
+                        Notify("📦 Crate Opened!", crateName .. " → " .. (wonItem.Name or "?") .. (wonItem.Chance and string.format(" (%.2f%%)", wonItem.Chance) or ""), Colors.Gold, 5)
+                    else
+                        Notify("📦 Crate Opened!", "Opened: " .. crateName, Colors.Warning, 3)
                     end
-                    -- Stok 0: skip seed ini, lanjut target berikutnya
-                    -- Loop terus (tidak stop) — langsung beli begitu stok restock
                 end
+
+                -- Kembalikan ke backpack setelah dipakai (biar bisa dipakai lagi)
+                task.wait(0.5)
+                if tool and tool.Parent == player.Character then
+                    tool.Parent = player.Backpack
+                end
+
+                task.wait(States.crateOpenDelay or 8)
             end
         end)
     end
@@ -2030,7 +2538,7 @@ end)
 -- AUTO CATCH WILD PETS LOOP
 -- Scanner: Workspace.Map.WildPetSpawns.<WildPet_X_WildPet_UUID>.RootPart.BuyPrompt (HoldDuration=1)
 task.spawn(function()
-    while true do
+    while _G._MiracleHubSession == _SESSION do
         task.wait(5)
         if not States.autoCatchWild then continue end
         pcall(function()
@@ -2095,7 +2603,7 @@ end)
 
 -- AUTO EQUIP PETS LOOP
 task.spawn(function()
-    while true do
+    while _G._MiracleHubSession == _SESSION do
         task.wait(5)
         if not States.autoEquipPets then continue end
         pcall(function()
@@ -2137,7 +2645,7 @@ end)
 
 -- AUTO OPEN EGGS LOOP (PacketID 139)
 task.spawn(function()
-    while true do
+    while _G._MiracleHubSession == _SESSION do
         task.wait(States.eggLoopDelay or 5)
         if not States.autoOpenEgg then continue end
         pcall(function()
@@ -2171,7 +2679,7 @@ end)
 
 -- AUTO ACCEPT GIFTS / MAILBOX LOOP
 task.spawn(function()
-    while true do
+    while _G._MiracleHubSession == _SESSION do
         task.wait(10)
         if not States.autoAcceptGifts then continue end
         pcall(function()
@@ -2375,12 +2883,31 @@ UserInputService.JumpRequest:Connect(function()
 end)
 
 -- Anti AFK
+-- Pakai active loop (setiap ~60s) biar idle timer selalu ke-reset
+-- player.Idled tidak reliable di GAG karena di-suppress oleh game
+local VirtualUser = game:GetService("VirtualUser")
+task.spawn(function()
+    while _G._MiracleHubSession == _SESSION do
+        task.wait(60)
+        if States.antiAfk then
+            pcall(function()
+                -- Simulasi klik kamera buat reset idle timer Roblox
+                local cam = workspace.CurrentCamera
+                VirtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
+                task.wait(0.1)
+                VirtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
+            end)
+        end
+    end
+end)
+-- Tetap pasang Idled sebagai backup jaga-jaga
 player.Idled:Connect(function()
     if States.antiAfk then
-        local vu = pcall(function()
-            game:GetService("VirtualUser"):Button2Down(Vector2.new(0, 0), game:GetService("Workspace").CurrentCamera.CFrame)
+        pcall(function()
+            local cam = workspace.CurrentCamera
+            VirtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
             task.wait(0.1)
-            game:GetService("VirtualUser"):Button2Up(Vector2.new(0, 0), game:GetService("Workspace").CurrentCamera.CFrame)
+            VirtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
         end)
     end
 end)
@@ -2423,7 +2950,7 @@ Pages["Farm"] = function()
     end)
 
     local harvestCard, harvestContent = CreateSectionCard("🍅 Auto Harvest", 2, Colors.Warning)
-    CreateInfoText(harvestContent, "✅ Cara kerja", "Iterasi Gardens.Plot" .. MY_PLOT_ID .. ".Plants → Fruits → HarvestPart → HarvestPrompt. Fire via Networking.Garden.CollectFruit (fallback: fireproximityprompt). Buah siap = prompt.Enabled = true.")
+    CreateInfoText(harvestContent, "Cara kerja", "Iterasi Gardens.Plot" .. MY_PLOT_ID .. ".Plants → Fruits → HarvestPart → HarvestPrompt. Fire via Networking.Garden.CollectFruit (fallback: fireproximityprompt). Buah siap = prompt.Enabled = true.")
     CreateToggle(harvestContent, "Auto Harvest", "autoHarvest", "Fires HarvestPrompt on all ready plants")
     CreateToggle(harvestContent, "Notify On Harvest", "notifyHarvest", "Shows notification after each harvest cycle")
     CreateSubHeader(harvestContent, "Delay Settings")
@@ -2632,209 +3159,181 @@ end
 Pages["Shop"] = function()
     local buyCard, buyContent = CreateSectionCard("🛒 Auto Buy Seeds", 1, Colors.Success)
 
-    CreateInfoText(buyContent, "✅ Cara kerja", "Beli seed via UI simulation (Sheckles_Shelf) + Networking.SeedShop fallback. Stok dibaca realtime tiap loop. Stop otomatis jika stok habis.")
+    CreateInfoText(buyContent, "Cara Pakai", "1. Pilih seed yang ingin dibeli di 'Pilih Seed Target' di bawah.\n2. Aktifkan toggle 'Auto Buy Seeds'.\n3. Script akan otomatis membeli 1 seed per cycle selama stok tersedia.\n4. Jika stok habis, loop tetap berjalan dan langsung beli begitu restock.\nGunakan 'Beli SEMUA yang ada stok' untuk auto-beli semua seed yang tersedia tanpa perlu pilih satu per satu.")
 
-    CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed", "Loop cepat beli seed yang dipilih, stop jika stok 0")
+    CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed", "Loop cepat beli seed yang dipilih, stop jika stok 0", function(newVal, revert)
+        if newVal and not States.autoBuyAll then
+            local targets = States.autoBuySeedTargets or {}
+            if #targets == 0 then
+                revert()
+                Notify("Auto Buy", "⚠️ Pilih seed dulu di 'Pilih Seed Target' sebelum aktifkan Auto Buy!", Colors.Warning, 5)
+                return
+            end
+        end
+        -- Mute error sound setiap kali auto buy diaktifkan
+        if newVal then
+            pcall(MuteSFX_Failed)
+        end
+    end)
     CreateToggle(buyContent, "Beli SEMUA yang ada stok", "autoBuyAll", "ON: beli semua seed yg stok > 0 | OFF: hanya seed dipilih di bawah")
 
     -- Multi-select seed target
-    CreateMultiSelect(buyContent, "🌱 Pilih Seed Target", SEEDS, "autoBuySeedTargets")
-
-    -- Jumlah beli per fire
-    CreateDropdown(buyContent, "Jumlah Per Beli", {"1", "3", "10", "50"}, "autoBuyQtyStr")
+    CreateMultiSelect(buyContent, "🌱Pilih Seed Target", SEEDS, "autoBuySeedTargets")
 
     CreateSlider(buyContent, "Delay Antar Beli (s)", 0, 2, "buyDelay")
     CreateSlider(buyContent, "Loop Delay (s)", 0, 10, "shopLoopDelay")
     CreateToggle(buyContent, "Notif Saat Beli", "notifyBuy", "Tampilkan notif setiap seed dibeli")
 
-    -- One-shot buy button
-    CreateActionButton(buyContent, "⚡ Beli Sekarang (One Shot)", function()
-        if not PacketRemote then
-            local rs = game:GetService("ReplicatedStorage")
-            PacketRemote = rs:FindFirstChild("SharedModules")
-                and rs.SharedModules:FindFirstChild("Packet")
-                and rs.SharedModules.Packet:FindFirstChild("RemoteEvent")
-        end
+    -- ======================== AUTO BUY GEAR SECTION ========================
+    local gearCard, gearContent = CreateSectionCard("⚙️ Auto Buy Gear", 2, Colors.Electric)
 
-        local qtyStr = States.autoBuyQtyStr or "1"
-        local qty = tonumber(qtyStr) or 1
+    CreateInfoText(gearContent, "Cara Pakai", "1. Pilih gear yang ingin dibeli di 'Pilih Gear Target' di bawah.\n2. Aktifkan toggle 'Auto Buy Gear'.\n3. Script akan otomatis membeli 1 gear per cycle selama stok tersedia.\n4. Jika stok habis, loop tetap berjalan dan langsung beli begitu server restock.\nGunakan 'Beli SEMUA Gear yang ada stok' untuk auto-beli semua gear tanpa pilih satu per satu.")
 
-        if States.autoBuyAll then
-            -- Beli semua yg ada stok
-            local rs = game:GetService("ReplicatedStorage")
-            local items = nil
-            if rs:FindFirstChild("StockValues") then
-                items = rs.StockValues:FindFirstChild("SeedShop") and rs.StockValues.SeedShop:FindFirstChild("Items")
-            end
-            if not items then
-                Notify("Auto Buy", "❌ StockValues tidak ditemukan! Cek console F9.", Colors.Error)
+    CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear", "Loop cepat beli gear yang dipilih, stop jika stok 0", function(newVal, revert)
+        if newVal and not States.autoBuyGearAll then
+            local targets = States.autoBuyGearTargets or {}
+            if #targets == 0 then
+                revert()
+                Notify("Auto Buy Gear", "⚠️ Pilih gear dulu di 'Pilih Gear Target' sebelum aktifkan Auto Buy Gear!", Colors.Warning, 5)
                 return
             end
-            local bought = 0
-            for _, stockVal in ipairs(items:GetChildren()) do
-                if stockVal:IsA("NumberValue") and stockVal.Value > 0 then
-                    BuySeedPacket(stockVal.Name, qty)
-                    bought += 1
-                    Notify("Auto Buy", "Beli " .. qty .. "x " .. stockVal.Name, Colors.Success)
-                    task.wait(States.buyDelay or 0.05)
-                end
-            end
-            if bought == 0 then
-                Notify("Auto Buy", "Semua seed habis stok saat ini.", Colors.TextMuted)
-            end
-        else
-            -- Beli seed dari multi-select list
-            local targets = States.autoBuySeedTargets or {}
-            -- Fallback ke legacy single target jika list kosong
+        end
+        if newVal then
+            pcall(MuteSFX_Failed)
+        end
+    end)
+    CreateToggle(gearContent, "Beli SEMUA Gear yang ada stok", "autoBuyGearAll", "ON: beli semua gear yg stok > 0 | OFF: hanya gear dipilih di bawah")
+
+    -- Multi-select gear target
+    CreateMultiSelect(gearContent, "⚙️Pilih Gear Target", GEARS, "autoBuyGearTargets")
+
+    CreateSlider(gearContent, "Delay Antar Beli Gear (s)", 0, 2, "gearBuyDelay")
+    CreateSlider(gearContent, "Loop Delay Gear (s)", 0, 10, "gearShopLoopDelay")
+    CreateToggle(gearContent, "Notif Saat Beli Gear", "notifyBuyGear", "Tampilkan notif setiap gear dibeli")
+
+    -- ======================== AUTO BUY CRATE SECTION ========================
+    local crateCard, crateContent = CreateSectionCard("📦 Auto Buy Crate", 3, Colors.Warning)
+
+    CreateInfoText(crateContent, "Cara Pakai", "1. Pilih crate yang ingin dibeli di 'Pilih Crate Target' di bawah.\n2. Aktifkan toggle 'Auto Buy Crate'.\n3. Script otomatis beli 1 crate per cycle selama stok tersedia.\n4. Stok dibaca dari StockValues.CrateShop.Items (sama dengan seed/gear).\nGunakan 'Beli SEMUA Crate yang ada stok' untuk beli semua tanpa pilih satu per satu.")
+
+    CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate", "Loop cepat beli crate yang dipilih, stop jika stok 0", function(newVal, revert)
+        if newVal and not States.autoBuyCrateAll then
+            local targets = States.autoBuyCrateTargets or {}
             if #targets == 0 then
-                targets = {States.autoBuySeedTarget or "Bamboo"}
-            end
-            local bought = 0
-            for _, seedName in ipairs(targets) do
-                local stock = GetSeedStock(seedName)
-                if stock > 0 then
-                    local ok = BuySeedPacket(seedName, qty)
-                    if ok then
-                        bought += 1
-                        Notify("Auto Buy ✅", qty .. "x " .. seedName .. " (stok: " .. stock .. ")", Colors.Success)
-                        task.wait(States.buyDelay or 0.05)
-                    end
-                else
-                    Notify("Auto Buy", seedName .. " stok 0 — skip", Colors.TextMuted)
-                end
-            end
-            if bought == 0 then
-                Notify("Auto Buy", "Semua target seed habis stok.", Colors.Warning)
+                revert()
+                Notify("Auto Buy Crate", "⚠️ Pilih crate dulu di 'Pilih Crate Target' sebelum aktifkan Auto Buy Crate!", Colors.Warning, 5)
+                return
             end
         end
-    end, Colors.Success)
+        if newVal then
+            pcall(MuteSFX_Failed)
+        end
+    end)
+    CreateToggle(crateContent, "Beli SEMUA Crate yang ada stok", "autoBuyCrateAll", "ON: beli semua crate yg stok > 0 | OFF: hanya crate dipilih di bawah")
 
-    -- Cek stok button
-    CreateActionButton(buyContent, "🔍 Cek Stok Semua Seed", function()
-        local rs = game:GetService("ReplicatedStorage")
-        local items = rs:FindFirstChild("StockValues")
-            and rs.StockValues:FindFirstChild("SeedShop")
-            and rs.StockValues.SeedShop:FindFirstChild("Items")
-        if not items then
-            Notify("Stok", "❌ StockValues tidak ditemukan!", Colors.Error)
+    -- Multi-select crate target
+    CreateMultiSelect(crateContent, "📦Pilih Crate Target", CRATES, "autoBuyCrateTargets")
+
+    CreateSlider(crateContent, "Delay Antar Beli Crate (s)", 0, 2, "crateBuyDelay")
+    CreateSlider(crateContent, "Loop Delay Crate (s)", 0, 10, "crateShopLoopDelay")
+    CreateToggle(crateContent, "Notif Saat Beli Crate", "notifyBuyCrate", "Tampilkan notif setiap crate dibeli")
+
+    -- Tombol beli manual
+    CreateActionButton(crateContent, "🛒 Beli Crate yang Dipilih Sekarang", function()
+        local targets = States.autoBuyCrateTargets or {}
+        if #targets == 0 then
+            Notify("Buy Crate", "⚠️ Pilih crate dulu di bawah!", Colors.Warning)
             return
         end
-        local available = {}
-        for _, stockVal in ipairs(items:GetChildren()) do
-            if stockVal:IsA("NumberValue") and stockVal.Value > 0 then
-                table.insert(available, stockVal.Name .. "×" .. stockVal.Value)
+        local bought = 0
+        for _, crateName in ipairs(targets) do
+            local stock = GetCrateStock(crateName)
+            if stock > 0 then
+                BuyCratePacket(crateName, 1)
+                bought += 1
+                task.wait(0.1)
             end
         end
-        if #available > 0 then
-            Notify("Stok Ada", table.concat(available, ", "):sub(1, 120), Colors.Success, 8)
-        else
-            local restockVal = rs.StockValues.SeedShop:FindFirstChild("UnixNextRestock")
-            local timeLeft = restockVal and math.max(0, math.floor(restockVal.Value - os.time())) or -1
-            local msg = "Semua seed habis."
-            if timeLeft > 0 then
-                local mins = math.floor(timeLeft / 60)
-                local secs = timeLeft % 60
-                msg = msg .. " Restock ~" .. mins .. "m " .. secs .. "s lagi."
-            end
-            Notify("Stok", msg, Colors.Warning, 6)
-        end
-    end)
-
-    -- Personal restock button
-    CreateActionButton(buyContent, "🔄 Personal Restock (Packet 121)", function()
-        if PacketRemote then
-            PacketRemote:FireServer(PACKET.SeedShopRestock)
-            Notify("Shop", "Fired SeedShopPersonalRestock (121)", Colors.Accent)
-        else
-            Notify("Shop", "PacketRemote tidak ditemukan!", Colors.Error)
-        end
-    end)
-
-    -- Debug Auto Buy — scan path dan print semua info ke console
-    CreateActionButton(buyContent, "🛠 Debug Auto Buy (Print F9)", function()
-        local rs = game:GetService("ReplicatedStorage")
-        print("========== [AutoBuy Debug] ==========")
-
-        -- Cek PacketRemote
-        print("[PacketRemote] " .. (PacketRemote and PacketRemote:GetFullName() or "NOT FOUND"))
-
-        -- Cek Networking.SeedShop
-        if Networking then
-            local shop = rawget(Networking, "SeedShop")
-            print("[Networking.SeedShop] " .. (shop and "FOUND" or "NOT FOUND"))
-            if shop then
-                for k, v in pairs(shop) do
-                    print("  .SeedShop." .. tostring(k) .. " = " .. tostring(v))
-                end
-            end
-        else
-            print("[Networking] NIL")
-        end
-
-        -- Cek StockValues paths
-        local paths = {
-            "StockValues.SeedShop.Items",
-            "SeedShop.Items",
-            "SeedShop.Stock",
-        }
-        for _, p in ipairs(paths) do
-            local cur = rs
-            local ok = true
-            for part in p:gmatch("[^%.]+") do
-                cur = cur:FindFirstChild(part)
-                if not cur then ok = false break end
-            end
-            print("[StockValues] " .. p .. " = " .. (ok and cur:GetFullName() or "NOT FOUND"))
-            if ok and cur then
-                local children = cur:GetChildren()
-                print("  " .. #children .. " seeds: " .. table.concat((function()
-                    local t = {}
-                    for i, c in ipairs(children) do
-                        if i > 5 then table.insert(t, "...") break end
-                        table.insert(t, c.Name .. "=" .. tostring(c.Value))
-                    end
-                    return t
-                end)(), ", "))
-            end
-        end
-
-        -- Cek SeedShop GUI path
-        local gui = playerGui:FindFirstChild("SeedShop")
-        print("[SeedShop GUI] " .. (gui and gui:GetFullName() or "NOT FOUND — beli via UI tidak bisa!"))
-        if gui then
-            local shelf = gui:FindFirstChild("Frame") and gui.Frame:FindFirstChild("NormalShop")
-                and gui.Frame.NormalShop:FindFirstChild("Sheckles_Shelf")
-            print("[Sheckles_Shelf] " .. (shelf and shelf:GetFullName() or "NOT FOUND"))
-            if shelf then
-                local mf = shelf:FindFirstChild("Main_Frame")
-                print("[Main_Frame] " .. (mf and mf:GetFullName() or "NOT FOUND"))
-                if mf then
-                    local sn = mf:FindFirstChild("Seed_Name")
-                    local bb = mf:FindFirstChild("Buttons") and mf.Buttons:FindFirstChild("BuyButton")
-                    print("[Seed_Name] " .. (sn and "FOUND val=" .. tostring(sn.Value) or "NOT FOUND"))
-                    print("[BuyButton] " .. (bb and "FOUND" or "NOT FOUND"))
-                end
-            end
-        end
-
-        print("======================================")
-        Notify("Debug", "Auto Buy debug dicetak ke console (F9)", Colors.TextMuted, 5)
-    end)
-
-    local crateCard, crateContent = CreateSectionCard("📦 Crates & Boxes", 2, Colors.Warning)
-    CreateToggle(crateContent, "Auto Buy & Open Crates", "autoCrate", "Buys then opens crates automatically")
-    CreateToggle(crateContent, "Buy Before Opening", "buyBeforeOpen", "Always buys new crate before opening")
-    CreateSlider(crateContent, "Crate Loop Delay (s)", 1, 60, "crateLoopDelay")
-    CreateToggle(crateContent, "Notify On Crate Roll", "notifyCrate", "Shows notification for each roll")
-    CreateActionButton(crateContent, "Open All Crates Now", function()
-        if PacketRemote then
-            PacketRemote:FireServer(PACKET.OpenCrate)
-            Notify("Crates", "Fired OpenCrate (ID " .. PACKET.OpenCrate .. ")", Colors.Warning)
-        else
-            Notify("Crates", "PacketRemote tidak ditemukan!", Colors.Error)
-        end
+        Notify("Buy Crate", "Beli " .. bought .. " crate sekarang.", Colors.Warning)
     end, Colors.Warning)
-    CreateActionButton(crateContent, "Copy Semua Packet IDs", function()
+
+    -- Harga info
+    CreateActionButton(crateContent, "💰 Lihat Harga Crate", function()
+        local lines = {}
+        for _, name in ipairs(CRATES) do
+            local cost = CRATE_COST[name] or 0
+            local costStr = cost >= 1000000 and string.format("%.1fM", cost/1000000) or string.format("%dk", cost/1000)
+            table.insert(lines, name:gsub(" Crate", "") .. ": ¢" .. costStr)
+        end
+        Notify("Harga Crate", table.concat(lines, " | "):sub(1, 200), Colors.Gold, 10)
+    end)
+
+    -- ======================== AUTO OPEN CRATE SECTION ========================
+    local openCrateCard, openCrateContent = CreateSectionCard("🎁 Auto Open Crate", 4, Colors.Gold)
+
+    CreateInfoText(openCrateContent, "Cara Kerja", "Script cek inventory tiap beberapa detik. Jika ada crate tool di backpack, otomatis equip lalu open via Networking.Crate.OpenCrate:Fire(crateName) — cara yang sama seperti CrateController game. Delay antar open penting agar animasi efek selesai dulu.\nPaling efektif dikombinasikan dengan Auto Buy Crate di atas.")
+
+    CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Open semua crate di inventory secara otomatis")
+    CreateSlider(openCrateContent, "Delay Antar Open (s)", 1, 30, "crateOpenDelay")
+    CreateToggle(openCrateContent, "Notif Hasil Open", "notifyOpenCrate", "Tampilkan item yang didapat saat open crate")
+
+    -- Scan crate di inventory
+    CreateActionButton(openCrateContent, "🔍 Scan Crate di Inventory", function()
+        local cratesInBag = GetCratesInInventory()
+        if #cratesInBag == 0 then
+            Notify("Scan Crate", "Tidak ada crate di inventory.", Colors.TextMuted)
+            return
+        end
+        local names = {}
+        for _, entry in ipairs(cratesInBag) do
+            table.insert(names, entry.name)
+        end
+        Notify("Crate di Bag (" .. #cratesInBag .. ")", table.concat(names, ", "):sub(1, 150), Colors.Warning, 6)
+    end)
+
+    -- Open semua sekarang (one-shot manual)
+    CreateActionButton(openCrateContent, "⚡ Open Semua Crate Sekarang", function()
+        local cratesInBag = GetCratesInInventory()
+        if #cratesInBag == 0 then
+            Notify("Open Crate", "Tidak ada crate di inventory!", Colors.Error)
+            return
+        end
+        Notify("Open Crate", "Opening " .. #cratesInBag .. " crate(s)...", Colors.Warning)
+        task.spawn(function()
+            for _, entry in ipairs(cratesInBag) do
+                local tool = entry.tool
+                local crateName = entry.name
+
+                -- Equip dulu
+                if tool.Parent ~= player.Character then
+                    tool.Parent = player.Character
+                    task.wait(0.2)
+                end
+
+                local ok, result = pcall(function()
+                    return OpenCrateViaNetworking(crateName)
+                end)
+
+                if ok then
+                    local wonItem = type(result) == "table" and result.WonItem
+                    if wonItem then
+                        Notify("📦 " .. crateName, "Dapat: " .. (wonItem.Name or "?") .. (wonItem.Chance and string.format(" (%.2f%%)", wonItem.Chance) or ""), Colors.Gold, 5)
+                    else
+                        Notify("📦 Opened!", crateName, Colors.Warning, 3)
+                    end
+                end
+
+                task.wait(0.5)
+                if tool and tool.Parent == player.Character then
+                    tool.Parent = player.Backpack
+                end
+                task.wait(States.crateOpenDelay or 8)
+            end
+        end)
+    end, Colors.Gold)
+
+    -- Copy Packet IDs (dev tool, dipindah ke sini)
+    CreateActionButton(openCrateContent, "📋 Copy Semua Packet IDs", function()
         local ids = {}
         for k, v in pairs(PACKET) do
             table.insert(ids, k .. "=" .. v)
@@ -3634,6 +4133,8 @@ Pages["Settings"] = function()
         States.autoSell = false
         States.autoBuySeed = false
         States.autoCrate = false
+        States.autoBuyCrate = false
+        States.autoOpenCrate = false
         States.autoEquipPets = false
         States.autoCatchWild = false
         States.autoOpenEgg = false
@@ -3647,6 +4148,17 @@ Pages["Settings"] = function()
         States.noFog = false
         States.noShadows = false
         ClearESP()
+        -- Restore Failed sound saat semua state di-reset
+        if _sfxMuteConn then
+            _sfxMuteConn:Disconnect()
+            _sfxMuteConn = nil
+        end
+        pcall(function()
+            local ss = game:GetService("SoundService")
+            local sfx = ss:FindFirstChild("SFX")
+            local failedSnd = sfx and sfx:FindFirstChild("Failed")
+            if failedSnd then failedSnd.Volume = 1 end
+        end)
         Notify("Settings", "All automation states reset to OFF.", Colors.Warning)
     end, Colors.Error)
 
@@ -3711,6 +4223,7 @@ local searchAllItems = {
     {"auto plant", "Farm"}, {"plant seed", "Farm"}, {"auto harvest", "Farm"}, {"harvest", "Farm"},
     {"water", "Farm"}, {"sprinkler", "Farm"}, {"bamboo", "Farm"}, {"blueberry", "Farm"},
     {"auto buy", "Shop"}, {"buy seed", "Shop"}, {"crate", "Shop"}, {"restock", "Shop"}, {"shop", "Shop"},
+    {"auto buy crate", "Shop"}, {"open crate", "Shop"}, {"beli crate", "Shop"}, {"crate shop", "Shop"},
     {"sell", "Sell"}, {"auto sell", "Sell"}, {"bag", "Sell"}, {"fruit", "Sell"},
     {"pet", "Pets"}, {"wild pet", "Pets"}, {"bunny", "Pets"}, {"frog", "Pets"}, {"equip pet", "Pets"},
     {"egg", "Eggs"}, {"hatch", "Eggs"}, {"open egg", "Eggs"},
@@ -3890,6 +4403,7 @@ local function DoMinimize()
         TopBar.Visible = false
     end)
     task.delay(0.4, function()
+        MainFrame.BackgroundTransparency = 1
         MinimizedLogo.Visible = true
         Tween(MinimizedLogo, {BackgroundTransparency = 0}, 0.3)
         AnimateLogoParts(0)
@@ -3979,7 +4493,7 @@ UserInputService.InputBegan:Connect(function(input, gp)
     -- F: toggle fly
     if input.KeyCode == Enum.KeyCode.F then
         States.fly = not States.fly
-        Notify("Player", "Fly " .. (States.fly and "ON ✅" or "OFF ❌"), States.fly and Colors.Success or Colors.TextMuted)
+        Notify("Player", "Fly " .. (States.fly and "ON" or "OFF"), States.fly and Colors.Success or Colors.TextMuted)
     end
 end)
 
@@ -4027,7 +4541,7 @@ conn = RunService.Heartbeat:Connect(function(dt)
 
     if pct >= 1 then
         conn:Disconnect()
-        LoadingStatus.Text = "✅ Ready!"
+        LoadingStatus.Text = "Ready!"
         task.wait(0.4)
 
         Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
@@ -4046,12 +4560,10 @@ conn = RunService.Heartbeat:Connect(function(dt)
         SetActivePage("Farm")
 
         task.wait(0.8)
-        local remoteStatus = PacketRemote and "Remote ✅" or "Remote ⚠ (check console)"
+        local remoteStatus = PacketRemote and "Remote" or "Remote ⚠ (check console)"
         Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | [Insert] toggle | [F] fly", Colors.Success, 6)
     end
 end)
 
 print("[Miracle Hub] Full build loaded — Player: " .. player.Name)
-print("[Miracle Hub] PlotId: " .. MY_PLOT_ID .. " | MaxPets: " .. MAX_EQUIPPED_PETS .. " | MaxFruits: " .. MAX_FRUIT_CAP)
-print("[Miracle Hub] PacketRemote: " .. (PacketRemote and PacketRemote:GetFullName() or "NOT FOUND"))
 print("[Miracle Hub] Keybinds: [Insert] = toggle GUI | [F] = toggle Fly")
