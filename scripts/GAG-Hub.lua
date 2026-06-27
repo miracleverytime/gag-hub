@@ -173,6 +173,12 @@ local States = {
     perFruitDelay = 0.05,
     harvestLoopDelay = 2.0,
     notifyHarvest = false,
+    autoPlantDelay = 0.3,       -- delay antar tanam per seed (s)
+    autoPlantLoopDelay = 5.0,   -- jeda antar cycle tanam (s)
+    autoPlantNotify = true,     -- notif saat cycle selesai
+    autoPlantAllSeeds = false,  -- tanam semua seed di backpack tanpa filter
+    autoPlantTargets = {},      -- TABLE: seed yang dipilih untuk ditanam
+    autoPlantUsedSlots = 0,     -- tracker slot terpakai (info saja)
     -- Shop
     autoBuySeed = false,
     autoBuySeedTarget = nil,            -- legacy (tidak dipakai jika targets kosong)
@@ -1874,48 +1880,328 @@ task.spawn(function()
     end
 end)
 
--- AUTO PLANT LOOP (fires PacketRemote with PlantSeed=9 OR finds plant prompts)
+-- ======================== AUTO PLANT CORE (final fix) ========================
+-- Masalah sebelumnya:
+--   1. searchStart loop logic salah → skip posisi / infinite loop
+--   2. Posisi yang sudah dipakai tidak di-track → server reject karena overlap < 1 stud
+--   3. Tanaman existing di plot tidak diperhitungkan → posisi terlalu dekat existing plant
+-- Fix:
+--   - Pre-generate semua posisi valid via raycast SEBELUM loop tanam
+--   - Filter posisi yang terlalu dekat dengan existing plants (>= 1.5 stud jarak XZ)
+--   - Track posisi yang sudah dipakai dalam satu cycle
+--   - Re-scan backpack tiap iterasi (tool dikonsumsi server)
+
+-- Helper: Dapatkan semua BasePart tag "PlantArea" di plot kita
+local function GetMyPlantAreas()
+    local myPlot = GetMyPlot()
+    if not myPlot then return {} end
+    local areas = {}
+    pcall(function()
+        for _, part in ipairs(CollectionService:GetTagged("PlantArea")) do
+            if part:IsA("BasePart") and part:IsDescendantOf(myPlot) then
+                table.insert(areas, part)
+            end
+        end
+    end)
+    return areas
+end
+
+-- Helper: Hitung slot tanaman milik kita di plot
+local function CountPlantedSlots()
+    local plantsFolder = GetPlantsFolder()
+    if not plantsFolder then return 0 end
+    local count = 0
+    for _, plant in ipairs(plantsFolder:GetChildren()) do
+        if plant:GetAttribute("UserId") == player.UserId then
+            count += 1
+        end
+    end
+    return count
+end
+
+-- Helper: Kumpulkan posisi XZ tanaman yang sudah ada di plot (untuk cek overlap)
+local function GetExistingPlantPositions()
+    local plantsFolder = GetPlantsFolder()
+    local occupied = {}
+    if plantsFolder then
+        for _, plant in ipairs(plantsFolder:GetChildren()) do
+            local ok, pivot = pcall(function() return plant:GetPivot() end)
+            if ok and pivot then
+                table.insert(occupied, Vector2.new(pivot.Position.X, pivot.Position.Z))
+            end
+        end
+    end
+    return occupied
+end
+
+-- Helper: Cek apakah posisi terlalu dekat dengan salah satu posisi di list (jarak XZ)
+local function IsTooClose(pos, posList, minDist)
+    minDist = minDist or 1.5
+    local px, pz = pos.X, pos.Z
+    for _, p in ipairs(posList) do
+        local dx = px - (p.X or p.x)
+        local dz = pz - (p.Y or p.y)  -- Vector2 Y = Z world
+        if dx*dx + dz*dz < minDist * minDist then
+            return true
+        end
+    end
+    return false
+end
+
+-- Helper: Generate semua posisi valid (sudah di-raycast + filter overlap) untuk satu cycle
+local function BuildValidPlantPositions(plantAreas, maxCount)
+    maxCount = maxCount or 50
+    local result = {}
+
+    -- Kumpulkan posisi XZ existing plants
+    local occupied = GetExistingPlantPositions()  -- list of Vector2(X,Z)
+
+    -- RaycastParams: hanya mengenai PlantArea
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Include
+    params.FilterDescendantsInstances = plantAreas
+
+    local STEP = 1.8  -- jarak grid antar titik
+
+    for _, area in ipairs(plantAreas) do
+        local cf    = area.CFrame
+        local sz    = area.Size
+        local halfX = sz.X / 2 - 0.2
+        local halfZ = sz.Z / 2 - 0.2
+
+        local x = -halfX
+        while x <= halfX do
+            local z = -halfZ
+            while z <= halfZ do
+                -- Origin: di atas permukaan area dalam world space
+                local localPt   = Vector3.new(x, sz.Y / 2 + 15, z)
+                local worldOrig = cf:PointToWorldSpace(localPt)
+
+                local hit = workspace:Raycast(worldOrig, Vector3.new(0, -40, 0), params)
+                if hit and hit.Instance and hit.Instance.Transparency < 1 then
+                    local hp = hit.Position
+                    local hp2 = Vector2.new(hp.X, hp.Z)
+
+                    -- Cek jarak ke existing plants
+                    local tooClose = false
+                    for _, op in ipairs(occupied) do
+                        local dx = hp2.X - op.X
+                        local dy = hp2.Y - op.Y
+                        if dx*dx + dy*dy < 1.5 * 1.5 then
+                            tooClose = true
+                            break
+                        end
+                    end
+
+                    -- Cek jarak ke posisi yang sudah kita pilih di cycle ini
+                    if not tooClose then
+                        for _, rp in ipairs(result) do
+                            local dx = hp2.X - rp.X
+                            local dy = hp2.Y - rp.Z  -- rp adalah Vector3, Z = dunia Z
+                            if dx*dx + dy*dy < 1.5 * 1.5 then
+                                tooClose = true
+                                break
+                            end
+                        end
+                    end
+
+                    if not tooClose then
+                        table.insert(result, hp)
+                        -- Tambahkan ke occupied agar iterasi berikutnya juga terfilter
+                        table.insert(occupied, hp2)
+                        if #result >= maxCount then
+                            return result
+                        end
+                    end
+                end
+                z = z + STEP
+            end
+            x = x + STEP
+        end
+    end
+
+    -- Shuffle agar variasi posisi tiap cycle
+    for i = #result, 2, -1 do
+        local j = math.random(1, i)
+        result[i], result[j] = result[j], result[i]
+    end
+
+    return result
+end
+
+-- Helper: Ambil SATU seed dari backpack (dipanggil ulang tiap iterasi)
+-- Return nil jika tidak ada seed valid ATAU belum ada target dipilih
+local function GetNextSeedFromBackpack()
+    local backpack = player:FindFirstChildOfClass("Backpack")
+    if not backpack then return nil end
+
+    -- Cek apakah ada target yang dipilih
+    -- Jika autoPlantAllSeeds = false dan autoPlantTargets kosong → BLOCK (tidak tanam sembarangan)
+    local allowedSeeds = nil  -- nil = allow all (hanya jika autoPlantAllSeeds = true)
+    if States.autoPlantAllSeeds then
+        allowedSeeds = nil  -- tanam semua
+    else
+        if #(States.autoPlantTargets or {}) == 0 then
+            return nil  -- belum pilih seed apapun → jangan tanam
+        end
+        allowedSeeds = {}
+        for _, name in ipairs(States.autoPlantTargets) do
+            allowedSeeds[name] = true
+        end
+    end
+
+    for _, tool in ipairs(backpack:GetChildren()) do
+        if not tool:IsA("Tool") then continue end
+
+        -- Resolve nama seed dari attribute
+        local seedName = tool:GetAttribute("SeedTool")
+        if type(seedName) ~= "string" or seedName == "" then
+            local raw = tool:GetAttribute("SeedTool")
+            if raw ~= nil then
+                -- SeedTool ada tapi bukan string (misal boolean) → nama = tool.Name
+                seedName = tool.Name
+            else
+                seedName = tool:GetAttribute("SeedName")
+                if type(seedName) ~= "string" or seedName == "" then
+                    seedName = nil
+                    for _, s in ipairs(SEEDS) do
+                        if tool.Name == s or tool.Name == s .. " Seed" then
+                            seedName = s break
+                        end
+                    end
+                end
+            end
+        end
+        if not seedName then continue end
+
+        -- Cek filter allowed
+        if allowedSeeds ~= nil and not allowedSeeds[seedName] then continue end
+
+        -- Cek keepReserve: hitung seed jenis ini di backpack
+        if States.keepReserve and States.keepReserve > 0 then
+            local count = 0
+            for _, t in ipairs(backpack:GetChildren()) do
+                if not t:IsA("Tool") then continue end
+                local sn = t:GetAttribute("SeedTool")
+                if type(sn) ~= "string" or sn == "" then sn = t.Name end
+                if sn == seedName then count += 1 end
+            end
+            if count <= States.keepReserve then continue end
+        end
+
+        return {tool = tool, name = seedName}
+    end
+    return nil
+end
+
+-- Core: Fire Networking.Plant.PlantSeed dengan posisi hit yang valid
+local _lastPlantFireTime = 0
+local function DoPlantFire(tool, seedName, hitPos)
+    -- Rate limit 0.05s (sama dengan game)
+    local now = os.clock()
+    local wait = 0.05 - (now - _lastPlantFireTime)
+    if wait > 0 then task.wait(wait) end
+
+    -- Resolve seedName akhir dari attribute (pastikan benar)
+    local attr = tool:GetAttribute("SeedTool")
+    if type(attr) == "string" and attr ~= "" then
+        seedName = attr
+    end
+
+    local fired = false
+
+    -- Cara 1: Networking.Plant.PlantSeed (persis game asli)
+    if Networking then
+        local ok = pcall(function()
+            Networking.Plant.PlantSeed:Fire(hitPos, seedName, tool)
+        end)
+        fired = ok
+    end
+
+    -- Cara 2: PacketRemote fallback
+    if not fired and PacketRemote then
+        pcall(function()
+            PacketRemote:FireServer(PACKET.PlantSeed, hitPos, seedName, tool)
+        end)
+        fired = true
+    end
+
+    _lastPlantFireTime = os.clock()
+    return fired
+end
+
+-- AUTO PLANT LOOP
 task.spawn(function()
     while _G._MiracleHubSession == _SESSION do
-        task.wait(States.harvestLoopDelay or 3)
-        if not States.autoPlant then continue end
-        pcall(function()
-            -- Collect seeds from backpack
-            local seeds = {}
-            for _, tool in ipairs(player.Backpack:GetChildren()) do
-                local sn = tool:GetAttribute("SeedTool") or tool:GetAttribute("SeedName")
-                if sn then
-                    local filter = States.plantSeedFilter
-                    if filter == "All Seeds" or filter == sn then
-                        table.insert(seeds, {tool = tool, name = sn})
-                    end
-                end
+        if not States.autoPlant then
+            task.wait(0.5)
+            continue
+        end
+
+        -- 1. Cek PlantArea
+        local plantAreas = GetMyPlantAreas()
+        if #plantAreas == 0 then
+            if States.autoPlantNotify then
+                Notify("Auto Plant ⚠", "PlantArea tidak ditemukan di Plot " .. MY_PLOT_ID
+                    .. ". Pastikan kamu di plotmu.", Colors.Warning, 5)
             end
-            if #seeds == 0 then return end
-            local planted = 0
-            for _, seed in ipairs(seeds) do
-                if not States.autoPlant then break end
-                if planted >= (States.maxPlantsCycle or 40) then break end
-                -- Use packet remote if available, otherwise equip and use tool
-                if PacketRemote then
-                    FirePacket(PACKET.PlantSeed, seed.tool)
-                else
-                    -- Equip and activate tool
-                    player.Character:WaitForChild("HumanoidRootPart")
-                    seed.tool.Parent = player.Character
-                    task.wait(0.1)
-                    local toolHandle = seed.tool:FindFirstChildWhichIsA("BasePart")
-                    if toolHandle then
-                        seed.tool.Parent = player.Backpack
-                    end
-                end
-                planted += 1
-                task.wait(States.buyDelay or 0.05)
+            task.wait(5)
+            continue
+        end
+
+        -- 2. Build semua posisi valid (filter overlap existing plants)
+        local maxPerCycle    = States.maxPlantsCycle or 40
+        local validPositions = BuildValidPlantPositions(plantAreas, maxPerCycle)
+
+        if #validPositions == 0 then
+            if States.autoPlantNotify then
+                local slotCount = CountPlantedSlots()
+                Notify("Auto Plant",
+                    "Tidak ada slot kosong di Plot " .. MY_PLOT_ID
+                    .. " (" .. slotCount .. " tanaman ada). Harvest dulu lalu coba lagi.",
+                    Colors.Warning, 5)
             end
+            task.wait(math.max(States.autoPlantLoopDelay or 5, 3))
+            continue
+        end
+
+        -- 3. Tanam: re-scan backpack tiap iterasi (tool dikonsumsi server setelah tanam)
+        local planted = 0
+        local noSeed  = false
+
+        for _, hitPos in ipairs(validPositions) do
+            if not States.autoPlant then break end
+
+            local seedEntry = GetNextSeedFromBackpack()
+            if not seedEntry then
+                noSeed = true
+                break
+            end
+
+            DoPlantFire(seedEntry.tool, seedEntry.name, hitPos)
+            planted += 1
+
+            task.wait(math.max(States.autoPlantDelay or 0.3, 0.05))
+        end
+
+        -- 4. Update info
+        States.autoPlantUsedSlots = CountPlantedSlots()
+
+        -- 5. Notif hasil
+        if States.autoPlantNotify then
             if planted > 0 then
-                Notify("Auto Plant", "Planted " .. planted .. " seed(s) on Plot " .. MY_PLOT_ID, Colors.Success)
+                Notify("Auto Plant 🌱",
+                    "Planted: " .. planted
+                    .. " | Slot terisi: " .. States.autoPlantUsedSlots
+                    .. " | Plot " .. MY_PLOT_ID,
+                    Colors.Success)
+            elseif noSeed then
+                Notify("Auto Plant", "Seed habis di backpack (sesuai filter).", Colors.Warning, 3)
             end
-        end)
+        end
+
+        -- 6. Jeda antar cycle
+        task.wait(math.max(States.autoPlantLoopDelay or 5, 1))
     end
 end)
 
@@ -2922,32 +3208,159 @@ end)
 -- ======================== FEATURE: FARM PAGE ========================
 Pages["Farm"] = function()
     local plantCard, plantContent = CreateSectionCard("🌱 Auto Plant", 1, Colors.Success)
-    CreateInfoText(plantContent, "How it works", "Plants seeds on Plot " .. MY_PLOT_ID .. " using PacketRemote (PlantSeed=9) or tool activation. Detects seeds via SeedTool attribute in backpack.")
-    CreateToggle(plantContent, "Auto Plant", "autoPlant", "Loops every harvest cycle delay")
-    CreateDropdown(plantContent, "Seeds To Plant", {"All Seeds", table.unpack(SEEDS)}, "plantSeedFilter")
-    CreateDropdown(plantContent, "Only These Rarities", {"All", table.unpack(RARITIES)}, "plantRarityFilter")
-    CreateSlider(plantContent, "Keep In Reserve (per seed)", 0, 50, "keepReserve")
-    CreateSlider(plantContent, "Max Plants / Cycle", 1, 100, "maxPlantsCycle")
-    CreateActionButton(plantContent, "Plant Once Now", function()
-        local seeds = {}
-        for _, tool in ipairs(player.Backpack:GetChildren()) do
-            if tool:GetAttribute("SeedTool") or tool:GetAttribute("SeedName") then
-                table.insert(seeds, tool)
+
+    CreateInfoText(plantContent, "Cara Kerja (Rewrite)",
+        "Menggunakan Networking.Plant.PlantSeed:Fire(position, seedName, tool) — "
+        .. "sama persis dengan cara PlantController game asli. "
+        .. "Posisi tanam diambil dari CollectionService tag 'PlantArea' di Plot " .. MY_PLOT_ID
+        .. ", fallback ke SpawnPoint → posisi karakter jika tidak ditemukan. "
+        .. "Server validasi posisi, seed, dan kepemilikan plot secara otomatis."
+    )
+
+    -- Toggle utama: tidak bisa nyala jika belum pilih seed (sama persis pola Auto Buy Seeds)
+    CreateToggle(plantContent, "Auto Plant", "autoPlant",
+        "Loop tanam otomatis tiap autoPlantLoopDelay detik",
+        function(newVal, revert)
+            if newVal and not States.autoPlantAllSeeds then
+                local targets = States.autoPlantTargets or {}
+                if #targets == 0 then
+                    revert()
+                    Notify("Auto Plant", "⚠️ Pilih seed dulu di 'Pilih Seed yang Ditanam' sebelum aktifkan Auto Plant!", Colors.Warning, 5)
+                    return
+                end
+            end
+        end)
+
+    -- Toggle: tanam semua atau hanya target yang dipilih
+    CreateToggle(plantContent, "Tanam Semua Seed di Backpack", "autoPlantAllSeeds",
+        "ON: tanam semua seed yang ada | OFF: hanya seed yang dipilih di bawah")
+
+    -- Multi-select seed target
+    CreateMultiSelect(plantContent, "🌱Pilih Seed yang Ditanam", SEEDS, "autoPlantTargets")
+
+    CreateSubHeader(plantContent, "Delay & Cycle")
+    CreateSlider(plantContent, "Delay Antar Tanam (s)", 0, 5, "autoPlantDelay")
+    CreateSlider(plantContent, "Loop Delay (s)", 1, 60, "autoPlantLoopDelay")
+    CreateSlider(plantContent, "Max Tanam per Cycle", 1, 100, "maxPlantsCycle")
+    CreateSlider(plantContent, "Keep Reserve (per jenis seed)", 0, 50, "keepReserve")
+    CreateToggle(plantContent, "Notif Hasil Tanam", "autoPlantNotify",
+        "Tampilkan notif setiap kali cycle tanam selesai")
+
+    -- Tombol: Tanam Sekarang (one-shot manual)
+    CreateActionButton(plantContent, "⚡ Tanam Sekarang (Manual)", function()
+        local plantAreas = GetMyPlantAreas()
+        if #plantAreas == 0 then
+            Notify("Farm", "❌ PlantArea tidak ditemukan di Plot " .. MY_PLOT_ID
+                .. ". Pastikan kamu berada di plotmu.", Colors.Error)
+            return
+        end
+        local firstSeed = GetNextSeedFromBackpack()
+        if not firstSeed then
+            Notify("Farm", "⚠ Tidak ada seed di backpack (sesuai filter).", Colors.Warning)
+            return
+        end
+        Notify("Farm", "Mulai menanam di Plot " .. MY_PLOT_ID .. "...", Colors.Success)
+        task.spawn(function()
+            -- Build posisi valid (sudah filter overlap existing plants)
+            local validPos = BuildValidPlantPositions(plantAreas, States.maxPlantsCycle or 40)
+            if #validPos == 0 then
+                Notify("Farm", "Plot " .. MY_PLOT_ID .. " sudah penuh / tidak ada slot kosong.", Colors.Warning)
+                return
+            end
+            local planted = 0
+            for _, hitPos in ipairs(validPos) do
+                local seedEntry = GetNextSeedFromBackpack()
+                if not seedEntry then break end
+                DoPlantFire(seedEntry.tool, seedEntry.name, hitPos)
+                planted += 1
+                task.wait(math.max(States.autoPlantDelay or 0.3, 0.05))
+            end
+            States.autoPlantUsedSlots = CountPlantedSlots()
+            Notify("Farm ✅",
+                "Planted: " .. planted
+                .. " | Slot: " .. States.autoPlantUsedSlots,
+                planted > 0 and Colors.Success or Colors.Warning, 5)
+        end)
+    end, Colors.Success)
+
+    -- Tombol: Scan seed di backpack
+    CreateActionButton(plantContent, "🔍 Scan Seed di Backpack", function()
+        local backpack = player:FindFirstChildOfClass("Backpack")
+        if not backpack then
+            Notify("Farm", "Backpack tidak ditemukan.", Colors.Error)
+            return
+        end
+        local counts = {}
+        local total = 0
+        for _, tool in ipairs(backpack:GetChildren()) do
+            if not tool:IsA("Tool") then continue end
+            local seedName = tool:GetAttribute("SeedTool")
+            if type(seedName) == "boolean" then seedName = tool.Name end
+            if type(seedName) ~= "string" or seedName == "" then
+                seedName = tool:GetAttribute("SeedName")
+            end
+            if not seedName then
+                for _, s in ipairs(SEEDS) do
+                    if tool.Name == s or tool.Name == s .. " Seed" then
+                        seedName = s break
+                    end
+                end
+            end
+            if seedName then
+                counts[seedName] = (counts[seedName] or 0) + 1
+                total += 1
             end
         end
-        Notify("Farm", "Planting " .. #seeds .. " seed(s) on Plot " .. MY_PLOT_ID, Colors.Success)
-        for _, tool in ipairs(seeds) do
-            FirePacket(PACKET.PlantSeed, tool)
-            task.wait(0.05)
+        if total == 0 then
+            Notify("Farm", "Tidak ada seed di backpack.", Colors.TextMuted)
+            return
         end
-    end, Colors.Success)
-    CreateActionButton(plantContent, "Refresh Seed List", function()
-        local count = 0
-        for _, tool in ipairs(player.Backpack:GetChildren()) do
-            if tool:GetAttribute("SeedTool") or tool:GetAttribute("SeedName") then count += 1 end
+        local lines = {}
+        for name, cnt in pairs(counts) do
+            table.insert(lines, name .. " x" .. cnt)
         end
-        Notify("Farm", count .. " seeds detected in backpack.", Colors.TextMuted)
+        table.sort(lines)
+        Notify("Seed di Backpack (" .. total .. ")",
+            table.concat(lines, " | "):sub(1, 200), Colors.Success, 7)
     end)
+
+    -- Tombol: Scan PlantArea
+    CreateActionButton(plantContent, "📐 Scan PlantArea Plot", function()
+        local myPlot = GetMyPlot()
+        if not myPlot then
+            Notify("Scan Plot", "❌ Plot " .. MY_PLOT_ID
+                .. " tidak ditemukan di Workspace.Gardens!", Colors.Error)
+            return
+        end
+        local plantAreas = GetMyPlantAreas()
+        local slotCount = CountPlantedSlots()
+        States.autoPlantUsedSlots = slotCount
+        if #plantAreas > 0 then
+            -- Hitung slot kosong tersedia (tanpa existing plants)
+            local validPos = BuildValidPlantPositions(plantAreas, 200)
+            Notify("PlantArea Scan ✅",
+                #plantAreas .. " area | " .. #validPos .. " slot kosong tersedia | "
+                .. slotCount .. " sudah ditanam | Plot " .. MY_PLOT_ID,
+                Colors.Success, 6)
+        else
+            Notify("PlantArea Scan ⚠",
+                "Tag 'PlantArea' tidak ditemukan di Plot " .. MY_PLOT_ID
+                .. ". Plot mungkin belum di-load atau PlotId salah.",
+                Colors.Warning, 6)
+        end
+    end)
+
+    -- Tombol: Info slot terisi
+    CreateActionButton(plantContent, "📊 Cek Slot Terisi", function()
+        local planted = CountPlantedSlots()
+        States.autoPlantUsedSlots = planted
+        local plantsFolder = GetPlantsFolder()
+        local totalPlants = plantsFolder and #plantsFolder:GetChildren() or 0
+        Notify("Slot Info",
+            "Milik saya: " .. planted .. " tanaman | Total di plot: " .. totalPlants
+            .. " | Plot " .. MY_PLOT_ID, Colors.Accent, 5)
+    end)
+
 
     local harvestCard, harvestContent = CreateSectionCard("🍅 Auto Harvest", 2, Colors.Warning)
     CreateInfoText(harvestContent, "Cara kerja", "Iterasi Gardens.Plot" .. MY_PLOT_ID .. ".Plants → Fruits → HarvestPart → HarvestPrompt. Fire via Networking.Garden.CollectFruit (fallback: fireproximityprompt). Buah siap = prompt.Enabled = true.")
