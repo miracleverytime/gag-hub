@@ -2,9 +2,8 @@ MIRACLE-HUB GROW A GARDEN 2 V1.O
 
 Major Bug:
 1. Deksripsi pada tiap tab fitur masih gj
-2. Fitur auto plants belum works
+2. Fitur auto plants masih belom ketatam semua
 3. Fitur watering & Springklers belum works
-4. Max fruit capacity pada tab Plot belum realtime
 6. Jump power belom works
 7. Mutation list belom terupdate
 8. Fitur esp masih cacat
@@ -15,15 +14,9 @@ Major Bug:
 
 Minor Bug:
 1. Harvest all now di menu auto harvest kadang ga sampe full backpack
-2. Tombol dropdown masi kecil
-3. UI masi banyak yg norak
-4. Auto Daily Deal toggle di hapus aja
-5. Notif hasil jual terlalu cepat
-6. Egg dibikin coming soon karna belum banyak yg punya.
-7. Ubah default flyspeed jadi 25 + kasi warning kalua diatas itu
-8. fix/Delete no clip
-9. Anti afk kyknya belom work (need testing)
-10. item yg blum rilis ikut masuk ke multiple choice
+2. UI masi banyak yg norak
+3. Anti afk kyknya belom work (need testing)
+4. item yg blum rilis ikut masuk ke multiple choice
 
 
 

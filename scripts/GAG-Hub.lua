@@ -224,8 +224,7 @@ local States = {
     jumpPower = 50,
     infiniteJump = false,
     fly = false,
-    flySpeed = 60,
-    noclip = false,
+    flySpeed = 25,
     antiAfk = true,
     -- Pets
     autoEquipPets = false,
@@ -974,17 +973,17 @@ local function CreateSectionCard(title, layoutOrder, accentColor)
 
     local dropBtn = Create("TextButton", {
         Parent = header,
-        Size = UDim2.new(0, 32, 0, 32),
-        Position = UDim2.new(1, -32, 0, -2),
+        Size = UDim2.new(0, 40, 0, 40),
+        Position = UDim2.new(1, -44, 0.5, -20),
         BackgroundColor3 = Colors.Surface,
         Text = "▼",
         TextColor3 = Colors.TextSecondary,
-        TextSize = 13,
+        TextSize = 16,
         Font = Enum.Font.GothamBold,
         BorderSizePixel = 0,
         AutoButtonColor = false,
     })
-    CreateCorner(dropBtn, 7)
+    CreateCorner(dropBtn, 9)
 
     local content = Create("Frame", {
         Parent = card,
@@ -1106,7 +1105,7 @@ local function CreateToggle(parent, text, stateKey, description, onToggle)
     return container, function() return state end
 end
 
-local function CreateSlider(parent, text, minVal, maxVal, stateKey, suffix)
+local function CreateSlider(parent, text, minVal, maxVal, stateKey, suffix, onChange)
     local defaultVal = States[stateKey] or minVal
     local container = Create("Frame", {
         Parent = parent,
@@ -1175,6 +1174,7 @@ local function CreateSlider(parent, text, minVal, maxVal, stateKey, suffix)
         local val = math.floor(minVal + pct * (maxVal - minVal))
         States[stateKey] = val
         valLabel.Text = tostring(val) .. (suffix or "")
+        if onChange then onChange(val) end
         Tween(fill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
         Tween(sliderKnob, {Position = UDim2.new(pct, -8, 0.5, -8)}, 0.05)
     end
@@ -2351,7 +2351,7 @@ task.spawn(function()
                 local dealResult = UseDailyDeal()
                 if dealResult and dealResult.Success then
                     if States.notifySell then
-                        Notify("Daily Deal! 🌈", "Sold " .. (dealResult.SoldCount or 0) .. " buah = " .. tostring(dealResult.SellPrice or 0) .. "¢ (5x bonus!)", Colors.Success)
+                        Notify("Daily Deal! 🌈", "Sold " .. (dealResult.SoldCount or 0) .. " buah = " .. tostring(dealResult.SellPrice or 0) .. "¢ (5x bonus!)", Colors.Success, 10)
                     end
                     return
                 end
@@ -2378,14 +2378,14 @@ task.spawn(function()
                     task.wait(States.sellDelay or 0.1)
                 end
                 if States.notifySell and soldCount > 0 then
-                    Notify("Auto Sell", "Sold " .. soldCount .. " buah (skip " .. skippedCount .. " mutation)", Colors.Gold)
+                    Notify("Auto Sell", "Sold " .. soldCount .. " buah (skip " .. skippedCount .. " mutation)", Colors.Gold, 10)
                 end
             else
                 -- Mode sell all: pakai SellAll sekaligus (paling cepat & aman)
                 local result = SellAllFruits()
                 if result and result.Success then
                     if States.notifySell then
-                        Notify("Auto Sell ✅", "Sold " .. (result.SoldCount or #fruits) .. " buah = " .. tostring(result.SellPrice or 0) .. "¢", Colors.Gold)
+                        Notify("Auto Sell ✅", "Sold " .. (result.SoldCount or #fruits) .. " buah = " .. tostring(result.SellPrice or 0) .. "¢", Colors.Gold, 10)
                     end
                 elseif result then
                     -- SellAll gagal, tidak ada fruits atau error
@@ -3125,15 +3125,6 @@ RunService.Heartbeat:Connect(function()
     if States.lockJumpPower and humanoid then humanoid.JumpPower = States.jumpPower end
 end)
 
--- Noclip
-RunService.Stepped:Connect(function()
-    if States.noclip and player.Character then
-        for _, part in ipairs(player.Character:GetDescendants()) do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-    end
-end)
-
 -- Fly
 local flyBody = nil
 RunService.Heartbeat:Connect(function()
@@ -3478,6 +3469,9 @@ Pages["Plot"] = function()
             if not plotPageAlive or ActivePage ~= "Plot" then break end
             local ok = pcall(function()
                 fruitCntLbl.Text = tostring(player:GetAttribute("FruitCount") or "?")
+                maxFruitLbl.Text = tostring(player:GetAttribute("MaxFruitCapacity") or MAX_FRUIT_CAP)
+                petSlotLbl.Text = tostring(player:GetAttribute("MaxEquippedPets") or MAX_EQUIPPED_PETS)
+                gardenLikesLbl.Text = tostring(player:GetAttribute("GardenLikes") or 0)
                 local myPlot = GetMyPlot()
                 if not myPlot then return end
                 local total, readyFruits = 0, 0
@@ -3766,7 +3760,6 @@ Pages["Sell"] = function()
     CreateInfoText(sellContent, "Sell System (FIXED)", netStatus .. "\nCara benar: Networking.NPCS.SellAll:Fire() atau SellFruit:Fire(fruitId). TANPA teleport, TANPA ProximityPrompt.")
 
     CreateToggle(sellContent, "Auto Sell Fruits", "autoSell", "Loop otomatis jual semua buah via Networking.NPCS.SellAll")
-    CreateToggle(sellContent, "Auto Daily Deal (5x Harga!)", "autoUseDailyDeal", "Kalau deal tersedia, otomatis pakai UseDailyDealAll (5x multiplier dari SellFlags)")
     CreateToggle(sellContent, "Keep Mutations (Jangan Dijual)", "keepMutations", "Skip semua buah yg punya mutation apapun (pakai mode selective)")
     CreateDropdown(sellContent, "Keep Mutation Spesifik", {"None", table.unpack(MUTATIONS)}, "harvestFilterMutation")
     CreateSlider(sellContent, "Delay Antar Jual (s)", 0, 3, "sellDelay")
@@ -3804,33 +3797,11 @@ Pages["Sell"] = function()
         end
         local ok, result = pcall(function() return Networking.NPCS.SellAll:Fire() end)
         if ok and result and result.Success then
-            Notify("Sell ✅", "Sold " .. (result.SoldCount or "?") .. " buah = " .. tostring(result.SellPrice or 0) .. "¢", Colors.Gold)
+            Notify("Sell ✅", "Sold " .. (result.SoldCount or "?") .. " buah = " .. tostring(result.SellPrice or 0) .. "¢", Colors.Gold, 10)
         else
             Notify("Sell", "Gagal: " .. tostring(result and result.Reason or "Networking error"), Colors.Error)
         end
     end, Colors.Gold)
-
-    -- Daily deal one-shot
-    CreateActionButton(sellContent, "🌈 Jual Daily Deal (5x Harga)", function()
-        if not Networking then
-            Notify("Daily Deal", "❌ Networking nil!", Colors.Error)
-            return
-        end
-        -- Cek dulu apakah tersedia
-        local _, ddCheck = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
-        if not (ddCheck and ddCheck.Available) then
-            Notify("Daily Deal", "Daily deal tidak tersedia saat ini.", Colors.Warning)
-            return
-        end
-        local ok, result = pcall(function() return Networking.NPCS.UseDailyDealAll:Fire() end)
-        if ok and result and result.Success then
-            Notify("Daily Deal 🌈", "SOLD " .. (result.SoldCount or "?") .. " buah = " .. tostring(result.SellPrice or 0) .. "¢ (5x!)", Colors.Success)
-        elseif result and result.Reason == "NotAvailable" then
-            Notify("Daily Deal", "Deal sudah expired!", Colors.Warning)
-        else
-            Notify("Daily Deal", "Gagal: " .. tostring(result and result.Reason or "error"), Colors.Error)
-        end
-    end, Colors.Success)
 
     -- Jual selective (per-buah, dengan filter)
     CreateActionButton(sellContent, "🎯 Jual Selective (Pakai Filter)", function()
@@ -3861,7 +3832,7 @@ Pages["Sell"] = function()
             end
             task.wait(States.sellDelay or 0.1)
         end
-        Notify("Sell Selective", "Sold " .. sold .. " buah, skip " .. skipped, Colors.Gold)
+        Notify("Sell Selective", "Sold " .. sold .. " buah, skip " .. skipped, Colors.Gold, 10)
     end)
 
     local bagCard, bagContent = CreateSectionCard("🎒 Bag Inspector", 2, Colors.Accent)
@@ -3871,19 +3842,22 @@ Pages["Sell"] = function()
     local _, petCntLbl = CreateStatRow(bagContent, "Pets in Bag", "?", Colors.Frozen)
     local _, capLbl = CreateStatRow(bagContent, "Capacity", "? / " .. MAX_FRUIT_CAP, Colors.Accent)
 
-    RunService.Heartbeat:Connect(function()
-        if ActivePage == "Sell" then
-            local fruits, seeds, pets = 0, 0, 0
-            for _, t in ipairs(player.Backpack:GetChildren()) do
-                if t:GetAttribute("HarvestedFruit") then fruits += 1
-                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds += 1
-                elseif t:GetAttribute("Pet") then pets += 1 end
-            end
-            fruitLbl.Text = tostring(fruits)
-            seedLbl.Text = tostring(seeds)
-            petCntLbl.Text = tostring(pets)
-            capLbl.Text = fruits .. " / " .. MAX_FRUIT_CAP
+    local _bagTick = 0
+    RunService.Heartbeat:Connect(function(dt)
+        if ActivePage ~= "Sell" then return end
+        _bagTick += dt
+        if _bagTick < 0.5 then return end
+        _bagTick = 0
+        local fruits, seeds, pets = 0, 0, 0
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            if t:GetAttribute("HarvestedFruit") then fruits += 1
+            elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds += 1
+            elseif t:GetAttribute("Pet") then pets += 1 end
         end
+        fruitLbl.Text = tostring(fruits)
+        seedLbl.Text = tostring(seeds)
+        petCntLbl.Text = tostring(pets)
+        capLbl.Text = fruits .. " / " .. tostring(player:GetAttribute("MaxFruitCapacity") or MAX_FRUIT_CAP)
     end)
 
     CreateActionButton(bagContent, "Show Highest Value Fruit", function()
@@ -4060,37 +4034,10 @@ end
 -- ======================== FEATURE: EGGS PAGE ========================
 Pages["Eggs"] = function()
     local eggCard, eggContent = CreateSectionCard("🥚 Egg Hatching", 1, Colors.Warning)
-    CreateInfoText(eggContent, "Egg system", "Packet IDs from scanner: OpenEgg=" .. PACKET.OpenEgg .. ", ReplicateOpenEgg=" .. PACKET.ReplicateOpenEgg .. ". Teleport path: Workspace.Teleports.Gears.")
-    CreateToggle(eggContent, "Auto Open Eggs", "autoOpenEgg", "Teleports to Gears shop and opens eggs")
-    CreateSlider(eggContent, "Egg Loop Delay (s)", 1, 30, "eggLoopDelay")
-    CreateToggle(eggContent, "Notify On Hatch", "notifyCrate", "Shows notification for each egg hatch")
-    CreateActionButton(eggContent, "Open Egg Now (Packet)", function()
-        if PacketRemote then
-            PacketRemote:FireServer(PACKET.OpenEgg)
-            Notify("Eggs", "Fired OpenEgg packet (ID " .. PACKET.OpenEgg .. ")", Colors.Warning)
-        else
-            Notify("Eggs", "PacketRemote not found!", Colors.Error)
-        end
-    end, Colors.Warning)
-    CreateActionButton(eggContent, "Teleport to Gear Shop", function()
-        local tp = game:GetService("Workspace"):FindFirstChild("Teleports")
-        if tp then
-            local gearPart = tp:FindFirstChild("Gears")
-            if gearPart and player.Character then
-                player.Character:PivotTo(gearPart.CFrame + Vector3.new(0, 5, 0))
-                Notify("Teleport", "Teleported to Gear/Egg shop", Colors.Warning)
-            end
-        end
-    end)
-    CreateActionButton(eggContent, "Find Egg Prompts in World", function()
-        local found = 0
-        for _, desc in ipairs(game:GetService("Workspace"):GetDescendants()) do
-            if desc:IsA("ProximityPrompt") and (desc.Name:lower():find("egg") or desc.Name:lower():find("hatch")) then
-                found += 1
-            end
-        end
-        Notify("Eggs", found .. " egg prompt(s) found in workspace.", Colors.Accent)
-    end)
+    CreateInfoText(eggContent, "🚧 Coming Soon",
+        "Fitur Egg Hatching sedang dalam pengembangan.\n" ..
+        "Belum banyak yang punya egg, jadi fitur ini belum diaktifkan.\n" ..
+        "Stay tuned untuk update berikutnya!")
 end
 
 -- ======================== FEATURE: PLAYER PAGE ========================
@@ -4102,12 +4049,17 @@ Pages["Player"] = function()
     local _, plotLbl2 = CreateStatRow(statsContent, "Plot ID", MY_PLOT_ID, Colors.Warning)
     local _, bpLbl = CreateStatRow(statsContent, "Backpack Items", #player.Backpack:GetChildren(), Colors.TextSecondary)
 
-    RunService.Heartbeat:Connect(function()
-        if ActivePage == "Player" and humanoid then
-            hpLbl.Text = math.floor(humanoid.Health) .. " / " .. humanoid.MaxHealth
-            wsLbl.Text = string.format("%.1f", humanoid.WalkSpeed)
-            jpLbl.Text = string.format("%.1f", humanoid.JumpPower)
-        end
+    local _playerTick = 0
+    RunService.Heartbeat:Connect(function(dt)
+        if ActivePage ~= "Player" or not humanoid then return end
+        hpLbl.Text = math.floor(humanoid.Health) .. " / " .. humanoid.MaxHealth
+        wsLbl.Text = string.format("%.1f", humanoid.WalkSpeed)
+        jpLbl.Text = string.format("%.1f", humanoid.JumpPower)
+        _playerTick += dt
+        if _playerTick < 0.5 then return end
+        _playerTick = 0
+        plotLbl2.Text = tostring(player:GetAttribute("PlotId") or MY_PLOT_ID)
+        bpLbl.Text = tostring(#player.Backpack:GetChildren())
     end)
 
     local moveCard, moveContent = CreateSectionCard("🏃 Movement", 2, Colors.Electric)
@@ -4117,11 +4069,11 @@ Pages["Player"] = function()
     CreateSlider(moveContent, "JumpPower", 1, 500, "jumpPower")
     CreateToggle(moveContent, "Infinite Jump", "infiniteJump")
 
-    local utilCard, utilContent = CreateSectionCard("✈️ Fly & Noclip", 3, Colors.TextSecondary)
+    local utilCard, utilContent = CreateSectionCard("✈️ Fly", 3, Colors.TextSecondary)
     CreateInfoText(utilContent, "Controls", "[F] — Toggle Fly  |  [W/A/S/D] — Move  |  [Space] — Up  |  [Ctrl] — Down")
     CreateToggle(utilContent, "Fly", "fly", "Hold WASD to fly, Space=up, Ctrl=down")
     CreateSlider(utilContent, "Fly Speed", 1, 300, "flySpeed")
-    CreateToggle(utilContent, "Noclip", "noclip", "Walk through walls")
+    CreateInfoText(utilContent, "⚠️ Warning", "Speed di atas 25 bisa keliatan mencurigakan. Default: 25.")
     CreateToggle(utilContent, "Anti AFK", "antiAfk", "Prevents auto-disconnect")
 
     CreateActionButton(utilContent, "Reset Character", function()
@@ -4487,18 +4439,29 @@ Pages["Server"] = function()
     local playerCount = #game:GetService("Players"):GetPlayers()
     local _, pcLbl = CreateStatRow(serverContent, "Players in Server", playerCount, Colors.Success)
 
-    RunService.Heartbeat:Connect(function()
-        if ActivePage == "Server" then
-            pcLbl.Text = tostring(#game:GetService("Players"):GetPlayers())
-        end
-    end)
+    local _serverTick = 0
+    local playerPlotLabels = {}
 
     CreateSubHeader(serverContent, "Other Players")
     for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
         if p ~= player then
-            local r, pPlotLbl = CreateStatRow(serverContent, p.DisplayName .. " (@" .. p.Name .. ")", "Plot " .. (p:GetAttribute("PlotId") or "?"), Colors.TextMuted)
+            local _, pPlotLbl = CreateStatRow(serverContent, p.DisplayName .. " (@" .. p.Name .. ")", "Plot " .. (p:GetAttribute("PlotId") or "?"), Colors.TextMuted)
+            table.insert(playerPlotLabels, {p = p, lbl = pPlotLbl})
         end
     end
+
+    RunService.Heartbeat:Connect(function(dt)
+        if ActivePage ~= "Server" then return end
+        _serverTick += dt
+        if _serverTick < 1 then return end
+        _serverTick = 0
+        pcLbl.Text = tostring(#game:GetService("Players"):GetPlayers())
+        for _, entry in ipairs(playerPlotLabels) do
+            if entry.lbl and entry.lbl.Parent then
+                entry.lbl.Text = "Plot " .. tostring(entry.p:GetAttribute("PlotId") or "?")
+            end
+        end
+    end)
 
     CreateActionButton(serverContent, "Rejoin Server", function()
         Notify("Server", "Rejoining in 2s...", Colors.Warning)
@@ -4553,7 +4516,6 @@ Pages["Settings"] = function()
         States.autoOpenEgg = false
         States.autoAcceptGifts = false
         States.fly = false
-        States.noclip = false
         States.espPlayers = false
         States.espItems = false
         States.espMutations = false
@@ -4640,7 +4602,7 @@ local searchAllItems = {
     {"sell", "Sell"}, {"auto sell", "Sell"}, {"bag", "Sell"}, {"fruit", "Sell"},
     {"pet", "Pets"}, {"wild pet", "Pets"}, {"bunny", "Pets"}, {"frog", "Pets"}, {"equip pet", "Pets"},
     {"egg", "Eggs"}, {"hatch", "Eggs"}, {"open egg", "Eggs"},
-    {"walk", "Player"}, {"speed", "Player"}, {"fly", "Player"}, {"jump", "Player"}, {"noclip", "Player"},
+    {"walk", "Player"}, {"speed", "Player"}, {"fly", "Player"}, {"jump", "Player"},
     {"esp", "Visuals"}, {"highlight", "Visuals"}, {"bright", "Visuals"}, {"fog", "Visuals"},
     {"teleport", "Teleport"}, {"tp", "Teleport"}, {"seeds shop", "Teleport"},
     {"inspect", "Utility"}, {"mailbox", "Utility"}, {"gift", "Utility"}, {"bid", "Mailer"},
