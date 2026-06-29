@@ -8,6 +8,7 @@ Major Bug:
 7. Mutation list belom terupdate
 8. Fitur esp masih cacat
 9. Fitur visual setting masi cacat
+10. fix all notif
 
 
 
@@ -17,6 +18,7 @@ Minor Bug:
 2. UI masi banyak yg norak
 3. Anti afk kyknya belom work (need testing)
 4. item yg blum rilis ikut masuk ke multiple choice
+
 
 
 

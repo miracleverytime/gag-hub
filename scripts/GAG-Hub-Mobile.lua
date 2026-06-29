@@ -7,7 +7,7 @@ local CollectionService = game:GetService("CollectionService")
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
+local humanoid = character:WaitForChild("Humanoid", 10) -- timeout 10s, jangan hang selamanya
 
 -- ======================== PLATFORM DETECTION ========================
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -588,8 +588,8 @@ local LoadingScreen = Create("Frame", {
 })
 local LoadingContainer = Create("Frame", {
     Parent = LoadingScreen,
-    Size = UDim2.new(0, 420, 0, 170),
-    Position = UDim2.new(0.5, -210, 0.5, -85),
+    Size = isMobile and UDim2.new(0.88, 0, 0, 170) or UDim2.new(0, 420, 0, 170),
+    Position = isMobile and UDim2.new(0.06, 0, 0.5, -85) or UDim2.new(0.5, -210, 0.5, -85),
     BackgroundColor3 = Colors.BackgroundLight,
     BorderSizePixel = 0,
     ZIndex = 101,
@@ -604,6 +604,54 @@ local LoadingBarFill = Create("Frame", {Parent=LoadingBarBg, Size=UDim2.new(0,0,
 CreateCorner(LoadingBarFill, 4)
 local LoadingPercent = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,20), Position=UDim2.new(0,0,0,112), BackgroundTransparency=1, Text="0%", TextColor3=Colors.Success, TextSize=14, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
 local LoadingStatus = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,0,0,138), BackgroundTransparency=1, Text="Initializing...", TextColor3=Colors.TextMuted, TextSize=12, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
+
+-- Error display (mobile-only: pengganti dev console)
+-- Muncul di bawah loading bar kalau ada error, klik untuk dismiss
+local ScreenErrorLabel = nil
+if isMobile then
+    local errBg = Create("Frame", {
+        Parent = ScreenGui,
+        Size = UDim2.new(1, -24, 0, 0),
+        Position = UDim2.new(0, 12, 1, -80),
+        BackgroundColor3 = Color3.fromRGB(100, 30, 30),
+        BorderSizePixel = 0,
+        ZIndex = 500,
+        Visible = false,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        ClipsDescendants = false,
+    })
+    CreateCorner(errBg, 8)
+    ScreenErrorLabel = Create("TextLabel", {
+        Parent = errBg,
+        Size = UDim2.new(1, -16, 0, 0),
+        Position = UDim2.new(0, 8, 0, 6),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = Color3.fromRGB(255, 180, 180),
+        TextSize = 11,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        ZIndex = 501,
+    })
+    -- Tap anywhere to dismiss
+    Create("TextButton", {
+        Parent = errBg, Size = UDim2.new(1,0,0,22),
+        Position = UDim2.new(0,0,0,0),
+        BackgroundTransparency = 1, Text = "✕ tap to dismiss",
+        TextColor3 = Color3.fromRGB(255,120,120), TextSize = 10,
+        Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Right,
+        ZIndex = 502,
+    }).MouseButton1Click:Connect(function() errBg.Visible = false end)
+
+    -- Fungsi global untuk tampilkan error di layar
+    _G._MiracleShowError = function(msg)
+        ScreenErrorLabel.Text = "⚠ " .. tostring(msg)
+        errBg.Visible = true
+        task.delay(15, function() if errBg.Parent then errBg.Visible = false end end)
+    end
+end
 
 -- Main Frame
 local originalSize = isMobile and UDim2.new(1, 0, 1, 0) or UDim2.new(0, 900, 0, 600)
@@ -1137,7 +1185,18 @@ local function SetActivePage(pageName)
     end
 
     ClearContent()
-    if Pages[pageName] then Pages[pageName]() end
+    if Pages[pageName] then
+        local ok, err = pcall(Pages[pageName])
+        if not ok then
+            -- Tampilkan error di layar kalau mobile, kalau PC print ke console
+            local msg = "Page '" .. pageName .. "' error: " .. tostring(err)
+            if isMobile and _G._MiracleShowError then
+                _G._MiracleShowError(msg)
+            else
+                warn("[MiracleHub] " .. msg)
+            end
+        end
+    end
     ContentScroll.CanvasPosition = Vector2.new(0, 0)
 end
 
@@ -6075,7 +6134,8 @@ for _, s in ipairs(loadSteps) do totalDur += s.d end
 local elapsed = 0
 local conn
 conn = RunService.Heartbeat:Connect(function(dt)
-    elapsed = elapsed + dt
+    -- Clamp dt maksimal 0.1s — cegah progress loncat karena frame spike di mobile
+    elapsed = elapsed + math.min(dt, 0.1)
     local pct = math.clamp(elapsed / totalDur, 0, 1)
     Tween(LoadingBarFill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
     LoadingPercent.Text = math.floor(pct * 100) .. "%"
@@ -6092,32 +6152,56 @@ conn = RunService.Heartbeat:Connect(function(dt)
     if pct >= 1 then
         conn:Disconnect()
         LoadingStatus.Text = "Ready!"
-        task.wait(0.4)
 
-        Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
-        for _, c in ipairs(LoadingContainer:GetDescendants()) do
-            if c:IsA("TextLabel") then Tween(c, {TextTransparency = 1}, 0.4)
-            elseif c:IsA("Frame") then Tween(c, {BackgroundTransparency = 1}, 0.4) end
-        end
-        task.wait(0.5)
-        LoadingScreen:Destroy()
+        -- KRITIS: task.wait() tidak boleh dipanggil langsung di Heartbeat callback
+        -- Harus di-wrap task.spawn agar tidak freeze/stuck di mobile
+        task.spawn(function()
+            local ok, err = xpcall(function()
+                task.wait(0.4)
 
-        MainFrame.Visible = true
-        if isMobile then
-            MainFrame.Size = originalSize
-            MainFrame.Position = originalPos
-        else
-            MainFrame.Size = UDim2.new(0, 900, 0, 0)
-            Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        end
+                Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
+                for _, c in ipairs(LoadingContainer:GetDescendants()) do
+                    if c:IsA("TextLabel") then Tween(c, {TextTransparency = 1}, 0.4)
+                    elseif c:IsA("Frame") then Tween(c, {BackgroundTransparency = 1}, 0.4) end
+                end
+                task.wait(0.5)
+                if LoadingScreen and LoadingScreen.Parent then
+                    LoadingScreen:Destroy()
+                end
 
-        task.wait(0.3)
-        SetActivePage("Farm")
+                MainFrame.Visible = true
+                if isMobile then
+                    MainFrame.Size = originalSize
+                    MainFrame.Position = originalPos
+                else
+                    MainFrame.Size = UDim2.new(0, 900, 0, 0)
+                    Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                end
 
-        task.wait(0.8)
-        local remoteStatus = PacketRemote and "Remote" or "Remote ⚠ (check console)"
-        local controlsHint = isMobile and "Tab bar bawah untuk navigasi" or "[Insert] toggle | [F] fly"
-        Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | " .. controlsHint, Colors.Success, 6)
+                task.wait(0.3)
+                SetActivePage("Farm")
+
+                task.wait(0.8)
+                local remoteStatus = PacketRemote and "Remote" or "Remote ⚠ (check console)"
+                local controlsHint = isMobile and "Tab bar bawah untuk navigasi" or "[Insert] toggle | [F] fly"
+                Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | " .. controlsHint, Colors.Success, 6)
+            end, function(e) return debug.traceback(e, 2) end)
+
+            if not ok then
+                -- Kalau loading crash, hancurkan loading screen dan tampilkan error
+                if LoadingScreen and LoadingScreen.Parent then LoadingScreen:Destroy() end
+                MainFrame.Visible = true
+                MainFrame.Size = originalSize
+                MainFrame.Position = originalPos
+                if isMobile and _G._MiracleShowError then
+                    _G._MiracleShowError("Loading error: " .. tostring(err))
+                else
+                    warn("[MiracleHub] Loading error: " .. tostring(err))
+                end
+                -- Coba quiick recover
+                pcall(SetActivePage, "Farm")
+            end
+        end)
     end
 end)
 
