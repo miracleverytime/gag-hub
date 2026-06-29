@@ -4,29 +4,10 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
--- Wrap seluruh script dalam task.spawn agar top-level yield aman di semua executor/mobile
-task.spawn(function()
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui", 15)
-if not playerGui then return end -- safety: kalau 15s masih nil, jangan lanjut
-
--- Tunggu karakter dengan cara aman untuk mobile executor
-local character
-if player.Character then
-    character = player.Character
-else
-    local ok, result = pcall(function()
-        return player.CharacterAdded:Wait()
-    end)
-    if ok and result then
-        character = result
-    else
-        character = player.Character -- last resort
-    end
-end
-if not character then return end
-
-local humanoid = character:WaitForChild("Humanoid", 10)
+local playerGui = player:WaitForChild("PlayerGui")
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
 
 -- ======================== PLATFORM DETECTION ========================
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -340,27 +321,22 @@ local function FirePrompt(prompt)
     if prompt:IsA("ProximityPrompt") then
         local hd = prompt.HoldDuration
         if hd and hd > 0 then
-            pcall(function()
-                prompt:InputHoldBegin()
-                task.wait(hd + 0.05)
-                prompt:InputHoldEnd()
-            end)
+            prompt:InputHoldBegin()
+            task.wait(hd + 0.05)
+            prompt:InputHoldEnd()
         else
-            pcall(_fireprox, prompt)
+            fireproximityprompt(prompt)
         end
         return true
     end
     return false
 end
 
--- Safe fireproximityprompt wrapper (executor function — bisa nil di mobile/executor tertentu)
-local _fireprox = (typeof(fireproximityprompt) == "function") and fireproximityprompt or function(p)
-    if not p or not p.Parent then return end
-    pcall(function()
-        p:InputHoldBegin()
-        task.wait((p.HoldDuration or 0) + 0.05)
-        p:InputHoldEnd()
-    end)
+-- Safe fireproximityprompt wrapper (executor function)
+local _fireprox = fireproximityprompt or function(p)
+    p:InputHoldBegin()
+    task.wait((p.HoldDuration or 0) + 0.05)
+    p:InputHoldEnd()
 end
 
 local function SafeFirePrompt(prompt)
@@ -452,11 +428,9 @@ local function Notify(title, message, color, duration)
         if dismissed then return end
         dismissed = true
         Tween(notifFrame, {Position = notifStartX}, 0.3)
-        task.spawn(function()
-            task.wait(0.35)
-            if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
-            notifCount = math.max(0, notifCount - 1)
-        end)
+        task.wait(0.35)
+        if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+        notifCount = math.max(0, notifCount - 1)
     end
 
     closeBtn.MouseButton1Click:Connect(DismissNotif)
@@ -579,11 +553,9 @@ local function NotifyStok(available, color, duration, title)
         if dismissed then return end
         dismissed = true
         Tween(notifFrame, {Position = UDim2.new(1, 10, 0, 16)}, 0.3)
-        task.spawn(function()
-            task.wait(0.35)
-            if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
-            _stockNotif = nil
-        end)
+        task.wait(0.35)
+        if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+        _stockNotif = nil
     end
 
     closeBtn.MouseButton1Click:Connect(DismissStok)
@@ -616,8 +588,8 @@ local LoadingScreen = Create("Frame", {
 })
 local LoadingContainer = Create("Frame", {
     Parent = LoadingScreen,
-    Size = UDim2.new(0, 320, 0, 170),
-    Position = UDim2.new(0.5, -160, 0.5, -85),
+    Size = UDim2.new(0, 420, 0, 170),
+    Position = UDim2.new(0.5, -210, 0.5, -85),
     BackgroundColor3 = Colors.BackgroundLight,
     BorderSizePixel = 0,
     ZIndex = 101,
@@ -632,54 +604,6 @@ local LoadingBarFill = Create("Frame", {Parent=LoadingBarBg, Size=UDim2.new(0,0,
 CreateCorner(LoadingBarFill, 4)
 local LoadingPercent = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,20), Position=UDim2.new(0,0,0,112), BackgroundTransparency=1, Text="0%", TextColor3=Colors.Success, TextSize=14, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
 local LoadingStatus = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,0,0,138), BackgroundTransparency=1, Text="Initializing...", TextColor3=Colors.TextMuted, TextSize=12, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
-
--- Error display (mobile-only: pengganti dev console)
--- Muncul di bawah loading bar kalau ada error, klik untuk dismiss
-local ScreenErrorLabel = nil
-if isMobile then
-    local errBg = Create("Frame", {
-        Parent = ScreenGui,
-        Size = UDim2.new(1, -24, 0, 0),
-        Position = UDim2.new(0, 12, 1, -80),
-        BackgroundColor3 = Color3.fromRGB(100, 30, 30),
-        BorderSizePixel = 0,
-        ZIndex = 500,
-        Visible = false,
-        AutomaticSize = Enum.AutomaticSize.Y,
-        ClipsDescendants = false,
-    })
-    CreateCorner(errBg, 8)
-    ScreenErrorLabel = Create("TextLabel", {
-        Parent = errBg,
-        Size = UDim2.new(1, -16, 0, 0),
-        Position = UDim2.new(0, 8, 0, 6),
-        BackgroundTransparency = 1,
-        Text = "",
-        TextColor3 = Color3.fromRGB(255, 180, 180),
-        TextSize = 11,
-        Font = Enum.Font.Gotham,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true,
-        AutomaticSize = Enum.AutomaticSize.Y,
-        ZIndex = 501,
-    })
-    -- Tap anywhere to dismiss
-    Create("TextButton", {
-        Parent = errBg, Size = UDim2.new(1,0,0,22),
-        Position = UDim2.new(0,0,0,0),
-        BackgroundTransparency = 1, Text = "✕ tap to dismiss",
-        TextColor3 = Color3.fromRGB(255,120,120), TextSize = 10,
-        Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Right,
-        ZIndex = 502,
-    }).MouseButton1Click:Connect(function() errBg.Visible = false end)
-
-    -- Fungsi global untuk tampilkan error di layar
-    _G._MiracleShowError = function(msg)
-        ScreenErrorLabel.Text = "⚠ " .. tostring(msg)
-        errBg.Visible = true
-        task.delay(15, function() if errBg.Parent then errBg.Visible = false end end)
-    end
-end
 
 -- Main Frame
 local originalSize = isMobile and UDim2.new(1, 0, 1, 0) or UDim2.new(0, 900, 0, 600)
@@ -1213,18 +1137,7 @@ local function SetActivePage(pageName)
     end
 
     ClearContent()
-    if Pages[pageName] then
-        local ok, err = pcall(Pages[pageName])
-        if not ok then
-            -- Tampilkan error di layar kalau mobile, kalau PC print ke console
-            local msg = "Page '" .. pageName .. "' error: " .. tostring(err)
-            if isMobile and _G._MiracleShowError then
-                _G._MiracleShowError(msg)
-            else
-                warn("[MiracleHub] " .. msg)
-            end
-        end
-    end
+    if Pages[pageName] then Pages[pageName]() end
     ContentScroll.CanvasPosition = Vector2.new(0, 0)
 end
 
@@ -1553,12 +1466,10 @@ local function CreateActionButton(parent, text, callback, accentColor)
     btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.15) end)
     btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15) end)
     btn.MouseButton1Click:Connect(function()
-        task.spawn(function()
-            Tween(btn, {BackgroundColor3 = Colors.SurfaceLight}, 0.05)
-            task.wait(0.1)
-            Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.1)
-            if callback then callback() end
-        end)
+        Tween(btn, {BackgroundColor3 = Colors.SurfaceLight}, 0.05)
+        task.wait(0.1)
+        Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.1)
+        if callback then callback() end
     end)
     return container
 end
@@ -6102,24 +6013,20 @@ CloseButton.MouseButton1Click:Connect(function()
     Tween(ConfirmBox, {Size=UDim2.new(0,380,0,200)}, 0.3, Enum.EasingStyle.Back)
 end)
 ConfNo.MouseButton1Click:Connect(function()
-    task.spawn(function()
-        Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
-        task.wait(0.3)
-        ConfirmModal.Visible = false
-    end)
+    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
+    task.wait(0.3)
+    ConfirmModal.Visible = false
 end)
 ConfYes.MouseButton1Click:Connect(function()
-    task.spawn(function()
-        Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
-        task.wait(0.25)
-        if isMobile then
-            Tween(MainFrame, {BackgroundTransparency = 1}, 0.3)
-        else
-            Tween(MainFrame, {Size=UDim2.new(0,900,0,0)}, 0.3)
-        end
-        task.wait(0.3)
-        ScreenGui:Destroy()
-    end)
+    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
+    task.wait(0.25)
+    if isMobile then
+        Tween(MainFrame, {BackgroundTransparency = 1}, 0.3)
+    else
+        Tween(MainFrame, {Size=UDim2.new(0,900,0,0)}, 0.3)
+    end
+    task.wait(0.3)
+    ScreenGui:Destroy()
 end)
 
 -- ======================== KEYBINDS ========================
@@ -6168,8 +6075,7 @@ for _, s in ipairs(loadSteps) do totalDur += s.d end
 local elapsed = 0
 local conn
 conn = RunService.Heartbeat:Connect(function(dt)
-    -- Clamp dt maksimal 0.1s — cegah progress loncat karena frame spike di mobile
-    elapsed = elapsed + math.min(dt, 0.1)
+    elapsed = elapsed + dt
     local pct = math.clamp(elapsed / totalDur, 0, 1)
     Tween(LoadingBarFill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
     LoadingPercent.Text = math.floor(pct * 100) .. "%"
@@ -6186,58 +6092,34 @@ conn = RunService.Heartbeat:Connect(function(dt)
     if pct >= 1 then
         conn:Disconnect()
         LoadingStatus.Text = "Ready!"
+        task.wait(0.4)
 
-        -- KRITIS: task.wait() tidak boleh dipanggil langsung di Heartbeat callback
-        -- Harus di-wrap task.spawn agar tidak freeze/stuck di mobile
-        task.spawn(function()
-            local ok, err = xpcall(function()
-                task.wait(0.4)
+        Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
+        for _, c in ipairs(LoadingContainer:GetDescendants()) do
+            if c:IsA("TextLabel") then Tween(c, {TextTransparency = 1}, 0.4)
+            elseif c:IsA("Frame") then Tween(c, {BackgroundTransparency = 1}, 0.4) end
+        end
+        task.wait(0.5)
+        LoadingScreen:Destroy()
 
-                Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
-                for _, c in ipairs(LoadingContainer:GetDescendants()) do
-                    if c:IsA("TextLabel") then Tween(c, {TextTransparency = 1}, 0.4)
-                    elseif c:IsA("Frame") then Tween(c, {BackgroundTransparency = 1}, 0.4) end
-                end
-                task.wait(0.5)
-                if LoadingScreen and LoadingScreen.Parent then
-                    LoadingScreen:Destroy()
-                end
+        MainFrame.Visible = true
+        if isMobile then
+            MainFrame.Size = originalSize
+            MainFrame.Position = originalPos
+        else
+            MainFrame.Size = UDim2.new(0, 900, 0, 0)
+            Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        end
 
-                MainFrame.Visible = true
-                if isMobile then
-                    MainFrame.Size = originalSize
-                    MainFrame.Position = originalPos
-                else
-                    MainFrame.Size = UDim2.new(0, 900, 0, 0)
-                    Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-                end
+        task.wait(0.3)
+        SetActivePage("Farm")
 
-                task.wait(0.3)
-                SetActivePage("Farm")
-
-                task.wait(0.8)
-                local remoteStatus = PacketRemote and "Remote" or "Remote ⚠ (check console)"
-                local controlsHint = isMobile and "Tab bar bawah untuk navigasi" or "[Insert] toggle | [F] fly"
-                Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | " .. controlsHint, Colors.Success, 6)
-            end, function(e) return debug.traceback(e, 2) end)
-
-            if not ok then
-                -- Kalau loading crash, hancurkan loading screen dan tampilkan error
-                if LoadingScreen and LoadingScreen.Parent then LoadingScreen:Destroy() end
-                MainFrame.Visible = true
-                MainFrame.Size = originalSize
-                MainFrame.Position = originalPos
-                if isMobile and _G._MiracleShowError then
-                    _G._MiracleShowError("Loading error: " .. tostring(err))
-                else
-                    warn("[MiracleHub] Loading error: " .. tostring(err))
-                end
-                -- Coba quick recover
-                pcall(SetActivePage, "Farm")
-            end
-        end)
+        task.wait(0.8)
+        local remoteStatus = PacketRemote and "Remote" or "Remote ⚠ (check console)"
+        local controlsHint = isMobile and "Tab bar bawah untuk navigasi" or "[Insert] toggle | [F] fly"
+        Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | " .. controlsHint, Colors.Success, 6)
     end
 end)
 
--- print setelah spawn: ini aman karena tidak yield
-print("[Miracle Hub] Script injected — task.spawn started")
+print("[Miracle Hub] Full build loaded — Player: " .. player.Name)
+print("[Miracle Hub] Keybinds: [Insert] = toggle GUI | [F] = toggle Fly")
