@@ -4,10 +4,29 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
+-- Wrap seluruh script dalam task.spawn agar top-level yield aman di semua executor/mobile
+task.spawn(function()
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid", 10) -- timeout 10s, jangan hang selamanya
+local playerGui = player:WaitForChild("PlayerGui", 15)
+if not playerGui then return end -- safety: kalau 15s masih nil, jangan lanjut
+
+-- Tunggu karakter dengan cara aman untuk mobile executor
+local character
+if player.Character then
+    character = player.Character
+else
+    local ok, result = pcall(function()
+        return player.CharacterAdded:Wait()
+    end)
+    if ok and result then
+        character = result
+    else
+        character = player.Character -- last resort
+    end
+end
+if not character then return end
+
+local humanoid = character:WaitForChild("Humanoid", 10)
 
 -- ======================== PLATFORM DETECTION ========================
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
@@ -6213,12 +6232,12 @@ conn = RunService.Heartbeat:Connect(function(dt)
                 else
                     warn("[MiracleHub] Loading error: " .. tostring(err))
                 end
-                -- Coba quiick recover
+                -- Coba quick recover
                 pcall(SetActivePage, "Farm")
             end
         end)
     end
 end)
 
-print("[Miracle Hub] Full build loaded — Player: " .. player.Name)
-print("[Miracle Hub] Keybinds: [Insert] = toggle GUI | [F] = toggle Fly")
+-- print setelah spawn: ini aman karena tidak yield
+print("[Miracle Hub] Script injected — task.spawn started")
