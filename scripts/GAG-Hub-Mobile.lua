@@ -4,12 +4,32 @@ local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 
+-- Wrap seluruh script dalam task.spawn agar top-level yield aman di semua executor/mobile
+task.spawn(function()
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local character = player.Character or player.CharacterAdded:Wait()
-local humanoid = character:WaitForChild("Humanoid")
+local playerGui = player:WaitForChild("PlayerGui", 15)
+if not playerGui then return end -- safety: kalau 15s masih nil, jangan lanjut
+
+-- Tunggu karakter dengan cara aman untuk mobile executor
+local character
+if player.Character then
+    character = player.Character
+else
+    local ok, result = pcall(function()
+        return player.CharacterAdded:Wait()
+    end)
+    if ok and result then
+        character = result
+    else
+        character = player.Character -- last resort
+    end
+end
+if not character then return end
+
+local humanoid = character:WaitForChild("Humanoid", 10)
 
 -- ======================== PLATFORM DETECTION ========================
+if _G.MiracleLog then _G.MiracleLog("CP: PLATFORM DETECTION") end
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
 -- Layout constants — otomatis menyesuaikan PC vs Mobile
@@ -33,6 +53,7 @@ local existingGui = playerGui:FindFirstChild("MiracleHub")
 if existingGui then existingGui:Destroy() end
 
 -- ======================== COLORS ========================
+if _G.MiracleLog then _G.MiracleLog("CP: COLORS") end
 local Colors = {
     Background = Color3.fromRGB(12, 12, 14),
     BackgroundLight = Color3.fromRGB(20, 20, 24),
@@ -64,6 +85,7 @@ local Colors = {
 }
 
 -- ======================== GAME DATA (from scanner) ========================
+if _G.MiracleLog then _G.MiracleLog("CP: GAME DATA") end
 -- Full seed list from ReplicatedStorage.StockValues.SeedShop.Items (scanner verified)
 local SEEDS = {
     "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo",
@@ -174,6 +196,7 @@ local PACKET = {
 }
 
 -- ======================== STATES ========================
+if _G.MiracleLog then _G.MiracleLog("CP: STATES") end
 local States = {
     -- Farm
     autoPlant = false,
@@ -270,6 +293,7 @@ local States = {
 }
 
 -- ======================== UTILITY FUNCTIONS ========================
+if _G.MiracleLog then _G.MiracleLog("CP: UTILITY FUNCTIONS") end
 local function Create(className, properties)
     local instance = Instance.new(className)
     for prop, value in pairs(properties or {}) do
@@ -316,27 +340,33 @@ local function Tween(instance, properties, duration, easingStyle, easingDirectio
 end
 
 -- ======================== HELPER: FIRE PROXIMITY PROMPT ========================
+if _G.MiracleLog then _G.MiracleLog("CP: FIRE PROMPT HELPER") end
 local function FirePrompt(prompt)
     if not prompt then return false end
     if prompt:IsA("ProximityPrompt") then
         local hd = prompt.HoldDuration
         if hd and hd > 0 then
-            prompt:InputHoldBegin()
-            task.wait(hd + 0.05)
-            prompt:InputHoldEnd()
+            pcall(function()
+                prompt:InputHoldBegin()
+                task.wait(hd + 0.05)
+                prompt:InputHoldEnd()
+            end)
         else
-            fireproximityprompt(prompt)
+            pcall(_fireprox, prompt)
         end
         return true
     end
     return false
 end
 
--- Safe fireproximityprompt wrapper (executor function)
-local _fireprox = fireproximityprompt or function(p)
-    p:InputHoldBegin()
-    task.wait((p.HoldDuration or 0) + 0.05)
-    p:InputHoldEnd()
+-- Safe fireproximityprompt wrapper (executor function — bisa nil di mobile/executor tertentu)
+local _fireprox = (typeof(fireproximityprompt) == "function") and fireproximityprompt or function(p)
+    if not p or not p.Parent then return end
+    pcall(function()
+        p:InputHoldBegin()
+        task.wait((p.HoldDuration or 0) + 0.05)
+        p:InputHoldEnd()
+    end)
 end
 
 local function SafeFirePrompt(prompt)
@@ -346,6 +376,7 @@ local function SafeFirePrompt(prompt)
 end
 
 -- ======================== NOTIFICATION SYSTEM ========================
+if _G.MiracleLog then _G.MiracleLog("CP: NOTIFICATION SYSTEM") end
 local notifCount = 0
 local function Notify(title, message, color, duration)
     if not States.showNotifications then return end
@@ -428,9 +459,11 @@ local function Notify(title, message, color, duration)
         if dismissed then return end
         dismissed = true
         Tween(notifFrame, {Position = notifStartX}, 0.3)
-        task.wait(0.35)
-        if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
-        notifCount = math.max(0, notifCount - 1)
+        task.spawn(function()
+            task.wait(0.35)
+            if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+            notifCount = math.max(0, notifCount - 1)
+        end)
     end
 
     closeBtn.MouseButton1Click:Connect(DismissNotif)
@@ -553,9 +586,11 @@ local function NotifyStok(available, color, duration, title)
         if dismissed then return end
         dismissed = true
         Tween(notifFrame, {Position = UDim2.new(1, 10, 0, 16)}, 0.3)
-        task.wait(0.35)
-        if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
-        _stockNotif = nil
+        task.spawn(function()
+            task.wait(0.35)
+            if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+            _stockNotif = nil
+        end)
     end
 
     closeBtn.MouseButton1Click:Connect(DismissStok)
@@ -571,6 +606,7 @@ local function GetMutationColor(mutation)
 end
 
 -- ======================== MAIN GUI ========================
+if _G.MiracleLog then _G.MiracleLog("CP: MAIN GUI") end
 local ScreenGui = Create("ScreenGui", {
     Name = "MiracleHub",
     Parent = playerGui,
@@ -588,8 +624,8 @@ local LoadingScreen = Create("Frame", {
 })
 local LoadingContainer = Create("Frame", {
     Parent = LoadingScreen,
-    Size = UDim2.new(0, 420, 0, 170),
-    Position = UDim2.new(0.5, -210, 0.5, -85),
+    Size = UDim2.new(0, 320, 0, 170),
+    Position = UDim2.new(0.5, -160, 0.5, -85),
     BackgroundColor3 = Colors.BackgroundLight,
     BorderSizePixel = 0,
     ZIndex = 101,
@@ -604,6 +640,54 @@ local LoadingBarFill = Create("Frame", {Parent=LoadingBarBg, Size=UDim2.new(0,0,
 CreateCorner(LoadingBarFill, 4)
 local LoadingPercent = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,20), Position=UDim2.new(0,0,0,112), BackgroundTransparency=1, Text="0%", TextColor3=Colors.Success, TextSize=14, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
 local LoadingStatus = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,18), Position=UDim2.new(0,0,0,138), BackgroundTransparency=1, Text="Initializing...", TextColor3=Colors.TextMuted, TextSize=12, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
+
+-- Error display (mobile-only: pengganti dev console)
+-- Muncul di bawah loading bar kalau ada error, klik untuk dismiss
+local ScreenErrorLabel = nil
+if isMobile then
+    local errBg = Create("Frame", {
+        Parent = ScreenGui,
+        Size = UDim2.new(1, -24, 0, 0),
+        Position = UDim2.new(0, 12, 1, -80),
+        BackgroundColor3 = Color3.fromRGB(100, 30, 30),
+        BorderSizePixel = 0,
+        ZIndex = 500,
+        Visible = false,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        ClipsDescendants = false,
+    })
+    CreateCorner(errBg, 8)
+    ScreenErrorLabel = Create("TextLabel", {
+        Parent = errBg,
+        Size = UDim2.new(1, -16, 0, 0),
+        Position = UDim2.new(0, 8, 0, 6),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = Color3.fromRGB(255, 180, 180),
+        TextSize = 11,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextWrapped = true,
+        AutomaticSize = Enum.AutomaticSize.Y,
+        ZIndex = 501,
+    })
+    -- Tap anywhere to dismiss
+    Create("TextButton", {
+        Parent = errBg, Size = UDim2.new(1,0,0,22),
+        Position = UDim2.new(0,0,0,0),
+        BackgroundTransparency = 1, Text = "✕ tap to dismiss",
+        TextColor3 = Color3.fromRGB(255,120,120), TextSize = 10,
+        Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Right,
+        ZIndex = 502,
+    }).MouseButton1Click:Connect(function() errBg.Visible = false end)
+
+    -- Fungsi global untuk tampilkan error di layar
+    _G._MiracleShowError = function(msg)
+        ScreenErrorLabel.Text = "⚠ " .. tostring(msg)
+        errBg.Visible = true
+        task.delay(15, function() if errBg.Parent then errBg.Visible = false end end)
+    end
+end
 
 -- Main Frame
 local originalSize = isMobile and UDim2.new(1, 0, 1, 0) or UDim2.new(0, 900, 0, 600)
@@ -910,6 +994,7 @@ CreatePadding(ContentScroll, isMobile and 12 or 20)
 local ContentLayout = CreateListLayout(ContentScroll, 14)
 
 -- ======================== MOBILE TAB BAR ========================
+if _G.MiracleLog then _G.MiracleLog("CP: MOBILE TAB BAR") end
 -- Di mobile, navigasi pakai tab bar di bagian bawah (seperti app Android)
 -- Pages dikelompokkan: tab utama (icon+label) + More drawer untuk halaman lainnya
 
@@ -1087,6 +1172,7 @@ if isMobile then
 end
 
 -- ======================== PAGE SYSTEM ========================
+if _G.MiracleLog then _G.MiracleLog("CP: PAGE SYSTEM") end
 local Pages = {}
 
 local function ClearContent()
@@ -1137,11 +1223,23 @@ local function SetActivePage(pageName)
     end
 
     ClearContent()
-    if Pages[pageName] then Pages[pageName]() end
+    if Pages[pageName] then
+        local ok, err = pcall(Pages[pageName])
+        if not ok then
+            -- Tampilkan error di layar kalau mobile, kalau PC print ke console
+            local msg = "Page '" .. pageName .. "' error: " .. tostring(err)
+            if isMobile and _G._MiracleShowError then
+                _G._MiracleShowError(msg)
+            else
+                warn("[MiracleHub] " .. msg)
+            end
+        end
+    end
     ContentScroll.CanvasPosition = Vector2.new(0, 0)
 end
 
 -- ======================== UI COMPONENT BUILDERS ========================
+if _G.MiracleLog then _G.MiracleLog("CP: UI COMPONENT BUILDERS") end
 
 local function CreateSectionCard(title, layoutOrder, accentColor)
     local card = Create("Frame", {
@@ -1466,10 +1564,12 @@ local function CreateActionButton(parent, text, callback, accentColor)
     btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.15) end)
     btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15) end)
     btn.MouseButton1Click:Connect(function()
-        Tween(btn, {BackgroundColor3 = Colors.SurfaceLight}, 0.05)
-        task.wait(0.1)
-        Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.1)
-        if callback then callback() end
+        task.spawn(function()
+            Tween(btn, {BackgroundColor3 = Colors.SurfaceLight}, 0.05)
+            task.wait(0.1)
+            Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.1)
+            if callback then callback() end
+        end)
     end)
     return container
 end
@@ -1956,6 +2056,7 @@ local function CreateStatRow(parent, label, value, valColor)
 end
 
 -- ======================== GAME LOGIC HELPERS ========================
+if _G.MiracleLog then _G.MiracleLog("CP: GAME LOGIC HELPERS") end
 
 -- Get my plot
 local function GetMyPlot()
@@ -2076,6 +2177,7 @@ local function DoHarvestAll(mutFilter, hardLimit)
 end
 
 -- ======================== AUTO LOOPS ========================
+if _G.MiracleLog then _G.MiracleLog("CP: AUTO LOOPS") end
 
 -- AUTO HARVEST LOOP
 -- Pakai busy-wait ringan: cek tiap 0.5s apakah ada buah ready, langsung panen
@@ -3420,6 +3522,7 @@ task.spawn(function()
 end)
 
 -- ======================== ESP SYSTEM ========================
+if _G.MiracleLog then _G.MiracleLog("CP: ESP SYSTEM") end
 local espLabels = {}
 
 local function ClearESP()
@@ -3643,6 +3746,7 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ======================== FEATURE: FARM PAGE ========================
+if _G.MiracleLog then _G.MiracleLog("CP: FEATURE FARM") end
 Pages["Farm"] = function()
     local plantCard, plantContent = CreateSectionCard("🌱 Auto Plant", 1, Colors.Success)
 
@@ -4004,6 +4108,7 @@ Pages["Plot"] = function()
 end
 
 -- ======================== FEATURE: SHOP PAGE ========================
+if _G.MiracleLog then _G.MiracleLog("CP: FEATURE SHOP") end
 Pages["Shop"] = function()
     local buyCard, buyContent = CreateSectionCard("🛒 Auto Buy Seeds", 1, Colors.Success)
 
@@ -4584,6 +4689,7 @@ Pages["Shop"] = function()
 end
 
 -- ======================== FEATURE: SELL PAGE ========================
+if _G.MiracleLog then _G.MiracleLog("CP: FEATURE SELL") end
 Pages["Sell"] = function()
     local sellCard, sellContent = CreateSectionCard("💰 Auto Sell", 1, Colors.Gold)
 
@@ -4768,6 +4874,7 @@ Pages["Sell"] = function()
 end
 
 -- ======================== FEATURE: PETS PAGE ========================
+if _G.MiracleLog then _G.MiracleLog("CP: FEATURE PETS") end
 
 
 
@@ -5124,6 +5231,7 @@ Pages["Eggs"] = function()
 end
 
 -- ======================== FEATURE: PLAYER PAGE ========================
+if _G.MiracleLog then _G.MiracleLog("CP: FEATURE PLAYER") end
 Pages["Player"] = function()
     local statsCard, statsContent = CreateSectionCard("📊 Live Player Stats", 1, Colors.Accent)
     local _, hpLbl = CreateStatRow(statsContent, "Health", "100 / 100", Colors.Success)
@@ -5237,6 +5345,7 @@ Pages["Visuals"] = function()
 end
 
 -- ======================== FEATURE: TELEPORT PAGE ========================
+if _G.MiracleLog then _G.MiracleLog("CP: FEATURE TELEPORT") end
 Pages["Teleport"] = function()
     local tpCard, tpContent = CreateSectionCard("📍 Quick Teleport", 1, Colors.Accent)
     CreateInfoText(tpContent, "Scanner data", "Workspace.Teleports: Seeds, Sell, Gears, Props — all BasePart objects confirmed by scanner.")
@@ -5318,6 +5427,7 @@ Pages["Teleport"] = function()
 end
 
 -- ======================== FEATURE: UTILITY PAGE ========================
+if _G.MiracleLog then _G.MiracleLog("CP: FEATURE UTILITY") end
 Pages["Utility"] = function()
     local worthCard, worthContent = CreateSectionCard("💎 Item Inspector", 1, Colors.Gold)
     CreateInfoText(worthContent, "Fruit attrs from scanner", "Weight, SizeMultiplier, DecayAlpha, OvertimeGrowth, Mutation | Tomato [1.38kg, x1.53 size] | Blueberry [Rainbow][Potted, x1.95 size]")
@@ -5667,6 +5777,7 @@ Pages["Settings"] = function()
 end
 
 -- ======================== SIDEBAR CONNECTIONS ========================
+if _G.MiracleLog then _G.MiracleLog("CP: SIDEBAR CONNECTIONS") end
 local pageMap = {
     [BtnFarm] = "Farm", [BtnPlot] = "Plot", [BtnShop] = "Shop",
     [BtnSell] = "Sell", [BtnPets] = "Pets", [BtnEggs] = "Eggs",
@@ -5681,6 +5792,7 @@ for btn, pageName in pairs(pageMap) do
 end
 
 -- ======================== MOBILE TAB BAR CONNECTIONS ========================
+if _G.MiracleLog then _G.MiracleLog("CP: MOBILE TAB BAR CONNECTIONS") end
 if isMobile and MobileTabBar then
     local MAIN_TABS_MAP = {"Farm", "Shop", "Sell", "Pets", "More"}
     for _, tabName in ipairs(MAIN_TABS_MAP) do
@@ -5778,6 +5890,7 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 -- ======================== MINIMIZED M LOGO ========================
+if _G.MiracleLog then _G.MiracleLog("CP: MINIMIZED LOGO") end
 -- PC only: minimize ke icon kecil M di layar
 -- Mobile: tidak dipakai (minimize = tutup GUI saja)
 local MinimizedLogo = Create("Frame", {
@@ -5888,6 +6001,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- ======================== WINDOW DRAG ========================
+if _G.MiracleLog then _G.MiracleLog("CP: WINDOW DRAG") end
 -- PC: drag via TopBar mouse
 -- Mobile: fullscreen, tidak perlu drag (tapi tetap support kalau ada)
 local dragging, dragStart, startPos = false, nil, nil
@@ -5911,6 +6025,7 @@ if not isMobile then
 end
 
 -- ======================== MINIMIZE / RESTORE ========================
+if _G.MiracleLog then _G.MiracleLog("CP: MINIMIZE/RESTORE") end
 local minimized = false
 
 local function DoMinimize()
@@ -5974,6 +6089,7 @@ LogoClick.MouseButton1Click:Connect(function()
 end)
 
 -- ======================== CONFIRM CLOSE MODAL ========================
+if _G.MiracleLog then _G.MiracleLog("CP: CONFIRM CLOSE MODAL") end
 local ConfirmModal = Create("Frame", {
     Parent = ScreenGui,
     Size = UDim2.new(1,0,1,0),
@@ -6013,20 +6129,24 @@ CloseButton.MouseButton1Click:Connect(function()
     Tween(ConfirmBox, {Size=UDim2.new(0,380,0,200)}, 0.3, Enum.EasingStyle.Back)
 end)
 ConfNo.MouseButton1Click:Connect(function()
-    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
-    task.wait(0.3)
-    ConfirmModal.Visible = false
+    task.spawn(function()
+        Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
+        task.wait(0.3)
+        ConfirmModal.Visible = false
+    end)
 end)
 ConfYes.MouseButton1Click:Connect(function()
-    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
-    task.wait(0.25)
-    if isMobile then
-        Tween(MainFrame, {BackgroundTransparency = 1}, 0.3)
-    else
-        Tween(MainFrame, {Size=UDim2.new(0,900,0,0)}, 0.3)
-    end
-    task.wait(0.3)
-    ScreenGui:Destroy()
+    task.spawn(function()
+        Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
+        task.wait(0.25)
+        if isMobile then
+            Tween(MainFrame, {BackgroundTransparency = 1}, 0.3)
+        else
+            Tween(MainFrame, {Size=UDim2.new(0,900,0,0)}, 0.3)
+        end
+        task.wait(0.3)
+        ScreenGui:Destroy()
+    end)
 end)
 
 -- ======================== KEYBINDS ========================
@@ -6048,6 +6168,7 @@ if not isMobile then
 end
 
 -- ======================== LOADING SCREEN ========================
+if _G.MiracleLog then _G.MiracleLog("CP: LOADING SCREEN") end
 local loadSteps = {
     {text = "Initializing core systems...", d = 0.3},
     {text = "Reading player attributes...", d = 0.3},
@@ -6075,7 +6196,8 @@ for _, s in ipairs(loadSteps) do totalDur += s.d end
 local elapsed = 0
 local conn
 conn = RunService.Heartbeat:Connect(function(dt)
-    elapsed = elapsed + dt
+    -- Clamp dt maksimal 0.1s — cegah progress loncat karena frame spike di mobile
+    elapsed = elapsed + math.min(dt, 0.1)
     local pct = math.clamp(elapsed / totalDur, 0, 1)
     Tween(LoadingBarFill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
     LoadingPercent.Text = math.floor(pct * 100) .. "%"
@@ -6092,34 +6214,58 @@ conn = RunService.Heartbeat:Connect(function(dt)
     if pct >= 1 then
         conn:Disconnect()
         LoadingStatus.Text = "Ready!"
-        task.wait(0.4)
 
-        Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
-        for _, c in ipairs(LoadingContainer:GetDescendants()) do
-            if c:IsA("TextLabel") then Tween(c, {TextTransparency = 1}, 0.4)
-            elseif c:IsA("Frame") then Tween(c, {BackgroundTransparency = 1}, 0.4) end
-        end
-        task.wait(0.5)
-        LoadingScreen:Destroy()
+        -- KRITIS: task.wait() tidak boleh dipanggil langsung di Heartbeat callback
+        -- Harus di-wrap task.spawn agar tidak freeze/stuck di mobile
+        task.spawn(function()
+            local ok, err = xpcall(function()
+                task.wait(0.4)
 
-        MainFrame.Visible = true
-        if isMobile then
-            MainFrame.Size = originalSize
-            MainFrame.Position = originalPos
-        else
-            MainFrame.Size = UDim2.new(0, 900, 0, 0)
-            Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-        end
+                Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
+                for _, c in ipairs(LoadingContainer:GetDescendants()) do
+                    if c:IsA("TextLabel") then Tween(c, {TextTransparency = 1}, 0.4)
+                    elseif c:IsA("Frame") then Tween(c, {BackgroundTransparency = 1}, 0.4) end
+                end
+                task.wait(0.5)
+                if LoadingScreen and LoadingScreen.Parent then
+                    LoadingScreen:Destroy()
+                end
 
-        task.wait(0.3)
-        SetActivePage("Farm")
+                MainFrame.Visible = true
+                if isMobile then
+                    MainFrame.Size = originalSize
+                    MainFrame.Position = originalPos
+                else
+                    MainFrame.Size = UDim2.new(0, 900, 0, 0)
+                    Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+                end
 
-        task.wait(0.8)
-        local remoteStatus = PacketRemote and "Remote" or "Remote ⚠ (check console)"
-        local controlsHint = isMobile and "Tab bar bawah untuk navigasi" or "[Insert] toggle | [F] fly"
-        Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | " .. controlsHint, Colors.Success, 6)
+                task.wait(0.3)
+                SetActivePage("Farm")
+
+                task.wait(0.8)
+                local remoteStatus = PacketRemote and "Remote" or "Remote ⚠ (check console)"
+                local controlsHint = isMobile and "Tab bar bawah untuk navigasi" or "[Insert] toggle | [F] fly"
+                Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | " .. controlsHint, Colors.Success, 6)
+            end, function(e) return debug.traceback(e, 2) end)
+
+            if not ok then
+                -- Kalau loading crash, hancurkan loading screen dan tampilkan error
+                if LoadingScreen and LoadingScreen.Parent then LoadingScreen:Destroy() end
+                MainFrame.Visible = true
+                MainFrame.Size = originalSize
+                MainFrame.Position = originalPos
+                if isMobile and _G._MiracleShowError then
+                    _G._MiracleShowError("Loading error: " .. tostring(err))
+                else
+                    warn("[MiracleHub] Loading error: " .. tostring(err))
+                end
+                -- Coba quick recover
+                pcall(SetActivePage, "Farm")
+            end
+        end)
     end
 end)
 
-print("[Miracle Hub] Full build loaded — Player: " .. player.Name)
-print("[Miracle Hub] Keybinds: [Insert] = toggle GUI | [F] = toggle Fly")
+-- print setelah spawn: ini aman karena tidak yield
+print("[Miracle Hub] Script injected — task.spawn started")
