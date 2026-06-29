@@ -321,22 +321,27 @@ local function FirePrompt(prompt)
     if prompt:IsA("ProximityPrompt") then
         local hd = prompt.HoldDuration
         if hd and hd > 0 then
-            prompt:InputHoldBegin()
-            task.wait(hd + 0.05)
-            prompt:InputHoldEnd()
+            pcall(function()
+                prompt:InputHoldBegin()
+                task.wait(hd + 0.05)
+                prompt:InputHoldEnd()
+            end)
         else
-            fireproximityprompt(prompt)
+            pcall(_fireprox, prompt)
         end
         return true
     end
     return false
 end
 
--- Safe fireproximityprompt wrapper (executor function)
-local _fireprox = fireproximityprompt or function(p)
-    p:InputHoldBegin()
-    task.wait((p.HoldDuration or 0) + 0.05)
-    p:InputHoldEnd()
+-- Safe fireproximityprompt wrapper (executor function — bisa nil di mobile/executor tertentu)
+local _fireprox = (typeof(fireproximityprompt) == "function") and fireproximityprompt or function(p)
+    if not p or not p.Parent then return end
+    pcall(function()
+        p:InputHoldBegin()
+        task.wait((p.HoldDuration or 0) + 0.05)
+        p:InputHoldEnd()
+    end)
 end
 
 local function SafeFirePrompt(prompt)
@@ -428,9 +433,11 @@ local function Notify(title, message, color, duration)
         if dismissed then return end
         dismissed = true
         Tween(notifFrame, {Position = notifStartX}, 0.3)
-        task.wait(0.35)
-        if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
-        notifCount = math.max(0, notifCount - 1)
+        task.spawn(function()
+            task.wait(0.35)
+            if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+            notifCount = math.max(0, notifCount - 1)
+        end)
     end
 
     closeBtn.MouseButton1Click:Connect(DismissNotif)
@@ -553,9 +560,11 @@ local function NotifyStok(available, color, duration, title)
         if dismissed then return end
         dismissed = true
         Tween(notifFrame, {Position = UDim2.new(1, 10, 0, 16)}, 0.3)
-        task.wait(0.35)
-        if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
-        _stockNotif = nil
+        task.spawn(function()
+            task.wait(0.35)
+            if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+            _stockNotif = nil
+        end)
     end
 
     closeBtn.MouseButton1Click:Connect(DismissStok)
@@ -588,8 +597,8 @@ local LoadingScreen = Create("Frame", {
 })
 local LoadingContainer = Create("Frame", {
     Parent = LoadingScreen,
-    Size = isMobile and UDim2.new(0.88, 0, 0, 170) or UDim2.new(0, 420, 0, 170),
-    Position = isMobile and UDim2.new(0.06, 0, 0.5, -85) or UDim2.new(0.5, -210, 0.5, -85),
+    Size = UDim2.new(0, 320, 0, 170),
+    Position = UDim2.new(0.5, -160, 0.5, -85),
     BackgroundColor3 = Colors.BackgroundLight,
     BorderSizePixel = 0,
     ZIndex = 101,
@@ -1525,10 +1534,12 @@ local function CreateActionButton(parent, text, callback, accentColor)
     btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.15) end)
     btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15) end)
     btn.MouseButton1Click:Connect(function()
-        Tween(btn, {BackgroundColor3 = Colors.SurfaceLight}, 0.05)
-        task.wait(0.1)
-        Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.1)
-        if callback then callback() end
+        task.spawn(function()
+            Tween(btn, {BackgroundColor3 = Colors.SurfaceLight}, 0.05)
+            task.wait(0.1)
+            Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.1)
+            if callback then callback() end
+        end)
     end)
     return container
 end
@@ -6072,20 +6083,24 @@ CloseButton.MouseButton1Click:Connect(function()
     Tween(ConfirmBox, {Size=UDim2.new(0,380,0,200)}, 0.3, Enum.EasingStyle.Back)
 end)
 ConfNo.MouseButton1Click:Connect(function()
-    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
-    task.wait(0.3)
-    ConfirmModal.Visible = false
+    task.spawn(function()
+        Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
+        task.wait(0.3)
+        ConfirmModal.Visible = false
+    end)
 end)
 ConfYes.MouseButton1Click:Connect(function()
-    Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
-    task.wait(0.25)
-    if isMobile then
-        Tween(MainFrame, {BackgroundTransparency = 1}, 0.3)
-    else
-        Tween(MainFrame, {Size=UDim2.new(0,900,0,0)}, 0.3)
-    end
-    task.wait(0.3)
-    ScreenGui:Destroy()
+    task.spawn(function()
+        Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
+        task.wait(0.25)
+        if isMobile then
+            Tween(MainFrame, {BackgroundTransparency = 1}, 0.3)
+        else
+            Tween(MainFrame, {Size=UDim2.new(0,900,0,0)}, 0.3)
+        end
+        task.wait(0.3)
+        ScreenGui:Destroy()
+    end)
 end)
 
 -- ======================== KEYBINDS ========================
