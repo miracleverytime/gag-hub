@@ -2,7 +2,7 @@ MIRACLE-HUB GROW A GARDEN 2 V1.O
 
 Major Bug:
 1. Deksripsi pada tiap tab fitur masih gj
-2. Fitur auto plants masih belom ketatam semua
+2. fixed
 3. Fitur watering & Springklers belum works
 6. Jump power belom works
 7. Mutation list belom terupdate

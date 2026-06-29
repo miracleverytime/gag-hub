@@ -168,17 +168,12 @@ local States = {
     harvestFilterMutation = "None",
     plantSeedFilter = "All Seeds",
     plantRarityFilter = "All",
-    keepReserve = 0,
-    maxPlantsCycle = 40,
     perFruitDelay = 0.05,
     harvestLoopDelay = 2.0,
     notifyHarvest = false,
-    autoPlantDelay = 0.3,       -- delay antar tanam per seed (s)
-    autoPlantLoopDelay = 5.0,   -- jeda antar cycle tanam (s)
-    autoPlantNotify = true,     -- notif saat cycle selesai
+    autoPlantNotify = true,     -- notif saat siklus tanam selesai
     autoPlantAllSeeds = false,  -- tanam semua seed di backpack tanpa filter
     autoPlantTargets = {},      -- TABLE: seed yang dipilih untuk ditanam
-    autoPlantUsedSlots = 0,     -- tracker slot terpakai (info saja)
     -- Shop
     autoBuySeed = false,
     autoBuySeedTarget = nil,            -- legacy (tidak dipakai jika targets kosong)
@@ -227,11 +222,9 @@ local States = {
     flySpeed = 25,
     antiAfk = true,
     -- Pets
-    autoEquipPets = false,
     autoCatchWild = false,
-    wildPetFilter = "All",
-    wildPetMaxCost = 500,
-    petEquipPriority = "Biggest First",
+    petFinderRarity = "All",     -- filter rarity di Pet Finder
+    wildCatchTargets = {},       -- TABLE: nama pet yang dipilih untuk auto catch (kosong = semua)
     -- Eggs
     autoOpenEgg = false,
     eggLoopDelay = 5,
@@ -425,7 +418,7 @@ end
 
 -- Notifikasi stok khusus: vertikal, scrollable, ada tombol close, durasi panjang
 local _stockNotif = nil
-local function NotifyStok(available, color, duration)
+local function NotifyStok(available, color, duration, title)
     if not States.showNotifications then return end
     duration = duration or 30
 
@@ -469,7 +462,7 @@ local function NotifyStok(available, color, duration)
         Size = UDim2.new(1, -50, 0, 22),
         Position = UDim2.new(0, 12, 0, 7),
         BackgroundTransparency = 1,
-        Text = "🌱 Stok Ada (" .. #available .. " seed)",
+        Text = title or ("🌱 Stok Ada (" .. #available .. " seed)"),
         TextColor3 = Colors.TextPrimary,
         TextSize = 13,
         Font = Enum.Font.GothamBold,
@@ -991,10 +984,12 @@ local function CreateSectionCard(title, layoutOrder, accentColor)
         BackgroundTransparency = 1,
         LayoutOrder = 1,
         AutomaticSize = Enum.AutomaticSize.Y,
+        Visible = false,
     })
     CreateListLayout(content, 10)
 
-    local collapsed = false
+    local collapsed = true
+    dropBtn.Rotation = -90
     dropBtn.MouseButton1Click:Connect(function()
         collapsed = not collapsed
         content.Visible = not collapsed
@@ -1243,7 +1238,7 @@ local function CreateActionButton(parent, text, callback, accentColor)
     return container
 end
 
-local function CreateDropdown(parent, label, options, stateKey)
+local function CreateDropdown(parent, label, options, stateKey, onChange)
     local currentVal = States[stateKey] or options[1]
     local container = Create("Frame", {
         Parent = parent,
@@ -1336,6 +1331,7 @@ local function CreateDropdown(parent, label, options, stateKey)
                     isOpen = false
                     Tween(arr, {Rotation = 0}, 0.2)
                     if dropPanel then dropPanel:Destroy() dropPanel = nil end
+                    if onChange then task.defer(onChange, opt) end
                 end)
             end
         else
@@ -1880,22 +1876,30 @@ task.spawn(function()
     end
 end)
 
--- ======================== AUTO PLANT CORE (final fix) ========================
--- Masalah sebelumnya:
---   1. searchStart loop logic salah → skip posisi / infinite loop
---   2. Posisi yang sudah dipakai tidak di-track → server reject karena overlap < 1 stud
---   3. Tanaman existing di plot tidak diperhitungkan → posisi terlalu dekat existing plant
--- Fix:
---   - Pre-generate semua posisi valid via raycast SEBELUM loop tanam
---   - Filter posisi yang terlalu dekat dengan existing plants (>= 1.5 stud jarak XZ)
---   - Track posisi yang sudah dipakai dalam satu cycle
---   - Re-scan backpack tiap iterasi (tool dikonsumsi server)
+-- ======================== AUTO PLANT CORE (v3 - full slot coverage fix) ========================
+-- Root cause bugs lama:
+--   1. Raycast pakai FilterType.Include ke plantAreas — area tipis (0.09 stud) sering miss
+--   2. Transparency check (`< 1`) membuang PlantArea yang semi-transparent / invisible
+--   3. GetExistingPlantPositions hanya scan Plants folder via GetPivot() yang bisa gagal
+--      jika model belum sepenuhnya ter-replicate → posisi dianggap kosong padahal tidak
+--   4. Grid STEP=1.8 menghasilkan titik yang tidak merata antar PlantArea kecil (16×44)
+--      dan area besar (PlantAreaColumn 44×84) — banyak slot pojok yang terlewat
+--   5. Fungsi return result segera saat #result >= maxCount SEBELUM shuffle →
+--      selalu tanam di area yang sama (bagian awal dari list plantAreas)
+-- Fix v3:
+--   - Hapus raycast sama sekali — pakai bounding box CFrame:PointToWorldSpace langsung
+--   - Grid STEP lebih kecil (1.5) agar tidak ada slot yang terlewat di area kecil
+--   - GetExistingPlantPositions scan dari ATTRIBUTES (PosX/PosY/PosZ) sebagai fallback
+--     sebelum GetPivot, agar tanaman yang baru ditanam terbaca walau belum ter-render
+--   - Filter overlap menggunakan satu tabel unified (occupied) dari awal
+--   - Kumpulkan SEMUA kandidat dulu, shuffle, baru potong ke maxCount
 
 -- Helper: Dapatkan semua BasePart tag "PlantArea" di plot kita
 local function GetMyPlantAreas()
     local myPlot = GetMyPlot()
     if not myPlot then return {} end
     local areas = {}
+    -- Primary: CollectionService tag (resmi)
     pcall(function()
         for _, part in ipairs(CollectionService:GetTagged("PlantArea")) do
             if part:IsA("BasePart") and part:IsDescendantOf(myPlot) then
@@ -1903,6 +1907,19 @@ local function GetMyPlantAreas()
             end
         end
     end)
+    -- Fallback: scan Visual folder untuk PlantAreaColumn jika CS kosong
+    if #areas == 0 then
+        pcall(function()
+            local visual = myPlot:FindFirstChild("Visual")
+            if visual then
+                for _, part in ipairs(visual:GetDescendants()) do
+                    if part:IsA("BasePart") and part.Name:find("PlantArea") then
+                        table.insert(areas, part)
+                    end
+                end
+            end
+        end)
+    end
     return areas
 end
 
@@ -1919,111 +1936,152 @@ local function CountPlantedSlots()
     return count
 end
 
--- Helper: Kumpulkan posisi XZ tanaman yang sudah ada di plot (untuk cek overlap)
+-- Helper: Hitung jumlah tanaman per SeedName milik kita di plot
+local function GetPlantedSeedCounts()
+    local plantsFolder = GetPlantsFolder()
+    local counts = {}
+    local total = 0
+    if not plantsFolder then return counts, total end
+    for _, plant in ipairs(plantsFolder:GetChildren()) do
+        if plant:GetAttribute("UserId") == player.UserId then
+            local name = plant:GetAttribute("SeedName") or plant:GetAttribute("SeedTool") or "?"
+            counts[name] = (counts[name] or 0) + 1
+            total += 1
+        end
+    end
+    return counts, total
+end
+
+-- Helper: Format counts jadi string "Bamboo - 800\nDragon's Breath - 4\n..."
+local function FormatSeedCounts(counts, total)
+    local lines = {}
+    for name, cnt in pairs(counts) do
+        table.insert(lines, name .. " - " .. cnt)
+    end
+    table.sort(lines, function(a, b)
+        -- Sort by count descending
+        local ca = tonumber(a:match("- (%d+)$")) or 0
+        local cb = tonumber(b:match("- (%d+)$")) or 0
+        return ca > cb
+    end)
+    return table.concat(lines, "\n"), total
+end
+
+-- Helper: Kumpulkan posisi XZ SEMUA tanaman di plot (milik siapapun) untuk cek overlap
+-- Pakai attribute PosX/PosZ dulu (tersedia di GAG-Hub listener), fallback ke GetPivot
 local function GetExistingPlantPositions()
     local plantsFolder = GetPlantsFolder()
     local occupied = {}
-    if plantsFolder then
-        for _, plant in ipairs(plantsFolder:GetChildren()) do
+    if not plantsFolder then return occupied end
+    for _, plant in ipairs(plantsFolder:GetChildren()) do
+        local px, pz
+        -- Method 1: attribute Positions (dari server sync, selalu up-to-date)
+        local posX = plant:GetAttribute("PosX")
+        local posZ = plant:GetAttribute("PosZ")
+        if posX and posZ then
+            px, pz = posX, posZ
+        else
+            -- Method 2: GetPivot (butuh model fully loaded)
             local ok, pivot = pcall(function() return plant:GetPivot() end)
             if ok and pivot then
-                table.insert(occupied, Vector2.new(pivot.Position.X, pivot.Position.Z))
+                px, pz = pivot.Position.X, pivot.Position.Z
+            else
+                -- Method 3: PrimaryPart position
+                local ok2, pos = pcall(function()
+                    return plant.PrimaryPart and plant.PrimaryPart.Position
+                end)
+                if ok2 and pos then
+                    px, pz = pos.X, pos.Z
+                end
             end
+        end
+        if px and pz then
+            table.insert(occupied, Vector2.new(px, pz))
         end
     end
     return occupied
 end
 
 -- Helper: Cek apakah posisi terlalu dekat dengan salah satu posisi di list (jarak XZ)
-local function IsTooClose(pos, posList, minDist)
+local function IsTooClose(px, pz, posList, minDist)
     minDist = minDist or 1.5
-    local px, pz = pos.X, pos.Z
+    local md2 = minDist * minDist
     for _, p in ipairs(posList) do
-        local dx = px - (p.X or p.x)
-        local dz = pz - (p.Y or p.y)  -- Vector2 Y = Z world
-        if dx*dx + dz*dz < minDist * minDist then
+        local dx = px - p.X
+        local dz = pz - p.Y  -- Vector2: X=worldX, Y=worldZ
+        if dx*dx + dz*dz < md2 then
             return true
         end
     end
     return false
 end
 
--- Helper: Generate semua posisi valid (sudah di-raycast + filter overlap) untuk satu cycle
+-- Helper: Cek apakah worldPos (Vector3) masuk dalam bounding box CFrame+Size (XZ plane)
+local function IsInsideAreaXZ(worldPos, areaCF, areaSize)
+    -- Ubah worldPos ke lokal space area
+    local local3 = areaCF:PointToObjectSpace(worldPos)
+    local halfX = areaSize.X / 2
+    local halfZ = areaSize.Z / 2
+    return (local3.X >= -halfX and local3.X <= halfX and
+            local3.Z >= -halfZ and local3.Z <= halfZ)
+end
+
+-- Helper: Generate semua posisi valid untuk satu cycle (tanpa raycast)
+-- Strategi: sweep grid di setiap PlantArea, ambil world-pos permukaan atas,
+-- filter terhadap tanaman existing + posisi yang sudah dipilih cycle ini.
 local function BuildValidPlantPositions(plantAreas, maxCount)
-    maxCount = maxCount or 50
-    local result = {}
+    maxCount = maxCount or 200  -- default besar; loop utama tetap potong sesuai seed yg ada
 
-    -- Kumpulkan posisi XZ existing plants
-    local occupied = GetExistingPlantPositions()  -- list of Vector2(X,Z)
+    -- Kumpulkan posisi XZ semua tanaman existing (akan di-mutate selama build)
+    local occupied = GetExistingPlantPositions()  -- {Vector2(worldX, worldZ), ...}
 
-    -- RaycastParams: hanya mengenai PlantArea
-    local params = RaycastParams.new()
-    params.FilterType = Enum.RaycastFilterType.Include
-    params.FilterDescendantsInstances = plantAreas
-
-    local STEP = 1.8  -- jarak grid antar titik
+    local MIN_DIST   = 1.5   -- jarak minimum antar tanaman (stud)
+    local STEP       = 1.5   -- grid step (stud) — lebih kecil agar area 16-wide tidak terlewat
+    local candidates = {}
 
     for _, area in ipairs(plantAreas) do
-        local cf    = area.CFrame
-        local sz    = area.Size
-        local halfX = sz.X / 2 - 0.2
-        local halfZ = sz.Z / 2 - 0.2
+        local cf  = area.CFrame
+        local sz  = area.Size
+        -- Y permukaan atas area dalam world space (diambil dari center + halfY)
+        local surfaceY = cf.Position.Y + sz.Y / 2
 
-        local x = -halfX
-        while x <= halfX do
-            local z = -halfZ
-            while z <= halfZ do
-                -- Origin: di atas permukaan area dalam world space
-                local localPt   = Vector3.new(x, sz.Y / 2 + 15, z)
-                local worldOrig = cf:PointToWorldSpace(localPt)
+        local halfX = sz.X / 2
+        local halfZ = sz.Z / 2
 
-                local hit = workspace:Raycast(worldOrig, Vector3.new(0, -40, 0), params)
-                if hit and hit.Instance and hit.Instance.Transparency < 1 then
-                    local hp = hit.Position
-                    local hp2 = Vector2.new(hp.X, hp.Z)
+        -- Sweep grid dalam local space area (X dan Z), margin kecil agar tidak di tepi persis
+        local margin = 0.5
+        local lx = -halfX + margin
+        while lx <= halfX - margin do
+            local lz = -halfZ + margin
+            while lz <= halfZ - margin do
+                -- World position di permukaan atas area
+                local worldPt = cf:PointToWorldSpace(Vector3.new(lx, sz.Y / 2, lz))
+                -- Gunakan Y dari worldPt (lebih akurat jika area dirotasi)
+                local wx, wy, wz = worldPt.X, worldPt.Y, worldPt.Z
 
-                    -- Cek jarak ke existing plants
-                    local tooClose = false
-                    for _, op in ipairs(occupied) do
-                        local dx = hp2.X - op.X
-                        local dy = hp2.Y - op.Y
-                        if dx*dx + dy*dy < 1.5 * 1.5 then
-                            tooClose = true
-                            break
-                        end
-                    end
-
-                    -- Cek jarak ke posisi yang sudah kita pilih di cycle ini
-                    if not tooClose then
-                        for _, rp in ipairs(result) do
-                            local dx = hp2.X - rp.X
-                            local dy = hp2.Y - rp.Z  -- rp adalah Vector3, Z = dunia Z
-                            if dx*dx + dy*dy < 1.5 * 1.5 then
-                                tooClose = true
-                                break
-                            end
-                        end
-                    end
-
-                    if not tooClose then
-                        table.insert(result, hp)
-                        -- Tambahkan ke occupied agar iterasi berikutnya juga terfilter
-                        table.insert(occupied, hp2)
-                        if #result >= maxCount then
-                            return result
-                        end
-                    end
+                -- Filter: tidak boleh terlalu dekat dengan tanaman existing ATAU kandidat sebelumnya
+                if not IsTooClose(wx, wz, occupied, MIN_DIST) then
+                    table.insert(candidates, Vector3.new(wx, wy, wz))
+                    -- Tambahkan ke occupied agar kandidat berikutnya tidak overlap
+                    table.insert(occupied, Vector2.new(wx, wz))
                 end
-                z = z + STEP
+
+                lz = lz + STEP
             end
-            x = x + STEP
+            lx = lx + STEP
         end
     end
 
-    -- Shuffle agar variasi posisi tiap cycle
-    for i = #result, 2, -1 do
+    -- Shuffle semua kandidat agar variasi posisi per cycle (tidak selalu sudut kiri atas)
+    for i = #candidates, 2, -1 do
         local j = math.random(1, i)
-        result[i], result[j] = result[j], result[i]
+        candidates[i], candidates[j] = candidates[j], candidates[i]
+    end
+
+    -- Potong ke maxCount
+    local result = {}
+    for i = 1, math.min(#candidates, maxCount) do
+        result[i] = candidates[i]
     end
 
     return result
@@ -2076,18 +2134,6 @@ local function GetNextSeedFromBackpack()
 
         -- Cek filter allowed
         if allowedSeeds ~= nil and not allowedSeeds[seedName] then continue end
-
-        -- Cek keepReserve: hitung seed jenis ini di backpack
-        if States.keepReserve and States.keepReserve > 0 then
-            local count = 0
-            for _, t in ipairs(backpack:GetChildren()) do
-                if not t:IsA("Tool") then continue end
-                local sn = t:GetAttribute("SeedTool")
-                if type(sn) ~= "string" or sn == "" then sn = t.Name end
-                if sn == seedName then count += 1 end
-            end
-            if count <= States.keepReserve then continue end
-        end
 
         return {tool = tool, name = seedName}
     end
@@ -2149,9 +2195,8 @@ task.spawn(function()
             continue
         end
 
-        -- 2. Build semua posisi valid (filter overlap existing plants)
-        local maxPerCycle    = States.maxPlantsCycle or 40
-        local validPositions = BuildValidPlantPositions(plantAreas, maxPerCycle)
+        -- 2. Build semua posisi valid — scan semua slot kosong di semua PlantArea
+        local validPositions = BuildValidPlantPositions(plantAreas, 500)
 
         if #validPositions == 0 then
             if States.autoPlantNotify then
@@ -2161,13 +2206,14 @@ task.spawn(function()
                     .. " (" .. slotCount .. " tanaman ada). Harvest dulu lalu coba lagi.",
                     Colors.Warning, 5)
             end
-            task.wait(math.max(States.autoPlantLoopDelay or 5, 3))
+            task.wait(5)
             continue
         end
 
         -- 3. Tanam: re-scan backpack tiap iterasi (tool dikonsumsi server setelah tanam)
-        local planted = 0
-        local noSeed  = false
+        local planted    = 0
+        local noSeed     = false
+        local plantedLog = {}  -- track {[seedName] = jumlah} untuk notif
 
         for _, hitPos in ipairs(validPositions) do
             if not States.autoPlant then break end
@@ -2178,30 +2224,35 @@ task.spawn(function()
                 break
             end
 
-            DoPlantFire(seedEntry.tool, seedEntry.name, hitPos)
-            planted += 1
+            local ok = pcall(DoPlantFire, seedEntry.tool, seedEntry.name, hitPos)
+            if ok then
+                planted += 1
+                plantedLog[seedEntry.name] = (plantedLog[seedEntry.name] or 0) + 1
+            end
 
-            task.wait(math.max(States.autoPlantDelay or 0.3, 0.05))
+            task.wait(0.3)
         end
 
-        -- 4. Update info
-        States.autoPlantUsedSlots = CountPlantedSlots()
-
-        -- 5. Notif hasil
+        -- 4. Notif hasil
         if States.autoPlantNotify then
             if planted > 0 then
-                Notify("Auto Plant 🌱",
-                    "Planted: " .. planted
-                    .. " | Slot terisi: " .. States.autoPlantUsedSlots
-                    .. " | Plot " .. MY_PLOT_ID,
-                    Colors.Success)
+                local lines = {}
+                for name, cnt in pairs(plantedLog) do
+                    table.insert(lines, name .. " - " .. cnt)
+                end
+                table.sort(lines, function(a, b)
+                    local ca = tonumber(a:match("- (%d+)$")) or 0
+                    local cb = tonumber(b:match("- (%d+)$")) or 0
+                    return ca > cb
+                end)
+                NotifyStok(lines, Colors.Success, 8, "🌱 Auto Plant (+" .. planted .. " ditanam)")
             elseif noSeed then
                 Notify("Auto Plant", "Seed habis di backpack (sesuai filter).", Colors.Warning, 3)
             end
         end
 
-        -- 6. Jeda antar cycle
-        task.wait(math.max(States.autoPlantLoopDelay or 5, 1))
+        -- 5. Langsung loop kembali (cek apakah masih ada slot / seed)
+        task.wait(0.5)
     end
 end)
 
@@ -2821,113 +2872,249 @@ task.spawn(function()
     end
 end)
 
--- AUTO CATCH WILD PETS LOOP
--- Scanner: Workspace.Map.WildPetSpawns.<WildPet_X_WildPet_UUID>.RootPart.BuyPrompt (HoldDuration=1)
-task.spawn(function()
-    while _G._MiracleHubSession == _SESSION do
-        task.wait(5)
-        if not States.autoCatchWild then continue end
-        pcall(function()
-            -- WildPetSpawns is under Workspace.Map
-            local map = game:GetService("Workspace"):FindFirstChild("Map")
-            local wps = map and map:FindFirstChild("WildPetSpawns")
-            -- Fallback: check direct workspace
-            if not wps then
-                wps = game:GetService("Workspace"):FindFirstChild("WildPetSpawns")
+-- Helper: ambil WildPetRef folder (pakai path yang sama dengan PetTeleporterController GAG)
+local function GetWildPetRef()
+    local map = workspace:FindFirstChild("Map")
+    return map and map:FindFirstChild("WildPetRef")
+end
+
+-- ======================== SMART MOVE TO PET (30-stud hop loop) ========================
+-- Perpindahan dilakukan dalam hop 30 studs, dengan jeda task.wait(0.15) di antaranya.
+-- Ini meniru player yang "bergerak cepat" tapi tidak sekaligus 1 lompatan besar
+-- sehingga server anti-cheat GAG tidak mendeteksi teleport dan tidak rollback.
+-- HOP_SIZE = 30, WAIT = 0.15s → kecepatan efektif ~200 studs/detik
+
+local HOP_SIZE   = 10    -- max studs per hop
+local HOP_WAIT   = 0.50  -- detik jeda antar hop (turunkan kalau mau lebih cepat, min ~0.05)
+
+local function SmartMoveToPet(targetPosition, onArrive)
+    local c = player.Character
+    if not c then if onArrive then onArrive() end return end
+    local hrp = c:FindFirstChild("HumanoidRootPart")
+    if not hrp then if onArrive then onArrive() end return end
+
+    local dest = Vector3.new(targetPosition.X, targetPosition.Y + 5, targetPosition.Z)
+
+    while true do
+        -- Refresh char tiap iterasi (respawn-safe)
+        local ch = player.Character
+        if not ch then break end
+        local r = ch:FindFirstChild("HumanoidRootPart")
+        if not r then break end
+
+        local currentPos = r.Position
+        local remaining  = (dest - currentPos).Magnitude
+
+        if remaining <= HOP_SIZE then
+            -- Sudah cukup dekat, snap langsung ke tujuan
+            r.CFrame = CFrame.new(dest)
+            break
+        end
+
+        -- Gerak maju 30 studs ke arah target
+        local direction  = (dest - currentPos).Unit
+        local nextPos    = currentPos + direction * HOP_SIZE
+        r.CFrame = CFrame.new(nextPos)
+
+        task.wait(HOP_WAIT)
+    end
+
+    if onArrive then onArrive() end
+end
+
+-- Helper: scan semua wild pet aktif dari WildPetRef
+-- Setiap child adalah BasePart dengan:
+--   Attribute "Rarity"       → string rarity (e.g. "Legendary", "Mythic", "Super", "Common", "Uncommon", "Rare")
+--   Attribute "OwnerUserId"  → number/nil; 0 = bebas, >0 = sudah dimiliki
+local function ScanWildPets(rarityFilter)
+    local ref = GetWildPetRef()
+    if not ref then return {} end
+    local results = {}
+    for _, part in ipairs(ref:GetChildren()) do
+        if part:IsA("BasePart") then
+            local rarity = part:GetAttribute("Rarity") or "Unknown"
+            local owner  = tonumber(part:GetAttribute("OwnerUserId")) or 0
+            -- skip pet yang sudah ada pemiliknya
+            if owner ~= 0 then continue end
+            -- filter rarity
+            if rarityFilter and rarityFilter ~= "All" and rarityFilter ~= rarity then continue end
+            local dist = math.huge
+            if player.Character then
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                if hrp then dist = (part.Position - hrp.Position).Magnitude end
             end
-            if not wps then return end
+            -- Ambil nama species dari attribute atau Name part
+            local petName = part:GetAttribute("Pet")
+                or part:GetAttribute("Species")
+                or part:GetAttribute("PetSpecies")
+                or part:GetAttribute("PetName")
+                or part.Name
+            table.insert(results, {part=part, rarity=rarity, dist=dist, name=tostring(petName)})
+        end
+    end
+    -- urutkan dari yg terdekat
+    table.sort(results, function(a,b) return a.dist < b.dist end)
+    return results
+end
 
-            for _, petModel in ipairs(wps:GetChildren()) do
-                if not States.autoCatchWild then break end
-                -- Parse pet type from model name: WildPet_Bunny_WildPet_<uuid>
-                local parts = petModel.Name:split("_")
-                local petType = parts[2] or "Unknown"
+-- Humanize camelCase nama species → "BlackDragon" → "Black Dragon"
+local function HumanizePetName(n)
+    return (tostring(n):gsub("(%l)(%u)", "%1 %2"))
+end
 
-                -- Filter check
-                local filter = States.wildPetFilter or "All"
-                if filter ~= "All" and not filter:lower():find(petType:lower()) then continue end
+-- Warna per rarity — cocok persis dengan PetListController GAG
+-- Mythic = merah (220,40,40), Super = putih (game pakai rainbow gradient)
+local RarityColor = {
+    Common    = Color3.fromRGB(180, 180, 180),
+    Uncommon  = Color3.fromRGB(60, 200, 70),
+    Rare      = Color3.fromRGB(60, 130, 255),
+    Epic      = Color3.fromRGB(160, 60, 220),
+    Legendary = Color3.fromRGB(255, 215, 0),
+    Mythic    = Color3.fromRGB(220, 40, 40),
+    Super     = Color3.fromRGB(255, 255, 255),
+}
 
-                -- Check cost from BuyPrompt ObjectText
-                local rootPart = petModel:FindFirstChild("RootPart")
-                if not rootPart then
-                    -- Try any BasePart
-                    rootPart = petModel:FindFirstChildWhichIsA("BasePart")
-                end
-                if not rootPart then continue end
+-- Lookup rarity per species — dari PetData GAG
+local PET_RARITY_LOOKUP = {
+    Frog = "Common", Bunny = "Common",
+    Owl = "Uncommon",
+    Deer = "Rare", Turtle = "Rare",
+    Robin = "Legendary", Bee = "Legendary",
+    Monkey = "Mythic", Bear = "Mythic", Unicorn = "Mythic",
+    GoldenDragonfly = "Mythic", ["Golden Dragonfly"] = "Mythic",
+    Raccoon = "Super",
+    BlackDragon = "Super", ["Black Dragon"] = "Super",
+    IceSerpent = "Super", ["Ice Serpent"] = "Super",
+}
 
-                local buyPrompt = rootPart:FindFirstChild("BuyPrompt")
-                if not buyPrompt then
-                    for _, desc in ipairs(petModel:GetDescendants()) do
-                        if desc:IsA("ProximityPrompt") and desc.Name == "BuyPrompt" then
-                            buyPrompt = desc
-                            break
-                        end
+
+-- Helper: beli wild pet via Networking.Pets.WildPetTame
+-- CONFIRMED via sniffer:
+--   Remote  : Networking.Pets.WildPetTame:Fire(petId)
+--   petId   : part.Name (format "WildPet_<uuid>")
+--   Bukti   : setelah fire, OwnerUserId berubah & pet masuk backpack
+--   Attrs   : PetName, Price, OwnerUserId, OwnerName, State, Rarity
+local function BuyWildPet(part)
+    local petId = part.Name  -- "WildPet_<uuid>" — confirmed dari sniffer
+
+    if Networking then
+        local petsNS = rawget(Networking, "Pets")
+        if petsNS then
+            local tame = rawget(petsNS, "WildPetTame")
+            if tame and tame.Fire then
+                local ok = pcall(function() tame:Fire(petId) end)
+                return ok
+            end
+        end
+    end
+
+    -- Fallback: PacketRemote
+    if PacketRemote then
+        pcall(function() PacketRemote:FireServer(petId) end)
+        return true
+    end
+
+    return false
+end
+
+-- Helper: cek apakah wild pet masih bebas (belum ada pemilik)
+-- State "walking_to_garden" = sudah dibeli orang lain
+local function IsWildPetFree(part)
+    if not part or not part.Parent then return false end
+    if (tonumber(part:GetAttribute("OwnerUserId")) or 0) ~= 0 then return false end
+    local state = part:GetAttribute("State") or ""
+    if state == "walking_to_garden" then return false end
+    return true
+end
+
+-- AUTO CATCH WILD PETS LOOP
+-- Remote  : Networking.Pets.WildPetTame:Fire(part.Name)
+-- petId   : part.Name = "WildPet_<uuid>" (confirmed dari sniffer)
+-- Free    : OwnerUserId == 0 AND State ~= "walking_to_garden"
+task.spawn(function()
+    local lastWaitingNotif = 0
+
+    while _G._MiracleHubSession == _SESSION do
+        task.wait(2)
+        if not States.autoCatchWild then continue end
+
+        local map = workspace:FindFirstChild("Map")
+        local ref = map and map:FindFirstChild("WildPetRef")
+        if not ref then continue end
+
+        local sel = States.wildCatchTargets or {}
+
+        -- Kumpulkan pet valid sesuai filter nama
+        local targets = {}
+        for _, part in ipairs(ref:GetChildren()) do
+            if not part:IsA("BasePart") then continue end
+            if not IsWildPetFree(part) then continue end
+
+            local petName = part:GetAttribute("PetName")
+                or part:GetAttribute("Pet")
+                or part:GetAttribute("Species")
+                or part.Name
+
+            -- Filter nama kalau ada pilihan
+            if #sel > 0 then
+                local match = false
+                for _, target in ipairs(sel) do
+                    if target == petName or target == tostring(petName) then
+                        match = true; break
                     end
                 end
-                if not buyPrompt then continue end
-
-                -- Parse cost from ObjectText e.g. "¢20,000"
-                local costText = buyPrompt.ObjectText or ""
-                local costNum = tonumber(costText:gsub("[^%d]", "")) or 0
-                local maxCost = States.wildPetMaxCost or 99999
-                if costNum > maxCost then continue end
-
-                -- Teleport to pet
-                if player.Character then
-                    player.Character:PivotTo(rootPart.CFrame + Vector3.new(0, 5, 0))
-                    task.wait(0.4)
-                end
-
-                -- Fire buy prompt (HoldDuration=1)
-                SafeFirePrompt(buyPrompt)
-                Notify("Wild Pet", "Catching " .. petType .. " (¢" .. costNum .. ")", Colors.Warning)
-                task.wait(2)
+                if not match then continue end
             end
-        end)
+
+            local rarity = part:GetAttribute("Rarity") or "Unknown"
+            local price  = part:GetAttribute("Price") or 0
+            table.insert(targets, {part=part, petName=tostring(petName), rarity=rarity, price=price})
+        end
+
+        -- Tidak ada pet → notif tunggu (max 1x per 15 detik)
+        if #targets == 0 then
+            local now = tick()
+            if now - lastWaitingNotif >= 15 then
+                lastWaitingNotif = now
+                local filterStr = #sel > 0 and table.concat(sel, ", ") or "semua pet"
+                Notify("Auto Catch", "⏳ Menunggu spawn: " .. filterStr, Colors.TextMuted, 5)
+            end
+            continue
+        end
+
+        -- Proses tiap pet satu per satu
+        for _, entry in ipairs(targets) do
+            if not States.autoCatchWild then break end
+
+            local part    = entry.part
+            local petName = entry.petName
+            local rarity  = entry.rarity
+            local price   = entry.price
+
+            -- Validasi sebelum gerak
+            if not IsWildPetFree(part) then continue end
+
+            -- Hop ke pet (blocking)
+            SmartMoveToPet(part.Position, nil)
+            task.wait(0.15)
+
+            -- Validasi ulang sesudah tiba
+            if not IsWildPetFree(part) then continue end
+
+            -- Fire Networking.Pets.WildPetTame:Fire(part.Name)
+            local ok = BuyWildPet(part)
+            if ok then
+                Notify("Auto Catch",
+                    "🎯 " .. HumanizePetName(petName) .. " (" .. rarity .. ") | " .. tostring(price) .. "¢",
+                    RarityColor[rarity] or Colors.Warning, 4)
+                task.wait(1.5)
+            end
+        end
     end
 end)
 
--- AUTO EQUIP PETS LOOP
-task.spawn(function()
-    while _G._MiracleHubSession == _SESSION do
-        task.wait(5)
-        if not States.autoEquipPets then continue end
-        pcall(function()
-            local pets = {}
-            for _, tool in ipairs(player.Backpack:GetChildren()) do
-                local petName = tool:GetAttribute("Pet")
-                local petSize = tool:GetAttribute("PetSize") or "Normal"
-                if petName then
-                    table.insert(pets, {tool = tool, name = petName, size = petSize})
-                end
-            end
-            -- Sort by priority
-            local priority = States.petEquipPriority or "Biggest First"
-            local sizeOrder = {Giant=4, Huge=3, Big=2, Normal=1}
-            if priority == "Biggest First" then
-                table.sort(pets, function(a, b)
-                    return (sizeOrder[a.size] or 1) > (sizeOrder[b.size] or 1)
-                end)
-            elseif priority == "Alphabetical" then
-                table.sort(pets, function(a, b) return a.name < b.name end)
-            elseif priority:find("First") then
-                local favPet = priority:gsub(" First", "")
-                table.sort(pets, function(a, b)
-                    if a.name == favPet and b.name ~= favPet then return true end
-                    if b.name == favPet and a.name ~= favPet then return false end
-                    return (sizeOrder[a.size] or 1) > (sizeOrder[b.size] or 1)
-                end)
-            end
-            -- Equip top N
-            local maxPets = MAX_EQUIPPED_PETS
-            for i, pet in ipairs(pets) do
-                if i > maxPets then break end
-                -- Equip via packet or tool activation
-                FirePacket(20, pet.tool) -- equip pet packet
-            end
-        end)
-    end
-end)
+-- AUTO EQUIP PETS LOOP (removed — FirePacket equip/unequip tidak valid di GAG)
+-- Pet equip dilakukan langsung oleh game saat tool diaktifkan; tidak ada packet khusus.
 
 -- AUTO OPEN EGGS LOOP (PacketID 139)
 task.spawn(function()
@@ -3058,18 +3245,21 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- ESP Wild Pets
+    -- ESP Wild Pets (pakai WildPetRef — path resmi GAG)
     if States.espItems then
-        local map = game:GetService("Workspace"):FindFirstChild("Map")
-        local wps = (map and map:FindFirstChild("WildPetSpawns")) or game:GetService("Workspace"):FindFirstChild("WildPetSpawns")
-        if wps then
-            for _, petModel in ipairs(wps:GetChildren()) do
-                local rootPart = petModel:FindFirstChild("RootPart") or petModel:FindFirstChildWhichIsA("BasePart")
-                if rootPart and not rootPart:FindFirstChild("MiracleESP_WP") then
-                    local parts = petModel.Name:split("_")
-                    local petType = parts[2] or "?"
-                    MakeESPLabel(rootPart, "🐾 " .. petType, Colors.Warning)
-                    Create("ObjectValue", {Parent = rootPart, Name = "MiracleESP_WP"})
+        local map = workspace:FindFirstChild("Map")
+        local ref = map and map:FindFirstChild("WildPetRef")
+        if ref then
+            for _, part in ipairs(ref:GetChildren()) do
+                if part:IsA("BasePart") then
+                    local owner = tonumber(part:GetAttribute("OwnerUserId")) or 0
+                    if owner ~= 0 then continue end -- sudah dimiliki, skip
+                    if not part:FindFirstChild("MiracleESP_WP") then
+                        local rarity = part:GetAttribute("Rarity") or "?"
+                        local col = RarityColor and RarityColor[rarity] or Colors.Warning
+                        MakeESPLabel(part, "🐾 " .. rarity, col)
+                        Create("ObjectValue", {Parent = part, Name = "MiracleESP_WP"})
+                    end
                 end
             end
         end
@@ -3200,17 +3390,15 @@ end)
 Pages["Farm"] = function()
     local plantCard, plantContent = CreateSectionCard("🌱 Auto Plant", 1, Colors.Success)
 
-    CreateInfoText(plantContent, "Cara Kerja (Rewrite)",
-        "Menggunakan Networking.Plant.PlantSeed:Fire(position, seedName, tool) — "
-        .. "sama persis dengan cara PlantController game asli. "
-        .. "Posisi tanam diambil dari CollectionService tag 'PlantArea' di Plot " .. MY_PLOT_ID
-        .. ", fallback ke SpawnPoint → posisi karakter jika tidak ditemukan. "
-        .. "Server validasi posisi, seed, dan kepemilikan plot secara otomatis."
+    CreateInfoText(plantContent, "Cara Kerja",
+        "Menanam seed secara otomatis ke plot kamu (Plot " .. MY_PLOT_ID .. "). "
+        .. "Posisi tanam dideteksi langsung dari area tanam di plotmu. "
+        .. "Selama Auto Plant aktif, loop akan terus berjalan — menanam ulang setelah plot penuh dan di-harvest."
     )
 
-    -- Toggle utama: tidak bisa nyala jika belum pilih seed (sama persis pola Auto Buy Seeds)
+    -- Toggle utama: tidak bisa nyala jika belum pilih seed
     CreateToggle(plantContent, "Auto Plant", "autoPlant",
-        "Loop tanam otomatis tiap autoPlantLoopDelay detik",
+        "Aktifkan untuk menanam otomatis terus-menerus. Delay antar tanam: 0.3 detik.",
         function(newVal, revert)
             if newVal and not States.autoPlantAllSeeds then
                 local targets = States.autoPlantTargets or {}
@@ -3224,18 +3412,13 @@ Pages["Farm"] = function()
 
     -- Toggle: tanam semua atau hanya target yang dipilih
     CreateToggle(plantContent, "Tanam Semua Seed di Backpack", "autoPlantAllSeeds",
-        "ON: tanam semua seed yang ada | OFF: hanya seed yang dipilih di bawah")
+        "ON: tanam semua seed yang ada di backpack | OFF: hanya seed yang dipilih di bawah")
 
     -- Multi-select seed target
     CreateMultiSelect(plantContent, "🌱Pilih Seed yang Ditanam", SEEDS, "autoPlantTargets")
 
-    CreateSubHeader(plantContent, "Delay & Cycle")
-    CreateSlider(plantContent, "Delay Antar Tanam (s)", 0, 5, "autoPlantDelay")
-    CreateSlider(plantContent, "Loop Delay (s)", 1, 60, "autoPlantLoopDelay")
-    CreateSlider(plantContent, "Max Tanam per Cycle", 1, 100, "maxPlantsCycle")
-    CreateSlider(plantContent, "Keep Reserve (per jenis seed)", 0, 50, "keepReserve")
     CreateToggle(plantContent, "Notif Hasil Tanam", "autoPlantNotify",
-        "Tampilkan notif setiap kali cycle tanam selesai")
+        "Tampilkan notifikasi setiap kali satu siklus tanam selesai")
 
     -- Tombol: Tanam Sekarang (one-shot manual)
     CreateActionButton(plantContent, "⚡ Tanam Sekarang (Manual)", function()
@@ -3253,24 +3436,37 @@ Pages["Farm"] = function()
         Notify("Farm", "Mulai menanam di Plot " .. MY_PLOT_ID .. "...", Colors.Success)
         task.spawn(function()
             -- Build posisi valid (sudah filter overlap existing plants)
-            local validPos = BuildValidPlantPositions(plantAreas, States.maxPlantsCycle or 40)
+            local validPos = BuildValidPlantPositions(plantAreas, 500)
             if #validPos == 0 then
                 Notify("Farm", "Plot " .. MY_PLOT_ID .. " sudah penuh / tidak ada slot kosong.", Colors.Warning)
                 return
             end
-            local planted = 0
+            local planted    = 0
+            local plantedLog = {}
             for _, hitPos in ipairs(validPos) do
                 local seedEntry = GetNextSeedFromBackpack()
                 if not seedEntry then break end
-                DoPlantFire(seedEntry.tool, seedEntry.name, hitPos)
-                planted += 1
-                task.wait(math.max(States.autoPlantDelay or 0.3, 0.05))
+                local ok = pcall(DoPlantFire, seedEntry.tool, seedEntry.name, hitPos)
+                if ok then
+                    planted += 1
+                    plantedLog[seedEntry.name] = (plantedLog[seedEntry.name] or 0) + 1
+                end
+                task.wait(0.3)
             end
-            States.autoPlantUsedSlots = CountPlantedSlots()
-            Notify("Farm ✅",
-                "Planted: " .. planted
-                .. " | Slot: " .. States.autoPlantUsedSlots,
-                planted > 0 and Colors.Success or Colors.Warning, 5)
+            if planted > 0 then
+                local lines = {}
+                for name, cnt in pairs(plantedLog) do
+                    table.insert(lines, name .. " - " .. cnt)
+                end
+                table.sort(lines, function(a, b)
+                    local ca = tonumber(a:match("- (%d+)$")) or 0
+                    local cb = tonumber(b:match("- (%d+)$")) or 0
+                    return ca > cb
+                end)
+                NotifyStok(lines, Colors.Success, 8, "🌱 Tanam Sekarang (+" .. planted .. " ditanam)")
+            else
+                Notify("Farm", "Tidak ada yang ditanam.", Colors.Warning, 3)
+            end
         end)
     end, Colors.Success)
 
@@ -3315,48 +3511,37 @@ Pages["Farm"] = function()
             table.concat(lines, " | "):sub(1, 200), Colors.Success, 7)
     end)
 
-    -- Tombol: Scan PlantArea
-    CreateActionButton(plantContent, "📐 Scan PlantArea Plot", function()
-        local myPlot = GetMyPlot()
-        if not myPlot then
-            Notify("Scan Plot", "❌ Plot " .. MY_PLOT_ID
-                .. " tidak ditemukan di Workspace.Gardens!", Colors.Error)
+    -- Tombol: Info slot terisi (per seed name)
+    CreateActionButton(plantContent, "📊 Cek Slot Terisi", function()
+        local seedCounts, totalPlanted = GetPlantedSeedCounts()
+        local plantsFolder = GetPlantsFolder()
+        local totalAll = plantsFolder and #plantsFolder:GetChildren() or 0
+
+        if totalPlanted == 0 then
+            Notify("Slot Terisi", "Tidak ada tanaman milikmu di Plot " .. MY_PLOT_ID, Colors.TextMuted, 4)
             return
         end
-        local plantAreas = GetMyPlantAreas()
-        local slotCount = CountPlantedSlots()
-        States.autoPlantUsedSlots = slotCount
-        if #plantAreas > 0 then
-            -- Hitung slot kosong tersedia (tanpa existing plants)
-            local validPos = BuildValidPlantPositions(plantAreas, 200)
-            Notify("PlantArea Scan ✅",
-                #plantAreas .. " area | " .. #validPos .. " slot kosong tersedia | "
-                .. slotCount .. " sudah ditanam | Plot " .. MY_PLOT_ID,
-                Colors.Success, 6)
-        else
-            Notify("PlantArea Scan ⚠",
-                "Tag 'PlantArea' tidak ditemukan di Plot " .. MY_PLOT_ID
-                .. ". Plot mungkin belum di-load atau PlotId salah.",
-                Colors.Warning, 6)
-        end
-    end)
 
-    -- Tombol: Info slot terisi
-    CreateActionButton(plantContent, "📊 Cek Slot Terisi", function()
-        local planted = CountPlantedSlots()
-        States.autoPlantUsedSlots = planted
-        local plantsFolder = GetPlantsFolder()
-        local totalPlants = plantsFolder and #plantsFolder:GetChildren() or 0
-        Notify("Slot Info",
-            "Milik saya: " .. planted .. " tanaman | Total di plot: " .. totalPlants
-            .. " | Plot " .. MY_PLOT_ID, Colors.Accent, 5)
+        local lines = {}
+        for name, cnt in pairs(seedCounts) do
+            table.insert(lines, name .. " - " .. cnt)
+        end
+        table.sort(lines, function(a, b)
+            local ca = tonumber(a:match("- (%d+)$")) or 0
+            local cb = tonumber(b:match("- (%d+)$")) or 0
+            return ca > cb
+        end)
+        NotifyStok(lines, Colors.Accent, 15, "📊 Milikku: " .. totalPlanted .. " | Plot: " .. totalAll)
     end)
 
 
     local harvestCard, harvestContent = CreateSectionCard("🍅 Auto Harvest", 2, Colors.Warning)
-    CreateInfoText(harvestContent, "Cara kerja", "Iterasi Gardens.Plot" .. MY_PLOT_ID .. ".Plants → Fruits → HarvestPart → HarvestPrompt. Fire via Networking.Garden.CollectFruit (fallback: fireproximityprompt). Buah siap = prompt.Enabled = true.")
-    CreateToggle(harvestContent, "Auto Harvest", "autoHarvest", "Fires HarvestPrompt on all ready plants")
-    CreateToggle(harvestContent, "Notify On Harvest", "notifyHarvest", "Shows notification after each harvest cycle")
+    CreateInfoText(harvestContent, "Cara Kerja",
+        "Memanen semua buah yang sudah siap di Plot " .. MY_PLOT_ID .. " secara otomatis. "
+        .. "Hanya buah yang prompt-nya aktif (sudah matang) yang akan dipanen."
+    )
+    CreateToggle(harvestContent, "Auto Harvest", "autoHarvest", "Aktifkan panen otomatis di plotmu")
+    CreateToggle(harvestContent, "Notif Setelah Panen", "notifyHarvest", "Tampilkan notifikasi setelah setiap siklus panen selesai")
     CreateSubHeader(harvestContent, "Delay Settings")
     CreateSlider(harvestContent, "Per-Fruit Delay (s)", 0, 2, "perFruitDelay")
     CreateSlider(harvestContent, "Loop Delay (s)", 0, 30, "harvestLoopDelay")
@@ -3591,8 +3776,399 @@ Pages["Shop"] = function()
     CreateSlider(buyContent, "Loop Delay (s)", 0, 10, "shopLoopDelay")
     CreateToggle(buyContent, "Notif Saat Beli", "notifyBuy", "Tampilkan notif setiap seed dibeli")
 
+    -- ======================== PREDICT NEXT STOCK SECTION ========================
+    local predictCard, predictContent = CreateSectionCard("🔮 Predict Next Stock", 2, Colors.Rainbow)
+
+    CreateInfoText(predictContent, "Cara Kerja",
+        "Menggunakan RestockChance dari SeedData (data resmi game) untuk hitung rata-rata "
+        .. "berapa restock lagi sampai seed muncul. Contoh: Dragon's Breath RestockChance=0.2% "
+        .. "→ rata-rata muncul tiap 500 restock (~41 jam). "
+        .. "Seed yang stoknya sudah habis, lacak via Changed event untuk tahu kapan terakhir muncul."
+    )
+
+    -- ===== DATA RESTOCKCHANCE dari SeedData (di-hardcode dari hasil require SeedData) =====
+    -- Sumber: require(ReplicatedStorage.SharedModules.SeedData) — verified scanner
+    local SEED_RESTOCK_DATA = {
+        ["Carrot"]          = { chance = 100,   restockMin = 3,  restockMax = 4  },
+        ["Strawberry"]      = { chance = 100,   restockMin = 4,  restockMax = 5  },
+        ["Blueberry"]       = { chance = 100,   restockMin = 1,  restockMax = 2  },
+        ["Tulip"]           = { chance = 100,   restockMin = 3,  restockMax = 4  },
+        ["Tomato"]          = { chance = 90,    restockMin = 2,  restockMax = 3  },
+        ["Apple"]           = { chance = 52.63, restockMin = 1,  restockMax = 1  },
+        ["Bamboo"]          = { chance = 80,    restockMin = 7,  restockMax = 11 },
+        ["Corn"]            = { chance = 35,    restockMin = 1,  restockMax = 1  },
+        ["Cactus"]          = { chance = 16.668,restockMin = 1,  restockMax = 2  },
+        ["Pineapple"]       = { chance = 12.501,restockMin = 1,  restockMax = 3  },
+        ["Mushroom"]        = { chance = 9.092, restockMin = 2,  restockMax = 5  },
+        ["Green Bean"]      = { chance = 15,    restockMin = 1,  restockMax = 2  },
+        ["Banana"]          = { chance = 9,     restockMin = 1,  restockMax = 1  },
+        ["Grape"]           = { chance = 6.668, restockMin = 1,  restockMax = 1  },
+        ["Coconut"]         = { chance = 5.001, restockMin = 1,  restockMax = 1  },
+        ["Mango"]           = { chance = 5.001, restockMin = 1,  restockMax = 1  },
+        ["Dragon Fruit"]    = { chance = 4,     restockMin = 1,  restockMax = 1  },
+        ["Acorn"]           = { chance = 2.942, restockMin = 1,  restockMax = 3  },
+        ["Cherry"]          = { chance = 2.274, restockMin = 1,  restockMax = 1  },
+        ["Sunflower"]       = { chance = 1.787, restockMin = 1,  restockMax = 1  },
+        ["Venus Fly Trap"]  = { chance = 1.43,  restockMin = 1,  restockMax = 1  },
+        ["Pomegranate"]     = { chance = 0.927, restockMin = 1,  restockMax = 1  },
+        ["Poison Apple"]    = { chance = 0.533, restockMin = 1,  restockMax = 1  },
+        ["Venom Spitter"]   = { chance = 0.475, restockMin = 1,  restockMax = 1  },
+        ["Moon Bloom"]      = { chance = 0.35,  restockMin = 1,  restockMax = 1  },
+        ["Hypno Bloom"]     = { chance = 0.275, restockMin = 1,  restockMax = 1  },
+        ["Dragon's Breath"] = { chance = 0.2,   restockMin = 1,  restockMax = 1  },
+        ["Ghost Pepper"]    = { chance = 0.533, restockMin = 1,  restockMax = 1  },
+        ["Poison Ivy"]      = { chance = 0.533, restockMin = 1,  restockMax = 1  },
+        ["Glow Mushroom"]   = { chance = 0.533, restockMin = 1,  restockMax = 1  },
+        ["Romanesco"]       = { chance = 0.533, restockMin = 1,  restockMax = 1  },
+        ["Horned Melon"]    = { chance = 0.533, restockMin = 1,  restockMax = 1  },
+    }
+
+    -- ===== TRACKER: kapan tiap seed terakhir kali punya stok =====
+    -- Diisi otomatis via Changed listener saat inject
+    local seedLastSeenRestock = {}   -- [seedName] = restockIndex (dari UnixLastRestock)
+    local seedNeverSeen = {}         -- [seedName] = true jika belum pernah terlihat sejak inject
+
+    -- ===== HELPERS =====
+    local function GetRestockData()
+        local rs = game:GetService("ReplicatedStorage")
+        local sv = rs:FindFirstChild("StockValues")
+        if not sv then return nil end
+        local ss = sv:FindFirstChild("SeedShop")
+        if not ss then return nil end
+        local nextVal = ss:FindFirstChild("UnixNextRestock")
+        local lastVal = ss:FindFirstChild("UnixLastRestock")
+        if not nextVal or not lastVal then return nil end
+        local interval = math.max(nextVal.Value - lastVal.Value, 1)
+        return {
+            nextRestock = nextVal.Value,
+            lastRestock = lastVal.Value,
+            interval    = interval,
+        }
+    end
+
+    local function FormatSeconds(secs)
+        secs = math.max(0, math.floor(secs))
+        local h = math.floor(secs / 3600)
+        local m = math.floor((secs % 3600) / 60)
+        local s = secs % 60
+        if h > 0 then
+            return h .. "j " .. m .. "m " .. s .. "s"
+        elseif m > 0 then
+            return m .. "m " .. s .. "s"
+        end
+        return s .. "s"
+    end
+
+    local function FormatUnixTime(unix)
+        local d = os.date("*t", unix)
+        if d then
+            return string.format("%02d:%02d:%02d", d.hour, d.min, d.sec)
+        end
+        return tostring(unix)
+    end
+
+    -- Hitung expected restock ke-N (expected value dari distribusi geometrik)
+    -- Jika chance = p%, maka rata-rata butuh 100/p restock
+    -- Kita hitung restock ke-N yang paling "masuk akal" dengan probabilitas kumulatif ≥ 75%
+    -- P(muncul dalam N restock) = 1 - (1 - p/100)^N ≥ 0.75
+    -- N = ceil(log(0.25) / log(1 - p/100))
+    local function ExpectedRestocksUntilAppear(chance)
+        if chance >= 100 then return 1 end
+        local p = chance / 100
+        -- Expected value (mean): 1/p restock
+        local mean = math.ceil(1 / p)
+        return mean
+    end
+
+    local function RestocksFor75Pct(chance)
+        if chance >= 100 then return 1 end
+        local p = chance / 100
+        -- N = log(0.25) / log(1 - p)
+        local n = math.ceil(math.log(0.25) / math.log(1 - p))
+        return math.max(1, n)
+    end
+
+    -- Warna berdasarkan berapa restock lagi
+    local function RestockColor(restocksLeft)
+        if restocksLeft <= 1   then return Colors.Success  -- segera
+        elseif restocksLeft <= 10  then return Colors.Warning  -- sebentar lagi
+        elseif restocksLeft <= 50  then return Colors.Electric -- lumayan lama
+        else                        return Colors.Error        -- sangat lama
+        end
+    end
+
+    -- ===== LIVE TRACKER: pasang Changed listener untuk semua seed =====
+    -- Setiap kali stok seed berubah dari 0 → >0, catat restockIndex saat itu
+    local _trackerRestockIndex = 0  -- counter berapa kali restock sudah terjadi sejak inject
+    task.spawn(function()
+        local rs = game:GetService("ReplicatedStorage")
+        local sv = rs:WaitForChild("StockValues", 5)
+        if not sv then return end
+        local ss = sv:WaitForChild("SeedShop", 5)
+        if not ss then return end
+        local items = ss:WaitForChild("Items", 5)
+        if not items then return end
+
+        -- Catat initial state (saat inject)
+        for _, child in ipairs(items:GetChildren()) do
+            if child:IsA("NumberValue") then
+                if child.Value > 0 then
+                    seedLastSeenRestock[child.Name] = 0  -- ada stok sekarang
+                else
+                    seedNeverSeen[child.Name] = true
+                end
+            end
+        end
+
+        -- Track UnixLastRestock untuk hitung restockIndex
+        local lastRestockVal = ss:FindFirstChild("UnixLastRestock")
+        if lastRestockVal then
+            lastRestockVal.Changed:Connect(function()
+                _trackerRestockIndex += 1
+            end)
+        end
+
+        -- Pasang listener ke setiap seed
+        for _, child in ipairs(items:GetChildren()) do
+            if child:IsA("NumberValue") then
+                local sn = child.Name
+                local prevVal = child.Value
+                child.Changed:Connect(function(newVal)
+                    if newVal > 0 and prevVal == 0 then
+                        -- Seed muncul! Catat restock index saat ini
+                        seedLastSeenRestock[sn] = _trackerRestockIndex
+                        seedNeverSeen[sn] = nil
+                    end
+                    prevVal = newVal
+                end)
+            end
+        end
+    end)
+
+    -- ===== UI: Live Timer Header =====
+    local timerRow = Create("Frame", {
+        Parent = predictContent,
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y,
+    })
+    CreateListLayout(timerRow, 4)
+
+    local _, nextRestockLbl = CreateStatRow(timerRow, "⏱ Restock Berikutnya", "...", Colors.Rainbow)
+    local _, intervalLbl    = CreateStatRow(timerRow, "📐 Interval",           "...", Colors.TextSecondary)
+    local _, stockCountLbl  = CreateStatRow(timerRow, "📦 Tersedia Sekarang",  "...", Colors.Success)
+
+    local _predictTick = 0
+    RunService.Heartbeat:Connect(function(dt)
+        if ActivePage ~= "Shop" then return end
+        _predictTick += dt
+        if _predictTick < 0.5 then return end
+        _predictTick = 0
+
+        local data = GetRestockData()
+        if not data then
+            nextRestockLbl.Text = "⚠ StockValues tidak ditemukan"
+            intervalLbl.Text    = "—"
+            stockCountLbl.Text  = "—"
+            return
+        end
+
+        local sisa = math.max(0, data.nextRestock - os.time())
+        nextRestockLbl.Text = sisa > 0 and (FormatSeconds(sisa) .. "  (jam " .. FormatUnixTime(data.nextRestock) .. ")") or "🟢 RESTOCK SEKARANG!"
+        intervalLbl.Text    = FormatSeconds(data.interval)
+
+        local rs = game:GetService("ReplicatedStorage")
+        local items = rs:FindFirstChild("StockValues") and rs.StockValues:FindFirstChild("SeedShop") and rs.StockValues.SeedShop:FindFirstChild("Items")
+        local available = 0
+        if items then
+            for _, c in ipairs(items:GetChildren()) do
+                if c:IsA("NumberValue") and c.Value > 0 then available += 1 end
+            end
+        end
+        stockCountLbl.Text = available .. " seed ada stok"
+    end)
+
+    -- ===== UI: Cek per-seed =====
+    CreateSubHeader(predictContent, "🌱 Prediksi Per Seed")
+
+    States.predictSeedTarget = States.predictSeedTarget or SEEDS[1]
+    CreateDropdown(predictContent, "Pilih Seed", SEEDS, "predictSeedTarget")
+
+    CreateActionButton(predictContent, "🔍 Prediksi Seed Ini", function()
+        local seedName = States.predictSeedTarget or SEEDS[1]
+        local data = GetRestockData()
+        if not data then
+            Notify("Predict", "⚠️ Data restock tidak ditemukan!", Colors.Warning, 5)
+            return
+        end
+
+        local stock   = GetSeedStock(seedName)
+        local sdata   = SEED_RESTOCK_DATA[seedName]
+        local now     = os.time()
+        local sisa    = math.max(0, data.nextRestock - now)
+        local interval = data.interval
+
+        if stock > 0 then
+            -- Ada stok sekarang
+            Notify("🌱 " .. seedName, "✅ Ada stok: " .. stock, Colors.Success, 8)
+            task.wait(0.1)
+            Notify("⏱ Restock berikutnya", FormatSeconds(sisa), Colors.Accent, 8)
+            return
+        end
+
+        -- Stok habis — hitung prediksi
+        if not sdata then
+            Notify("🌱 " .. seedName, "❌ Stok habis, data chance tidak ditemukan", Colors.Warning, 6)
+            return
+        end
+
+        local chance  = sdata.chance
+        local meanN   = ExpectedRestocksUntilAppear(chance)   -- expected value
+        local n75     = RestocksFor75Pct(chance)               -- 75% probability
+
+        -- Kalau kita tahu kapan terakhir seed ini terlihat, hitung dari situ
+        local lastIdx = seedLastSeenRestock[seedName]
+        local sinceLastSeen = lastIdx and (_trackerRestockIndex - lastIdx) or nil
+
+        -- Estimasi: berapa restock lagi dari SEKARANG sampai muncul (expected)
+        local restocksLeft
+        if sinceLastSeen then
+            -- Sudah sinceLastSeen restock berlalu tanpa muncul
+            -- Karena geometric distribution memoryless, tetap = meanN dari sekarang
+            restocksLeft = meanN
+        else
+            restocksLeft = meanN
+        end
+
+        local etaDetik  = sisa + (interval * (restocksLeft - 1))
+        local eta75Detik = sisa + (interval * (n75 - 1))
+
+        local col = RestockColor(restocksLeft)
+
+        Notify("🌱 " .. seedName, "❌ Stok habis | Chance: " .. chance .. "%", col, 10)
+        task.wait(0.1)
+        Notify("📊 Expected muncul", "~" .. restocksLeft .. " restock lagi (~" .. FormatSeconds(etaDetik) .. ")", col, 10)
+        task.wait(0.1)
+        Notify("🎯 75% kemungkinan", "dalam " .. n75 .. " restock (~" .. FormatSeconds(eta75Detik) .. ")", Colors.Warning, 10)
+        if sinceLastSeen then
+            task.wait(0.1)
+            Notify("🕐 Terakhir terlihat", sinceLastSeen .. " restock lalu (sejak inject)", Colors.TextSecondary, 10)
+        end
+    end, Colors.Rainbow)
+
+    -- ===== Tombol: Scan semua seed + prediksi =====
+    CreateActionButton(predictContent, "📋 Scan Semua + Prediksi", function()
+        local data = GetRestockData()
+        if not data then
+            Notify("Predict", "⚠️ Data restock tidak ditemukan!", Colors.Warning, 5)
+            return
+        end
+
+        local now      = os.time()
+        local sisa     = math.max(0, data.nextRestock - now)
+        local interval = data.interval
+
+        -- Kelompokkan: ada stok vs habis
+        local hasStock  = {}
+        local noStock   = {}
+
+        local rs    = game:GetService("ReplicatedStorage")
+        local items = rs:FindFirstChild("StockValues") and rs.StockValues:FindFirstChild("SeedShop") and rs.StockValues.SeedShop:FindFirstChild("Items")
+
+        if not items then
+            Notify("Predict", "⚠️ Items tidak ditemukan!", Colors.Warning)
+            return
+        end
+
+        for _, child in ipairs(items:GetChildren()) do
+            if child:IsA("NumberValue") then
+                local sn    = child.Name
+                local sdata = SEED_RESTOCK_DATA[sn]
+                if child.Value > 0 then
+                    table.insert(hasStock, sn .. " x" .. child.Value)
+                elseif sdata and sdata.chance < 100 then
+                    local meanN    = ExpectedRestocksUntilAppear(sdata.chance)
+                    local etaSecs  = sisa + (interval * (meanN - 1))
+                    table.insert(noStock, { name = sn, eta = etaSecs, n = meanN, chance = sdata.chance })
+                end
+            end
+        end
+
+        -- Sort noStock dari yang paling cepat muncul
+        table.sort(noStock, function(a, b) return a.eta < b.eta end)
+
+        -- Notif: yang ada stok dulu
+        if #hasStock > 0 then
+            Notify("✅ Ada Stok (" .. #hasStock .. ")", table.concat(hasStock, "  ·  "), Colors.Success, 12)
+        else
+            Notify("✅ Ada Stok", "Tidak ada seed yang tersedia sekarang", Colors.TextMuted, 6)
+        end
+
+        -- Notif: prediksi per-seed yang habis (ambil 6 teratas = paling cepat muncul)
+        task.wait(0.15)
+        Notify("⏱ Restock Berikutnya", FormatSeconds(sisa), Colors.Rainbow, 12)
+
+        local shown = 0
+        for _, entry in ipairs(noStock) do
+            if shown >= 8 then break end
+            task.wait(0.12)
+            local label = entry.name
+            local etaStr = FormatSeconds(entry.eta)
+            local chanceStr = string.format("%.3f", entry.chance) .. "%"
+            Notify("🌱 " .. label, "~" .. entry.n .. " restock  (~" .. etaStr .. ")  [" .. chanceStr .. "]", RestockColor(entry.n), 12)
+            shown += 1
+        end
+    end, Colors.Accent)
+
+    -- ===== Tombol: Coming Next Restock (seperti LuminHub) =====
+    CreateActionButton(predictContent, "🔜 Coming Next Restock", function()
+        local data = GetRestockData()
+        if not data then
+            Notify("Predict", "⚠️ Data restock tidak ditemukan!", Colors.Warning, 5)
+            return
+        end
+
+        local now  = os.time()
+        local sisa = math.max(0, data.nextRestock - now)
+
+        local rs    = game:GetService("ReplicatedStorage")
+        local items = rs:FindFirstChild("StockValues") and rs.StockValues:FindFirstChild("SeedShop") and rs.StockValues.SeedShop:FindFirstChild("Items")
+        if not items then return end
+
+        -- Seed yang stok sekarang > 0 → pasti ada di restock ini
+        -- Seed yang stok = 0 tapi chance = 100 → pasti muncul berikutnya
+        -- Seed yang stok = 0 dan chance < 100 → mungkin muncul (berdasarkan chance)
+        local certain  = {}  -- pasti muncul berikutnya (chance 100 atau sudah ada)
+        local probable = {}  -- kemungkinan muncul (chance tinggi)
+
+        for _, child in ipairs(items:GetChildren()) do
+            if not child:IsA("NumberValue") then continue end
+            local sn    = child.Name
+            local sdata = SEED_RESTOCK_DATA[sn]
+            if not sdata then continue end
+
+            if child.Value > 0 then
+                table.insert(certain, sn .. " x" .. child.Value)
+            elseif sdata.chance >= 100 then
+                table.insert(certain, sn .. " (pasti)")
+            elseif sdata.chance >= 30 then
+                table.insert(probable, sn .. " (" .. string.format("%.0f", sdata.chance) .. "%)")
+            end
+        end
+
+        Notify("⏱ Next Restock", FormatSeconds(sisa) .. " lagi", Colors.Rainbow, 10)
+        task.wait(0.12)
+        if #certain > 0 then
+            Notify("✅ Pasti Muncul", table.concat(certain, "  ·  "), Colors.Success, 10)
+        end
+        if #probable > 0 then
+            task.wait(0.12)
+            Notify("🎲 Kemungkinan Muncul", table.concat(probable, "  ·  "), Colors.Warning, 10)
+        end
+    end, Colors.Success)
+
     -- ======================== AUTO BUY GEAR SECTION ========================
-    local gearCard, gearContent = CreateSectionCard("⚙️ Auto Buy Gear", 2, Colors.Electric)
+    local gearCard, gearContent = CreateSectionCard("⚙️ Auto Buy Gear", 3, Colors.Electric)
 
     CreateInfoText(gearContent, "Cara Pakai", "1. Pilih gear yang ingin dibeli di 'Pilih Gear Target' di bawah.\n2. Aktifkan toggle 'Auto Buy Gear'.\n3. Script akan otomatis membeli 1 gear per cycle selama stok tersedia.\n4. Jika stok habis, loop tetap berjalan dan langsung beli begitu server restock.\nGunakan 'Beli SEMUA Gear yang ada stok' untuk auto-beli semua gear tanpa pilih satu per satu.")
 
@@ -3619,7 +4195,7 @@ Pages["Shop"] = function()
     CreateToggle(gearContent, "Notif Saat Beli Gear", "notifyBuyGear", "Tampilkan notif setiap gear dibeli")
 
     -- ======================== AUTO BUY CRATE SECTION ========================
-    local crateCard, crateContent = CreateSectionCard("📦 Auto Buy Crate", 3, Colors.Warning)
+    local crateCard, crateContent = CreateSectionCard("📦 Auto Buy Crate", 4, Colors.Warning)
 
     CreateInfoText(crateContent, "Cara Pakai", "1. Pilih crate yang ingin dibeli di 'Pilih Crate Target' di bawah.\n2. Aktifkan toggle 'Auto Buy Crate'.\n3. Script otomatis beli 1 crate per cycle selama stok tersedia.\n4. Stok dibaca dari StockValues.CrateShop.Items (sama dengan seed/gear).\nGunakan 'Beli SEMUA Crate yang ada stok' untuk beli semua tanpa pilih satu per satu.")
 
@@ -3676,7 +4252,7 @@ Pages["Shop"] = function()
     end)
 
     -- ======================== AUTO OPEN CRATE SECTION ========================
-    local openCrateCard, openCrateContent = CreateSectionCard("🎁 Auto Open Crate", 4, Colors.Gold)
+    local openCrateCard, openCrateContent = CreateSectionCard("🎁 Auto Open Crate", 5, Colors.Gold)
 
     CreateInfoText(openCrateContent, "Cara Kerja", "Script cek inventory tiap beberapa detik. Jika ada crate tool di backpack, otomatis equip lalu open via Networking.Crate.OpenCrate:Fire(crateName) — cara yang sama seperti CrateController game. Delay antar open penting agar animasi efek selesai dulu.\nPaling efektif dikombinasikan dengan Auto Buy Crate di atas.")
 
@@ -3936,99 +4512,350 @@ Pages["Sell"] = function()
 end
 
 -- ======================== FEATURE: PETS PAGE ========================
+
+
+
 Pages["Pets"] = function()
-    local petCard, petContent = CreateSectionCard("🐾 Pet Manager", 1, Colors.Frozen)
+    -- ── SECTION 1: Pet Inventory ──────────────────────────────────
+    local petCard, petContent = CreateSectionCard("🐾 Pet Inventory", 1, Colors.Frozen)
 
-    local playerPets = {}
-    for _, t in ipairs(player.Backpack:GetChildren()) do
-        local petName = t:GetAttribute("Pet")
-        local petId = t:GetAttribute("PetId")
-        local petSize = t:GetAttribute("PetSize") or "Normal"
-        if petName then
-            table.insert(playerPets, {name=petName, id=petId, size=petSize, tool=t})
+    local rarityOrd = {Super=6, Mythic=5, Legendary=4, Rare=3, Uncommon=2, Common=1}
+    local sizeOrd   = {Huge=3, Big=2, Normal=1}
+
+    -- Container yang di-rebuild setiap kali backpack berubah
+    local listArea = Create("Frame", {
+        Parent = petContent,
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        BackgroundTransparency = 1,
+    })
+    CreateListLayout(listArea, 6)
+
+    local function RebuildInventory()
+        -- Bail kalau UI sudah destroyed (halaman sudah diganti)
+        if not listArea or not listArea.Parent then return end
+
+        for _, c in ipairs(listArea:GetChildren()) do
+            if not c:IsA("UIListLayout") then c:Destroy() end
+        end
+
+        -- Scan backpack
+        local playerPets = {}
+        for _, t in ipairs(player.Backpack:GetChildren()) do
+            local petName = t:GetAttribute("Pet") or t:GetAttribute("PetSpecies")
+            local petSize = t:GetAttribute("PetSize") or "Normal"
+            local petType = t:GetAttribute("PetType") or ""
+            if petName then
+                table.insert(playerPets, {name=petName, size=petSize, petType=petType})
+            end
+        end
+
+        -- Sort: rarity dulu, lalu size
+        table.sort(playerPets, function(a, b)
+            local ra = rarityOrd[PET_RARITY_LOOKUP[a.name] or ""] or 0
+            local rb = rarityOrd[PET_RARITY_LOOKUP[b.name] or ""] or 0
+            if ra ~= rb then return ra > rb end
+            return (sizeOrd[a.size] or 1) > (sizeOrd[b.size] or 1)
+        end)
+
+        CreateSubHeader(listArea, "Pets di Backpack (" .. #playerPets .. ")")
+
+        if #playerPets == 0 then
+            CreateInfoText(listArea, nil, "Tidak ada pet di backpack saat ini.", Colors.TextMuted)
+            return
+        end
+
+        -- ScrollingFrame — 8 baris visible, sisanya bisa discroll
+        local ROW_H   = 28
+        local ROW_GAP = 6
+        local scrollH = 8 * ROW_H + 7 * ROW_GAP
+
+        local scrollWrap = Create("Frame", {
+            Parent = listArea,
+            Size = UDim2.new(1, 0, 0, scrollH),
+            BackgroundTransparency = 1,
+        })
+        local petScroll = Create("ScrollingFrame", {
+            Parent = scrollWrap,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Colors.Border,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        })
+        CreateListLayout(petScroll, ROW_GAP)
+
+        for i, pet in ipairs(playerPets) do
+            local rarity    = PET_RARITY_LOOKUP[pet.name] or "Unknown"
+            local rarityCol = RarityColor[rarity] or Colors.TextSecondary
+
+            -- Label kanan: "Rarity" atau "Rarity (Big/Huge)"
+            local valStr = rarity
+            if pet.size ~= "Normal" then
+                valStr = rarity .. " (" .. pet.size .. ")"
+            end
+
+            local displayName = (pet.petType == "Rainbow" and "🌈 " or "") .. pet.name
+            CreateStatRow(petScroll, i .. ". " .. displayName, valStr, rarityCol)
         end
     end
 
-    CreateInfoText(petContent, "Pets from scanner", "Frog ×3 · Bunny ×5 · Big Frog ×1 · Robin ×1 | MaxEquippedPets = " .. MAX_EQUIPPED_PETS)
-    CreateSubHeader(petContent, "Detected Pets (" .. #playerPets .. " in bag)")
-    for i, pet in ipairs(playerPets) do
-        if i > 8 then break end
-        local sizeColor = pet.size == "Big" and Colors.Warning or pet.size == "Huge" and Colors.Electric or Colors.TextSecondary
-        CreateStatRow(petContent, i .. ". " .. pet.name, pet.size .. (pet.id and " — "..pet.id:sub(1,8).."..." or ""), sizeColor)
-    end
+    -- Build awal
+    RebuildInventory()
 
-    CreateSubHeader(petContent, "Auto Pet")
-    CreateToggle(petContent, "Auto Equip Best Pets", "autoEquipPets", "Equips top " .. MAX_EQUIPPED_PETS .. " pets by priority")
-    CreateDropdown(petContent, "Equip Priority", {"Biggest First", "Alphabetical", "Frog First", "Bunny First", "Robin First"}, "petEquipPriority")
-    CreateActionButton(petContent, "Equip All Pets Now", function()
-        local count = 0
-        for _, t in ipairs(player.Backpack:GetChildren()) do
-            if t:GetAttribute("Pet") and count < MAX_EQUIPPED_PETS then
-                FirePacket(20, t)
-                count += 1
-                task.wait(0.1)
-            end
-        end
-        Notify("Pets", "Equipped " .. count .. "/" .. MAX_EQUIPPED_PETS .. " pets!", Colors.Frozen)
-    end, Colors.Frozen)
-    CreateActionButton(petContent, "Unequip All Pets", function()
-        for _, t in ipairs(player.Backpack:GetChildren()) do
-            if t:GetAttribute("Pet") then
-                FirePacket(21, t) -- unequip pet packet
-                task.wait(0.05)
-            end
-        end
-        Notify("Pets", "Unequipping all pets...", Colors.TextMuted)
+    -- Realtime: rebuild saat pet masuk/keluar backpack
+    player.Backpack.ChildAdded:Connect(function(child)
+        local isPet = child:GetAttribute("Pet") or child:GetAttribute("PetSpecies")
+        if isPet then task.defer(RebuildInventory) end
+    end)
+    player.Backpack.ChildRemoved:Connect(function(child)
+        local isPet = child:GetAttribute("Pet") or child:GetAttribute("PetSpecies")
+        if isPet then task.defer(RebuildInventory) end
     end)
 
-    local wildCard, wildContent = CreateSectionCard("🦉 Wild Pets", 2, Colors.Warning)
-    CreateInfoText(wildContent, "Wild Pets from scanner", "Workspace.Map.WildPetSpawns folder found. WildPet_Bunny (¢20,000) ×2 · WildPet_Frog (¢10,000) ×2. BuyPrompt HoldDuration=1, MaxActivationDistance=12.")
-    CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild", "Teleports to wild pets and fires BuyPrompt")
-    CreateDropdown(wildContent, "Catch Filter", {"All", "Bunny Only", "Frog Only", "Owl Only"}, "wildPetFilter")
-    CreateSlider(wildContent, "Max Cost To Catch (¢)", 0, 50000, "wildPetMaxCost")
-    CreateActionButton(wildContent, "Scan Wild Pets Now", function()
-        local map = game:GetService("Workspace"):FindFirstChild("Map")
-        local wps = (map and map:FindFirstChild("WildPetSpawns")) or game:GetService("Workspace"):FindFirstChild("WildPetSpawns")
-        if wps then
-            local names = {}
-            for _, pet in ipairs(wps:GetChildren()) do
-                local parts = pet.Name:split("_")
-                if #parts >= 2 then
-                    local petType = parts[2]
-                    local rootPart = pet:FindFirstChild("RootPart") or pet:FindFirstChildWhichIsA("BasePart")
-                    local costText = ""
-                    if rootPart then
-                        local bp = rootPart:FindFirstChild("BuyPrompt")
-                        if bp then costText = " (" .. bp.ObjectText .. ")" end
-                    end
-                    table.insert(names, petType .. costText)
-                end
-            end
-            Notify("Wild Pets", #names .. " found: " .. table.concat(names, ", "), Colors.Warning)
-        else
-            Notify("Wild Pets", "WildPetSpawns not found in Map or Workspace.", Colors.Error)
+    -- ── SECTION 2: Pet Finder (WildPetRef) — Realtime ────────────
+    local finderCard, finderContent = CreateSectionCard("🔍 Pet Finder", 2, Colors.Warning)
+
+    CreateInfoText(finderContent, "Cara Kerja",
+        "Membaca Workspace.Map.WildPetRef — folder resmi GAG yang dipakai PetTeleporterController. " ..
+        "Setiap pet adalah BasePart dengan Attribute \"Rarity\" dan \"OwnerUserId\" (0 = bebas).")
+
+    -- Live list container
+    local listContainer = Create("Frame", {
+        Parent = finderContent,
+        Size = UDim2.new(1, 0, 0, 0),
+        BackgroundTransparency = 1,
+        AutomaticSize = Enum.AutomaticSize.Y,
+    })
+    CreateListLayout(listContainer, 4)
+
+    local RebuildPetList
+
+    RebuildPetList = function()
+        -- Bail kalau container sudah destroyed
+        if not listContainer or not listContainer.Parent then return end
+
+        -- Hapus item lama
+        for _, c in ipairs(listContainer:GetChildren()) do
+            if not c:IsA("UIListLayout") then c:Destroy() end
         end
+
+        -- Scan semua rarity (tanpa filter)
+        local pets = ScanWildPets("All")
+
+        if #pets == 0 then
+            CreateInfoText(listContainer, nil,
+                "Tidak ada wild pet bebas ditemukan di WildPetRef.",
+                Colors.TextMuted)
+            return
+        end
+
+        CreateSubHeader(listContainer, #pets .. " pet tersedia")
+
+        for i, entry in ipairs(pets) do
+            if i > 15 then
+                CreateInfoText(listContainer, nil, "... dan " .. (#pets - 15) .. " lainnya.", Colors.TextMuted)
+                break
+            end
+
+            local part    = entry.part
+            local rarity  = entry.rarity
+            local dist    = entry.dist
+            local col     = RarityColor[rarity] or Colors.TextSecondary
+            local distStr = dist < math.huge and string.format("%.0f studs", dist) or "?"
+            local petName = HumanizePetName(entry.name or "Unknown")
+
+            -- ── Row: [●] Nama Pet   Rarity          Jarak   [TP →] ──
+            -- Layout: bullet(12) + name(26-170) + rarity(180-300) + dist(310-420) + tp(right)
+            local row = Create("Frame", {
+                Parent = listContainer,
+                Size = UDim2.new(1, 0, 0, 40),
+                BackgroundColor3 = Colors.BackgroundLighter,
+                BorderSizePixel = 0,
+            })
+            CreateCorner(row, 8)
+            CreateStroke(row, col, 1)
+
+            -- Bullet bulat berwarna rarity
+            local bullet = Create("Frame", {
+                Parent = row,
+                Size = UDim2.new(0, 7, 0, 7),
+                Position = UDim2.new(0, 12, 0.5, -3),
+                BackgroundColor3 = col,
+                BorderSizePixel = 0,
+            })
+            CreateCorner(bullet, 4)
+
+            -- Nama pet (bold, rarity color) — lebar 130px
+            Create("TextLabel", {
+                Parent = row,
+                Size = UDim2.new(0, 130, 1, 0),
+                Position = UDim2.new(0, 26, 0, 0),
+                BackgroundTransparency = 1,
+                Text = petName,
+                TextColor3 = col,
+                TextSize = 13,
+                Font = Enum.Font.GothamBold,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+            })
+
+            -- Rarity label — mulai di 164 (jarak 8px setelah nama berakhir di ~156)
+            Create("TextLabel", {
+                Parent = row,
+                Size = UDim2.new(0, 90, 1, 0),
+                Position = UDim2.new(0, 164, 0, 0),
+                BackgroundTransparency = 1,
+                Text = rarity,
+                TextColor3 = col,
+                TextSize = 12,
+                Font = Enum.Font.Gotham,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+
+            -- Jarak (muted) — mulai di 262 (jarak 8px setelah rarity ~90px)
+            Create("TextLabel", {
+                Parent = row,
+                Size = UDim2.new(0, 80, 1, 0),
+                Position = UDim2.new(0, 262, 0, 0),
+                BackgroundTransparency = 1,
+                Text = distStr,
+                TextColor3 = Colors.TextMuted,
+                TextSize = 12,
+                Font = Enum.Font.Gotham,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+
+            -- Tombol TP
+            local tpBtn = Create("TextButton", {
+                Parent = row,
+                Size = UDim2.new(0, 64, 0, 26),
+                Position = UDim2.new(1, -72, 0.5, -13),
+                BackgroundColor3 = Colors.Surface,
+                Text = "TP →",
+                TextColor3 = col,
+                TextSize = 12,
+                Font = Enum.Font.GothamBold,
+                BorderSizePixel = 0,
+                AutoButtonColor = false,
+            })
+            CreateCorner(tpBtn, 6)
+            tpBtn.MouseEnter:Connect(function()
+                Tween(tpBtn, {BackgroundColor3 = Colors.SurfaceLight}, 0.1)
+            end)
+            tpBtn.MouseLeave:Connect(function()
+                Tween(tpBtn, {BackgroundColor3 = Colors.Surface}, 0.1)
+            end)
+            tpBtn.MouseButton1Click:Connect(function()
+                if not part or not part.Parent then
+                    Notify("Pet Finder", "Pet sudah menghilang!", Colors.Error)
+                    RebuildPetList()
+                    return
+                end
+                local char = player.Character
+                if not char then return end
+
+                Notify("Pet Finder",
+                    "Moving → " .. petName .. " (" .. rarity .. ") — " .. string.format("%.0f", dist) .. " studs",
+                    col, 3)
+
+                -- SmartMoveToPet: multi-hop kalau ada Teleporter tool, walk biasa kalau tidak
+                task.spawn(function()
+                    SmartMoveToPet(part.Position, function()
+                        -- Setelah sampai, beli pet via Networking.Pets.WildPetTame
+                        if part and part.Parent and IsWildPetFree(part) then
+                            BuyWildPet(part)
+                        end
+                    end)
+                end)
+            end)
+        end
+    end
+
+    -- Realtime polling: rebuild setiap 2 detik selama halaman Pets aktif
+    local finderPageAlive = true
+    task.spawn(function()
+        while finderPageAlive and _G._MiracleHubSession == _SESSION do
+            task.wait(2)
+            if not finderPageAlive or ActivePage ~= "Pets" then continue end
+            pcall(RebuildPetList)
+        end
+    end)
+
+    -- Stop loop saat halaman pindah
+    local _finderConn
+    _finderConn = RunService.Heartbeat:Connect(function()
+        if ActivePage ~= "Pets" then
+            finderPageAlive = false
+            _finderConn:Disconnect()
+        end
+    end)
+
+    -- TP ke pet terdekat
+    CreateActionButton(finderContent, "⚡ TP ke Pet Terdekat", function()
+        local pets = ScanWildPets("All")
+        if #pets == 0 then
+            Notify("Pet Finder", "Tidak ada pet tersedia saat ini.", Colors.Error)
+            return
+        end
+        local nearest = pets[1]
+        local pName = HumanizePetName(nearest.name or "Unknown")
+
+        Notify("Pet Finder",
+            "Moving -> " .. pName .. " (" .. nearest.rarity .. ") ~" .. string.format("%.0f", nearest.dist) .. " studs",
+            RarityColor[nearest.rarity] or Colors.Warning, 4)
+
+        task.spawn(function()
+            SmartMoveToPet(nearest.part.Position, function()
+                Notify("Pet Finder",
+                    "Tiba di " .. pName .. " (" .. nearest.rarity .. ")!",
+                    RarityColor[nearest.rarity] or Colors.Warning, 3)
+                if nearest.part and nearest.part.Parent then
+                -- Beli pet via Networking.Pets.WildPetTame
+                if nearest.part and nearest.part.Parent and IsWildPetFree(nearest.part) then
+                    BuyWildPet(nearest.part)
+                end
+                end
+            end)
+        end)
     end, Colors.Warning)
-    CreateActionButton(wildContent, "TP to Nearest Wild Pet", function()
-        local map = game:GetService("Workspace"):FindFirstChild("Map")
-        local wps = (map and map:FindFirstChild("WildPetSpawns")) or game:GetService("Workspace"):FindFirstChild("WildPetSpawns")
-        if wps and player.Character then
-            local nearest, nearDist = nil, math.huge
-            for _, pet in ipairs(wps:GetChildren()) do
-                local root = pet:FindFirstChild("RootPart") or pet:FindFirstChildWhichIsA("BasePart")
-                if root then
-                    local dist = (player.Character:GetPivot().Position - root.Position).Magnitude
-                    if dist < nearDist then nearDist = dist nearest = root end
+
+    -- Build awal saat page dibuka
+    task.defer(RebuildPetList)
+
+    -- ── SECTION 3: Auto Catch Wild Pets ──────────────────────────
+    local wildCard, wildContent = CreateSectionCard("🎯 Auto Catch Wild", 3, Colors.Warning)
+
+    CreateInfoText(wildContent, "Auto Catch via WildPetRef",
+        "Loop otomatis: hop ke tiap pet yang sesuai pilihan → fire BuyPrompt saat tiba.\n" ..
+        "Kalau tidak ada yang dipilih = tangkap semua pet. Toggle tetap ON walau pet belum spawn — notif ⏳ muncul saat menunggu.")
+
+    -- Multi-select berdasarkan NAMA PET (bukan rarity)
+    -- Daftar semua nama pet yang ada di WildPetRef (dari PET_RARITY_LOOKUP + PETS)
+    local WILD_PET_NAMES = {
+        "Frog", "Bunny", "Owl", "Deer", "Turtle",
+        "Robin", "Bee", "Monkey", "Bear", "Unicorn",
+        "Golden Dragonfly", "Raccoon", "Black Dragon", "Ice Serpent",
+    }
+    CreateMultiSelect(wildContent, "🐾Pilih Pet Target", WILD_PET_NAMES, "wildCatchTargets")
+
+    -- Toggle sederhana — toggle tetap ON, loop sendiri yang handle notif waiting
+    CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild",
+        "ON: loop jalan terus, notif ⏳ saat menunggu spawn | OFF: loop berhenti",
+        function(newVal)
+            if newVal then
+                local sel = States.wildCatchTargets or {}
+                if #sel == 0 then
+                    Notify("Auto Catch", "ON — mengejar semua pet yang spawn", Colors.Success, 3)
+                else
+                    Notify("Auto Catch", "ON — mengejar: " .. table.concat(sel, ", "), Colors.Success, 3)
                 end
-            end
-            if nearest then
-                player.Character:PivotTo(nearest.CFrame + Vector3.new(0, 5, 0))
-                Notify("Wild Pets", "Teleported to nearest wild pet!", Colors.Warning)
             else
-                Notify("Wild Pets", "No wild pets found.", Colors.Error)
+                Notify("Auto Catch", "OFF", Colors.TextMuted, 2)
             end
-        end
-    end)
+        end)
 end
 
 -- ======================== FEATURE: EGGS PAGE ========================
@@ -4097,7 +4924,7 @@ end
 -- ======================== FEATURE: VISUALS PAGE ========================
 Pages["Visuals"] = function()
     local espCard, espContent = CreateSectionCard("👁 ESP & Highlights", 1, Colors.Electric)
-    CreateInfoText(espContent, "ESP system", "Renders BillboardGuis on targets. Wild Pets in WildPetSpawns, mutations from CollectionService tags, plant ages from Age/MaxAge attrs.")
+    CreateInfoText(espContent, "ESP system", "Renders BillboardGuis on targets. Wild Pets dari Workspace.Map.WildPetRef (rarity-based), mutations dari plant attrs, plant ages dari Age/MaxAge attrs.")
     CreateToggle(espContent, "ESP Players", "espPlayers", "Shows player names/tags above heads")
     CreateToggle(espContent, "ESP Wild Pets", "espItems", "Highlights wild pets in workspace")
     CreateToggle(espContent, "ESP Mutations", "espMutations", "Shows mutation tags on plants")
@@ -4511,7 +5338,6 @@ Pages["Settings"] = function()
         States.autoCrate = false
         States.autoBuyCrate = false
         States.autoOpenCrate = false
-        States.autoEquipPets = false
         States.autoCatchWild = false
         States.autoOpenEgg = false
         States.autoAcceptGifts = false
