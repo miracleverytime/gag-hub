@@ -29,10 +29,9 @@ if not character then return end
 local humanoid = character:WaitForChild("Humanoid", 10)
 
 -- ======================== PLATFORM DETECTION ========================
-if _G.MiracleLog then _G.MiracleLog("CP: PLATFORM DETECTION") end
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- Layout constants — otomatis menyesuaikan PC vs Mobile
+-- Layout constants -- otomatis menyesuaikan PC vs Mobile
 local SIDEBAR_W   = isMobile and 0   or 240   -- mobile: tidak ada sidebar, pakai tab bar bawah
 local TAB_BAR_H   = isMobile and 52  or 0
 local TOPBAR_H    = isMobile and 44  or 50
@@ -53,7 +52,6 @@ local existingGui = playerGui:FindFirstChild("MiracleHub")
 if existingGui then existingGui:Destroy() end
 
 -- ======================== COLORS ========================
-if _G.MiracleLog then _G.MiracleLog("CP: COLORS") end
 local Colors = {
     Background = Color3.fromRGB(12, 12, 14),
     BackgroundLight = Color3.fromRGB(20, 20, 24),
@@ -85,7 +83,6 @@ local Colors = {
 }
 
 -- ======================== GAME DATA (from scanner) ========================
-if _G.MiracleLog then _G.MiracleLog("CP: GAME DATA") end
 -- Full seed list from ReplicatedStorage.StockValues.SeedShop.Items (scanner verified)
 local SEEDS = {
     "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo",
@@ -156,18 +153,18 @@ local PacketRemote = game:GetService("ReplicatedStorage"):FindFirstChild("Shared
     and game:GetService("ReplicatedStorage").SharedModules:FindFirstChild("Packet")
     and game:GetService("ReplicatedStorage").SharedModules.Packet:FindFirstChild("RemoteEvent")
 
--- Networking module (dari decompile StevenController — cara BENAR buat sell)
--- Networking.NPCS.SellAll:Fire() → jual semua inventory
--- Networking.NPCS.SellFruit:Fire(fruitId) → jual 1 buah by ID
--- Networking.NPCS.PreviewSellAll:Fire() → preview total harga {FruitCount, TotalValue, TotalBaseValue}
--- Networking.NPCS.CheckDailyDeal:Fire() → cek daily deal {Available}
--- Networking.NPCS.UseDailyDealAll:Fire() → pakai daily deal semua
+-- Networking module (dari decompile StevenController -- cara BENAR buat sell)
+-- Networking.NPCS.SellAll:Fire() -> jual semua inventory
+-- Networking.NPCS.SellFruit:Fire(fruitId) -> jual 1 buah by ID
+-- Networking.NPCS.PreviewSellAll:Fire() -> preview total harga {FruitCount, TotalValue, TotalBaseValue}
+-- Networking.NPCS.CheckDailyDeal:Fire() -> cek daily deal {Available}
+-- Networking.NPCS.UseDailyDealAll:Fire() -> pakai daily deal semua
 local Networking = nil
 pcall(function()
     Networking = require(game:GetService("ReplicatedStorage").SharedModules.Networking)
 end)
 
--- SellValueData — base harga per fruit dari decompile (fallback jika Networking nil)
+-- SellValueData -- base harga per fruit dari decompile (fallback jika Networking nil)
 local SELL_VALUE_DATA = {
     Carrot=5, Strawberry=3, Tomato=9, Blueberry=5, Apple=12, Bamboo=800,
     Cactus=40, Pineapple=30, ["Green Bean"]=10, Banana=35, Grape=45,
@@ -179,7 +176,7 @@ local SELL_VALUE_DATA = {
     ["Venom Spitter"]=4000,
 }
 
--- Packet IDs — semua dari Attribute di RemoteEvent (scanner verified)
+-- Packet IDs -- semua dari Attribute di RemoteEvent (scanner verified)
 local PACKET = {
     PlantSeed           = 9,
     PurchaseSeed        = 120,   -- beli seed dari SeedShop (FIXED)
@@ -196,7 +193,6 @@ local PACKET = {
 }
 
 -- ======================== STATES ========================
-if _G.MiracleLog then _G.MiracleLog("CP: STATES") end
 local States = {
     -- Farm
     autoPlant = false,
@@ -293,7 +289,6 @@ local States = {
 }
 
 -- ======================== UTILITY FUNCTIONS ========================
-if _G.MiracleLog then _G.MiracleLog("CP: UTILITY FUNCTIONS") end
 local function Create(className, properties)
     local instance = Instance.new(className)
     for prop, value in pairs(properties or {}) do
@@ -340,7 +335,6 @@ local function Tween(instance, properties, duration, easingStyle, easingDirectio
 end
 
 -- ======================== HELPER: FIRE PROXIMITY PROMPT ========================
-if _G.MiracleLog then _G.MiracleLog("CP: FIRE PROMPT HELPER") end
 local function FirePrompt(prompt)
     if not prompt then return false end
     if prompt:IsA("ProximityPrompt") then
@@ -359,7 +353,7 @@ local function FirePrompt(prompt)
     return false
 end
 
--- Safe fireproximityprompt wrapper (executor function — bisa nil di mobile/executor tertentu)
+-- Safe fireproximityprompt wrapper (executor function -- bisa nil di mobile/executor tertentu)
 local _fireprox = (typeof(fireproximityprompt) == "function") and fireproximityprompt or function(p)
     if not p or not p.Parent then return end
     pcall(function()
@@ -376,7 +370,6 @@ local function SafeFirePrompt(prompt)
 end
 
 -- ======================== NOTIFICATION SYSTEM ========================
-if _G.MiracleLog then _G.MiracleLog("CP: NOTIFICATION SYSTEM") end
 local notifCount = 0
 local function Notify(title, message, color, duration)
     if not States.showNotifications then return end
@@ -436,7 +429,7 @@ local function Notify(title, message, color, duration)
         TextTruncate = Enum.TextTruncate.AtEnd,
     })
 
-    -- Tombol close (×) di sudut kanan atas
+    -- Tombol close (x) di sudut kanan atas
     local closeBtn = Create("TextButton", {
         Parent = notifFrame,
         Size = UDim2.new(0, 20, 0, 20),
@@ -606,7 +599,6 @@ local function GetMutationColor(mutation)
 end
 
 -- ======================== MAIN GUI ========================
-if _G.MiracleLog then _G.MiracleLog("CP: MAIN GUI") end
 local ScreenGui = Create("ScreenGui", {
     Name = "MiracleHub",
     Parent = playerGui,
@@ -994,7 +986,6 @@ CreatePadding(ContentScroll, isMobile and 12 or 20)
 local ContentLayout = CreateListLayout(ContentScroll, 14)
 
 -- ======================== MOBILE TAB BAR ========================
-if _G.MiracleLog then _G.MiracleLog("CP: MOBILE TAB BAR") end
 -- Di mobile, navigasi pakai tab bar di bagian bawah (seperti app Android)
 -- Pages dikelompokkan: tab utama (icon+label) + More drawer untuk halaman lainnya
 
@@ -1075,7 +1066,7 @@ if isMobile then
         MobileTabButtons[label] = {btn=btn, icon=iconLbl, text=textLbl, indicator=indicator}
     end
 
-    -- More drawer — slide up dari bawah
+    -- More drawer -- slide up dari bawah
     MobileMoreDrawer = Create("Frame", {
         Parent = MainFrame,
         Size = UDim2.new(1, 0, 0, 0),   -- mulai collapse
@@ -1172,7 +1163,6 @@ if isMobile then
 end
 
 -- ======================== PAGE SYSTEM ========================
-if _G.MiracleLog then _G.MiracleLog("CP: PAGE SYSTEM") end
 local Pages = {}
 
 local function ClearContent()
@@ -1239,7 +1229,6 @@ local function SetActivePage(pageName)
 end
 
 -- ======================== UI COMPONENT BUILDERS ========================
-if _G.MiracleLog then _G.MiracleLog("CP: UI COMPONENT BUILDERS") end
 
 local function CreateSectionCard(title, layoutOrder, accentColor)
     local card = Create("Frame", {
@@ -1694,7 +1683,7 @@ local function CreateDropdown(parent, label, options, stateKey, onChange)
     return container
 end
 
--- Multi-select dropdown — style Axon Hub: inline expand, checkmark kiri
+-- Multi-select dropdown -- style Axon Hub: inline expand, checkmark kiri
 -- Inline: panel expand di bawah trigger, bagian dari layout card (AutomaticSize.Y).
 local function CreateMultiSelect(parent, label, options, stateKey)
     if type(States[stateKey]) ~= "table" then States[stateKey] = {} end
@@ -1714,7 +1703,7 @@ local function CreateMultiSelect(parent, label, options, stateKey)
         return pillText .. "  •  " .. #selected .. " dipilih"
     end
 
-    -- ── Wrapper utama ──
+    --  Wrapper utama 
     local wrapper = Create("Frame", {
         Parent = parent,
         Size = UDim2.new(1, 0, 0, 0),
@@ -1723,7 +1712,7 @@ local function CreateMultiSelect(parent, label, options, stateKey)
     })
     CreateListLayout(wrapper, 0)
 
-    -- ── Header pill (trigger buka/tutup) ──
+    --  Header pill (trigger buka/tutup) 
     local pillOuter = Create("Frame", {
         Parent = wrapper,
         Size = UDim2.new(1, 0, 0, 42),
@@ -1778,7 +1767,7 @@ local function CreateMultiSelect(parent, label, options, stateKey)
     pill.MouseEnter:Connect(function() Tween(pill, {BackgroundColor3 = Colors.Surface}, 0.12) end)
     pill.MouseLeave:Connect(function() Tween(pill, {BackgroundColor3 = Colors.BackgroundLighter}, 0.12) end)
 
-    -- ── Panel inline ──
+    --  Panel inline 
     local panel = Create("Frame", {
         Parent = wrapper,
         Size = UDim2.new(1, 0, 0, 0),
@@ -1792,7 +1781,7 @@ local function CreateMultiSelect(parent, label, options, stateKey)
     CreateCorner(panel, 9)
     CreateStroke(panel, Colors.Border, 1)
 
-    -- ── Header row: Select All + Clear ──
+    --  Header row: Select All + Clear 
     local headerRow = Create("Frame", {
         Parent = panel,
         Size = UDim2.new(1, 0, 0, 34),
@@ -1844,7 +1833,7 @@ local function CreateMultiSelect(parent, label, options, stateKey)
     clearBtn.MouseEnter:Connect(function() Tween(clearBtn, {BackgroundColor3 = Colors.SurfaceLight}, 0.1) end)
     clearBtn.MouseLeave:Connect(function() Tween(clearBtn, {BackgroundColor3 = Colors.Surface}, 0.1) end)
 
-    -- ── Scrolling list ──
+    --  Scrolling list 
     local LIST_MAX_H = 200
     local scroll = Create("ScrollingFrame", {
         Parent = panel,
@@ -1861,7 +1850,7 @@ local function CreateMultiSelect(parent, label, options, stateKey)
     CreateListLayout(scroll, 0)
     Create("UIPadding", {Parent=scroll, PaddingLeft=UDim.new(0,6), PaddingRight=UDim.new(0,6), PaddingTop=UDim.new(0,4), PaddingBottom=UDim.new(0,6)})
 
-    -- ── Build item rows ──
+    --  Build item rows 
     local itemFrames = {}
 
     local function isSelected(opt)
@@ -1963,7 +1952,7 @@ local function CreateMultiSelect(parent, label, options, stateKey)
         updatePill()
     end)
 
-    -- ── Toggle buka/tutup ──
+    --  Toggle buka/tutup 
     local isOpen = false
     pill.MouseButton1Click:Connect(function()
         isOpen = not isOpen
@@ -2056,7 +2045,6 @@ local function CreateStatRow(parent, label, value, valColor)
 end
 
 -- ======================== GAME LOGIC HELPERS ========================
-if _G.MiracleLog then _G.MiracleLog("CP: GAME LOGIC HELPERS") end
 
 -- Get my plot
 local function GetMyPlot()
@@ -2092,8 +2080,8 @@ end
 
 -- ======================== HARVEST CORE ========================
 -- Berdasarkan decompile HarvestPromptController + Scanner:
---   CollectionService tag "HarvestPrompt" dipakai game sendiri — JAUH lebih cepat dari iterasi tree
---   Fire via: Networking.Garden.CollectFruit:Fire(PlantId, FruitId) → fallback fireproximityprompt
+--   CollectionService tag "HarvestPrompt" dipakai game sendiri -- JAUH lebih cepat dari iterasi tree
+--   Fire via: Networking.Garden.CollectFruit:Fire(PlantId, FruitId) -> fallback fireproximityprompt
 --   PlantId & FruitId = Attribute pada FruitModel
 --   Buah siap dipanen = prompt.Enabled == true (bukan "PlantGrowthReady" yang tidak ada)
 --   FruitCount check: hanya panen sampai MAX_FRUIT_CAP
@@ -2126,7 +2114,7 @@ local function DoHarvestAll(mutFilter, hardLimit)
     local harvested = 0
     local delay     = math.max(States.perFruitDelay or 0, 0)
 
-    -- Pakai CollectionService "HarvestPrompt" — game sendiri pakai cara ini di HarvestPromptController
+    -- Pakai CollectionService "HarvestPrompt" -- game sendiri pakai cara ini di HarvestPromptController
     for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
         -- Stop jika sudah penuh
         if harvested >= remaining then break end
@@ -2137,7 +2125,7 @@ local function DoHarvestAll(mutFilter, hardLimit)
         if not prompt.Enabled then continue end
         if prompt:GetAttribute("Collected") then continue end
 
-        -- Struktur: HarvestPrompt ← HarvestPart ← FruitModel
+        -- Struktur: HarvestPrompt <- HarvestPart <- FruitModel
         local harvestPart = prompt.Parent
         local fruit = harvestPart and harvestPart.Parent
         if not (fruit and fruit:IsA("Model")) then continue end
@@ -2177,7 +2165,6 @@ local function DoHarvestAll(mutFilter, hardLimit)
 end
 
 -- ======================== AUTO LOOPS ========================
-if _G.MiracleLog then _G.MiracleLog("CP: AUTO LOOPS") end
 
 -- AUTO HARVEST LOOP
 -- Pakai busy-wait ringan: cek tiap 0.5s apakah ada buah ready, langsung panen
@@ -2216,16 +2203,16 @@ end)
 
 -- ======================== AUTO PLANT CORE (v3 - full slot coverage fix) ========================
 -- Root cause bugs lama:
---   1. Raycast pakai FilterType.Include ke plantAreas — area tipis (0.09 stud) sering miss
+--   1. Raycast pakai FilterType.Include ke plantAreas -- area tipis (0.09 stud) sering miss
 --   2. Transparency check (`< 1`) membuang PlantArea yang semi-transparent / invisible
 --   3. GetExistingPlantPositions hanya scan Plants folder via GetPivot() yang bisa gagal
---      jika model belum sepenuhnya ter-replicate → posisi dianggap kosong padahal tidak
---   4. Grid STEP=1.8 menghasilkan titik yang tidak merata antar PlantArea kecil (16×44)
---      dan area besar (PlantAreaColumn 44×84) — banyak slot pojok yang terlewat
---   5. Fungsi return result segera saat #result >= maxCount SEBELUM shuffle →
+--      jika model belum sepenuhnya ter-replicate -> posisi dianggap kosong padahal tidak
+--   4. Grid STEP=1.8 menghasilkan titik yang tidak merata antar PlantArea kecil (16x44)
+--      dan area besar (PlantAreaColumn 44x84) -- banyak slot pojok yang terlewat
+--   5. Fungsi return result segera saat #result >= maxCount SEBELUM shuffle ->
 --      selalu tanam di area yang sama (bagian awal dari list plantAreas)
 -- Fix v3:
---   - Hapus raycast sama sekali — pakai bounding box CFrame:PointToWorldSpace langsung
+--   - Hapus raycast sama sekali -- pakai bounding box CFrame:PointToWorldSpace langsung
 --   - Grid STEP lebih kecil (1.5) agar tidak ada slot yang terlewat di area kecil
 --   - GetExistingPlantPositions scan dari ATTRIBUTES (PosX/PosY/PosZ) sebagai fallback
 --     sebelum GetPivot, agar tanaman yang baru ditanam terbaca walau belum ter-render
@@ -2374,7 +2361,7 @@ local function BuildValidPlantPositions(plantAreas, maxCount)
     local occupied = GetExistingPlantPositions()  -- {Vector2(worldX, worldZ), ...}
 
     local MIN_DIST   = 1.5   -- jarak minimum antar tanaman (stud)
-    local STEP       = 1.5   -- grid step (stud) — lebih kecil agar area 16-wide tidak terlewat
+    local STEP       = 1.5   -- grid step (stud) -- lebih kecil agar area 16-wide tidak terlewat
     local candidates = {}
 
     for _, area in ipairs(plantAreas) do
@@ -2432,13 +2419,13 @@ local function GetNextSeedFromBackpack()
     if not backpack then return nil end
 
     -- Cek apakah ada target yang dipilih
-    -- Jika autoPlantAllSeeds = false dan autoPlantTargets kosong → BLOCK (tidak tanam sembarangan)
+    -- Jika autoPlantAllSeeds = false dan autoPlantTargets kosong -> BLOCK (tidak tanam sembarangan)
     local allowedSeeds = nil  -- nil = allow all (hanya jika autoPlantAllSeeds = true)
     if States.autoPlantAllSeeds then
         allowedSeeds = nil  -- tanam semua
     else
         if #(States.autoPlantTargets or {}) == 0 then
-            return nil  -- belum pilih seed apapun → jangan tanam
+            return nil  -- belum pilih seed apapun -> jangan tanam
         end
         allowedSeeds = {}
         for _, name in ipairs(States.autoPlantTargets) do
@@ -2454,7 +2441,7 @@ local function GetNextSeedFromBackpack()
         if type(seedName) ~= "string" or seedName == "" then
             local raw = tool:GetAttribute("SeedTool")
             if raw ~= nil then
-                -- SeedTool ada tapi bukan string (misal boolean) → nama = tool.Name
+                -- SeedTool ada tapi bukan string (misal boolean) -> nama = tool.Name
                 seedName = tool.Name
             else
                 seedName = tool:GetAttribute("SeedName")
@@ -2533,7 +2520,7 @@ task.spawn(function()
             continue
         end
 
-        -- 2. Build semua posisi valid — scan semua slot kosong di semua PlantArea
+        -- 2. Build semua posisi valid -- scan semua slot kosong di semua PlantArea
         local validPositions = BuildValidPlantPositions(plantAreas, 500)
 
         if #validPositions == 0 then
@@ -2640,9 +2627,9 @@ end)
 
 -- ======================== AUTO SELL LOOP (FIXED) ========================
 -- Cara kerja benar dari decompile StevenController:
---   1. Networking.NPCS.SellAll:Fire() → jual semua sekaligus (paling efisien)
---   2. Networking.NPCS.SellFruit:Fire(fruitId) → jual per buah (kalau mau filter)
---   3. TIDAK perlu teleport ke Steven — bisa dilakukan dari mana saja
+--   1. Networking.NPCS.SellAll:Fire() -> jual semua sekaligus (paling efisien)
+--   2. Networking.NPCS.SellFruit:Fire(fruitId) -> jual per buah (kalau mau filter)
+--   3. TIDAK perlu teleport ke Steven -- bisa dilakukan dari mana saja
 --   4. fruitId = tool:GetAttribute("Id") (bukan tool object)
 --
 -- Filter mutation/rarity SEBELUM fire jika ada mode selective sell
@@ -2791,7 +2778,7 @@ end)
 -- Cara kerja yg benar (dari investigasi scanner):
 --   1. Stok seed ada di: ReplicatedStorage.StockValues.SeedShop.Items.<SeedName> (NumberValue)
 --   2. Packet beli: PacketRemote:FireServer(120, seedName, quantity)
---   3. TIDAK perlu teleport ke shop — bisa langsung fire dari mana saja
+--   3. TIDAK perlu teleport ke shop -- bisa langsung fire dari mana saja
 --   4. Packet ID 120 = PurchaseSeed (dari Attribute RemoteEvent.PurchaseSeed = 120)
 local function GetSeedStock(seedName)
     local rs = game:GetService("ReplicatedStorage")
@@ -2805,7 +2792,7 @@ local function GetSeedStock(seedName)
     return stockVal and stockVal.Value or 0
 end
 
--- BuySeedPacket — kirim packet langsung ke server tanpa UI (UI simulation dihapus: trigger error sound)
+-- BuySeedPacket -- kirim packet langsung ke server tanpa UI (UI simulation dihapus: trigger error sound)
 -- Layer 1: Networking.SeedShop.PurchaseSeed:Fire (cara resmi)
 -- Layer 2: PacketRemote:FireServer fallback
 local function BuySeedPacket(seedName, quantity)
@@ -2835,7 +2822,7 @@ local function BuySeedPacket(seedName, quantity)
     return true
 end
 
--- GetGearStock — baca stok gear dari ReplicatedStorage.StockValues.GearShop.Items
+-- GetGearStock -- baca stok gear dari ReplicatedStorage.StockValues.GearShop.Items
 local function GetGearStock(gearName)
     local rs = game:GetService("ReplicatedStorage")
     local sv = rs:FindFirstChild("StockValues")
@@ -2848,7 +2835,7 @@ local function GetGearStock(gearName)
     return stockVal and stockVal.Value or 0
 end
 
--- BuyGearPacket — kirim packet beli gear ke server
+-- BuyGearPacket -- kirim packet beli gear ke server
 -- Layer 1: Networking.GearShop.Purchase:Fire (cara resmi)
 -- Layer 2: PacketRemote:FireServer fallback (EquipGear=126)
 local function BuyGearPacket(gearName, quantity)
@@ -2926,8 +2913,8 @@ end)
 
 -- ======================== AUTO BUY SEEDS LOOP ========================
 -- Logika simpel: cek stok server tiap loop, kalau > 0 beli, kalau 0 skip.
--- Loop tetap jalan saat stok habis — langsung beli begitu server restock.
-local _notifiedEmpty = {}  -- [seedName] = true → sudah notif habis, cegah spam
+-- Loop tetap jalan saat stok habis -- langsung beli begitu server restock.
+local _notifiedEmpty = {}  -- [seedName] = true -> sudah notif habis, cegah spam
 
 task.spawn(function()
     while _G._MiracleHubSession == _SESSION do
@@ -2972,8 +2959,8 @@ end)
 
 -- ======================== AUTO BUY GEAR LOOP ========================
 -- Sama persis pola dengan auto buy seeds: cek stok tiap loop, beli jika > 0, skip jika 0.
--- Loop tetap jalan saat stok habis — langsung beli begitu server restock.
-local _notifiedEmptyGear = {}  -- [gearName] = true → sudah notif habis, cegah spam
+-- Loop tetap jalan saat stok habis -- langsung beli begitu server restock.
+local _notifiedEmptyGear = {}  -- [gearName] = true -> sudah notif habis, cegah spam
 
 task.spawn(function()
     while _G._MiracleHubSession == _SESSION do
@@ -3020,7 +3007,7 @@ task.spawn(function()
 end)
 
 -- ======================== AUTO BUY CRATE HELPERS ========================
--- GetCrateStock — baca stok crate dari ReplicatedStorage.StockValues.CrateShop.Items
+-- GetCrateStock -- baca stok crate dari ReplicatedStorage.StockValues.CrateShop.Items
 local function GetCrateStock(crateName)
     local rs = game:GetService("ReplicatedStorage")
     local sv = rs:FindFirstChild("StockValues")
@@ -3033,7 +3020,7 @@ local function GetCrateStock(crateName)
     return stockVal and stockVal.Value or 0
 end
 
--- BuyCratePacket — kirim packet beli crate ke server
+-- BuyCratePacket -- kirim packet beli crate ke server
 -- Layer 1: Networking.CrateShop.Purchase (cara resmi)
 -- Layer 2: PacketRemote:FireServer fallback (PurchaseCrate=122)
 local function BuyCratePacket(crateName, quantity)
@@ -3063,7 +3050,7 @@ local function BuyCratePacket(crateName, quantity)
     return true
 end
 
--- OpenCrateViaNetworking — buka crate by name (cara benar dari CrateController)
+-- OpenCrateViaNetworking -- buka crate by name (cara benar dari CrateController)
 -- CrateController menggunakan: Networking.Crate.OpenCrate:Fire(crateName)
 local function OpenCrateViaNetworking(crateName)
     if Networking then
@@ -3089,7 +3076,7 @@ local function OpenCrateViaNetworking(crateName)
     return false
 end
 
--- GetCratesInInventory — cari crate tools di backpack player
+-- GetCratesInInventory -- cari crate tools di backpack player
 local function GetCratesInInventory()
     local found = {}
     for _, tool in ipairs(player.Backpack:GetChildren()) do
@@ -3111,7 +3098,7 @@ end
 -- ======================== AUTO BUY CRATE LOOP ========================
 -- Pola sama persis dengan auto buy seeds/gear:
 -- Cek stok server tiap loop, kalau > 0 beli, kalau 0 skip.
-local _notifiedEmptyCrate = {}  -- [crateName] = true → sudah notif habis, cegah spam
+local _notifiedEmptyCrate = {}  -- [crateName] = true -> sudah notif habis, cegah spam
 
 task.spawn(function()
     while _G._MiracleHubSession == _SESSION do
@@ -3220,7 +3207,7 @@ end
 -- Perpindahan dilakukan dalam hop 30 studs, dengan jeda task.wait(0.15) di antaranya.
 -- Ini meniru player yang "bergerak cepat" tapi tidak sekaligus 1 lompatan besar
 -- sehingga server anti-cheat GAG tidak mendeteksi teleport dan tidak rollback.
--- HOP_SIZE = 30, WAIT = 0.15s → kecepatan efektif ~200 studs/detik
+-- HOP_SIZE = 30, WAIT = 0.15s -> kecepatan efektif ~200 studs/detik
 
 local HOP_SIZE   = 10    -- max studs per hop
 local HOP_WAIT   = 0.50  -- detik jeda antar hop (turunkan kalau mau lebih cepat, min ~0.05)
@@ -3262,8 +3249,8 @@ end
 
 -- Helper: scan semua wild pet aktif dari WildPetRef
 -- Setiap child adalah BasePart dengan:
---   Attribute "Rarity"       → string rarity (e.g. "Legendary", "Mythic", "Super", "Common", "Uncommon", "Rare")
---   Attribute "OwnerUserId"  → number/nil; 0 = bebas, >0 = sudah dimiliki
+--   Attribute "Rarity"       -> string rarity (e.g. "Legendary", "Mythic", "Super", "Common", "Uncommon", "Rare")
+--   Attribute "OwnerUserId"  -> number/nil; 0 = bebas, >0 = sudah dimiliki
 local function ScanWildPets(rarityFilter)
     local ref = GetWildPetRef()
     if not ref then return {} end
@@ -3295,12 +3282,12 @@ local function ScanWildPets(rarityFilter)
     return results
 end
 
--- Humanize camelCase nama species → "BlackDragon" → "Black Dragon"
+-- Humanize camelCase nama species -> "BlackDragon" -> "Black Dragon"
 local function HumanizePetName(n)
     return (tostring(n):gsub("(%l)(%u)", "%1 %2"))
 end
 
--- Warna per rarity — cocok persis dengan PetListController GAG
+-- Warna per rarity -- cocok persis dengan PetListController GAG
 -- Mythic = merah (220,40,40), Super = putih (game pakai rainbow gradient)
 local RarityColor = {
     Common    = Color3.fromRGB(180, 180, 180),
@@ -3312,7 +3299,7 @@ local RarityColor = {
     Super     = Color3.fromRGB(255, 255, 255),
 }
 
--- Lookup rarity per species — dari PetData GAG
+-- Lookup rarity per species -- dari PetData GAG
 local PET_RARITY_LOOKUP = {
     Frog = "Common", Bunny = "Common",
     Owl = "Uncommon",
@@ -3333,7 +3320,7 @@ local PET_RARITY_LOOKUP = {
 --   Bukti   : setelah fire, OwnerUserId berubah & pet masuk backpack
 --   Attrs   : PetName, Price, OwnerUserId, OwnerName, State, Rarity
 local function BuyWildPet(part)
-    local petId = part.Name  -- "WildPet_<uuid>" — confirmed dari sniffer
+    local petId = part.Name  -- "WildPet_<uuid>" -- confirmed dari sniffer
 
     if Networking then
         local petsNS = rawget(Networking, "Pets")
@@ -3409,7 +3396,7 @@ task.spawn(function()
             table.insert(targets, {part=part, petName=tostring(petName), rarity=rarity, price=price})
         end
 
-        -- Tidak ada pet → notif tunggu (max 1x per 15 detik)
+        -- Tidak ada pet -> notif tunggu (max 1x per 15 detik)
         if #targets == 0 then
             local now = tick()
             if now - lastWaitingNotif >= 15 then
@@ -3451,7 +3438,7 @@ task.spawn(function()
     end
 end)
 
--- AUTO EQUIP PETS LOOP (removed — FirePacket equip/unequip tidak valid di GAG)
+-- AUTO EQUIP PETS LOOP (removed -- FirePacket equip/unequip tidak valid di GAG)
 -- Pet equip dilakukan langsung oleh game saat tool diaktifkan; tidak ada packet khusus.
 
 -- AUTO OPEN EGGS LOOP (PacketID 139)
@@ -3522,7 +3509,6 @@ task.spawn(function()
 end)
 
 -- ======================== ESP SYSTEM ========================
-if _G.MiracleLog then _G.MiracleLog("CP: ESP SYSTEM") end
 local espLabels = {}
 
 local function ClearESP()
@@ -3584,7 +3570,7 @@ RunService.Heartbeat:Connect(function()
         end
     end
 
-    -- ESP Wild Pets (pakai WildPetRef — path resmi GAG)
+    -- ESP Wild Pets (pakai WildPetRef -- path resmi GAG)
     if States.espItems then
         local map = workspace:FindFirstChild("Map")
         local ref = map and map:FindFirstChild("WildPetRef")
@@ -3679,7 +3665,7 @@ RunService.Heartbeat:Connect(function()
                 if moveDir.Magnitude > 0.1 then
                     vel = Vector3.new(moveDir.X, 0, moveDir.Z).Unit * States.flySpeed
                 end
-                -- Up/down: tidak ada tombol di mobile — pakai tilt kamera (cam.CFrame.LookVector.Y)
+                -- Up/down: tidak ada tombol di mobile -- pakai tilt kamera (cam.CFrame.LookVector.Y)
                 local lookY = cf.LookVector.Y
                 if math.abs(lookY) > 0.3 then
                     vel = vel + Vector3.new(0, lookY * States.flySpeed, 0)
@@ -3746,7 +3732,6 @@ player.CharacterAdded:Connect(function(char)
 end)
 
 -- ======================== FEATURE: FARM PAGE ========================
-if _G.MiracleLog then _G.MiracleLog("CP: FEATURE FARM") end
 Pages["Farm"] = function()
     local plantCard, plantContent = CreateSectionCard("🌱 Auto Plant", 1, Colors.Success)
 
@@ -3945,7 +3930,7 @@ Pages["Farm"] = function()
             if not (fruit and fruit:IsA("Model")) then continue end
             total += 1
             if prompt.Enabled and not prompt:GetAttribute("Collected") then
-                local plant = fruit.Parent and fruit.Parent.Parent  -- Fruits folder → plant model
+                local plant = fruit.Parent and fruit.Parent.Parent  -- Fruits folder -> plant model
                 local sn = (plant and plant:GetAttribute("SeedName"))
                     or fruit:GetAttribute("SeedName") or "?"
                 local mut = fruit:GetAttribute("Mutation") or ""
@@ -4005,7 +3990,7 @@ Pages["Plot"] = function()
     local _, plantCntLbl = CreateStatRow(statsGrid, "Plants on Plot", "...", Colors.TextSecondary)
     local _, readyCntLbl = CreateStatRow(statsGrid, "Ready to Harvest", "...", Colors.Success)
 
-    -- Live plant count — pakai task.spawn + task.wait(1) bukan Heartbeat
+    -- Live plant count -- pakai task.spawn + task.wait(1) bukan Heartbeat
     -- Heartbeat bug: tidak pernah disconnect, setiap buka Plot page nambah listener baru
     local plotPageAlive = true
     task.spawn(function()
@@ -4108,7 +4093,6 @@ Pages["Plot"] = function()
 end
 
 -- ======================== FEATURE: SHOP PAGE ========================
-if _G.MiracleLog then _G.MiracleLog("CP: FEATURE SHOP") end
 Pages["Shop"] = function()
     local buyCard, buyContent = CreateSectionCard("🛒 Auto Buy Seeds", 1, Colors.Success)
 
@@ -4148,7 +4132,7 @@ Pages["Shop"] = function()
     )
 
     -- ===== DATA RESTOCKCHANCE dari SeedData (di-hardcode dari hasil require SeedData) =====
-    -- Sumber: require(ReplicatedStorage.SharedModules.SeedData) — verified scanner
+    -- Sumber: require(ReplicatedStorage.SharedModules.SeedData) -- verified scanner
     local SEED_RESTOCK_DATA = {
         ["Carrot"]          = { chance = 100,   restockMin = 3,  restockMax = 4  },
         ["Strawberry"]      = { chance = 100,   restockMin = 4,  restockMax = 5  },
@@ -4230,8 +4214,8 @@ Pages["Shop"] = function()
 
     -- Hitung expected restock ke-N (expected value dari distribusi geometrik)
     -- Jika chance = p%, maka rata-rata butuh 100/p restock
-    -- Kita hitung restock ke-N yang paling "masuk akal" dengan probabilitas kumulatif ≥ 75%
-    -- P(muncul dalam N restock) = 1 - (1 - p/100)^N ≥ 0.75
+    -- Kita hitung restock ke-N yang paling "masuk akal" dengan probabilitas kumulatif  75%
+    -- P(muncul dalam N restock) = 1 - (1 - p/100)^N  0.75
     -- N = ceil(log(0.25) / log(1 - p/100))
     local function ExpectedRestocksUntilAppear(chance)
         if chance >= 100 then return 1 end
@@ -4259,7 +4243,7 @@ Pages["Shop"] = function()
     end
 
     -- ===== LIVE TRACKER: pasang Changed listener untuk semua seed =====
-    -- Setiap kali stok seed berubah dari 0 → >0, catat restockIndex saat itu
+    -- Setiap kali stok seed berubah dari 0 -> >0, catat restockIndex saat itu
     local _trackerRestockIndex = 0  -- counter berapa kali restock sudah terjadi sejak inject
     task.spawn(function()
         local rs = game:GetService("ReplicatedStorage")
@@ -4377,7 +4361,7 @@ Pages["Shop"] = function()
             return
         end
 
-        -- Stok habis — hitung prediksi
+        -- Stok habis -- hitung prediksi
         if not sdata then
             Notify("🌱 " .. seedName, "❌ Stok habis, data chance tidak ditemukan", Colors.Warning, 6)
             return
@@ -4496,9 +4480,9 @@ Pages["Shop"] = function()
         local items = rs:FindFirstChild("StockValues") and rs.StockValues:FindFirstChild("SeedShop") and rs.StockValues.SeedShop:FindFirstChild("Items")
         if not items then return end
 
-        -- Seed yang stok sekarang > 0 → pasti ada di restock ini
-        -- Seed yang stok = 0 tapi chance = 100 → pasti muncul berikutnya
-        -- Seed yang stok = 0 dan chance < 100 → mungkin muncul (berdasarkan chance)
+        -- Seed yang stok sekarang > 0 -> pasti ada di restock ini
+        -- Seed yang stok = 0 tapi chance = 100 -> pasti muncul berikutnya
+        -- Seed yang stok = 0 dan chance < 100 -> mungkin muncul (berdasarkan chance)
         local certain  = {}  -- pasti muncul berikutnya (chance 100 atau sudah ada)
         local probable = {}  -- kemungkinan muncul (chance tinggi)
 
@@ -4689,7 +4673,6 @@ Pages["Shop"] = function()
 end
 
 -- ======================== FEATURE: SELL PAGE ========================
-if _G.MiracleLog then _G.MiracleLog("CP: FEATURE SELL") end
 Pages["Sell"] = function()
     local sellCard, sellContent = CreateSectionCard("💰 Auto Sell", 1, Colors.Gold)
 
@@ -4874,12 +4857,11 @@ Pages["Sell"] = function()
 end
 
 -- ======================== FEATURE: PETS PAGE ========================
-if _G.MiracleLog then _G.MiracleLog("CP: FEATURE PETS") end
 
 
 
 Pages["Pets"] = function()
-    -- ── SECTION 1: Pet Inventory ──────────────────────────────────
+    --  SECTION 1: Pet Inventory 
     local petCard, petContent = CreateSectionCard("🐾 Pet Inventory", 1, Colors.Frozen)
 
     local rarityOrd = {Super=6, Mythic=5, Legendary=4, Rare=3, Uncommon=2, Common=1}
@@ -4928,7 +4910,7 @@ Pages["Pets"] = function()
             return
         end
 
-        -- ScrollingFrame — 8 baris visible, sisanya bisa discroll
+        -- ScrollingFrame -- 8 baris visible, sisanya bisa discroll
         local ROW_H   = 28
         local ROW_GAP = 6
         local scrollH = 8 * ROW_H + 7 * ROW_GAP
@@ -4978,7 +4960,7 @@ Pages["Pets"] = function()
         if isPet then task.defer(RebuildInventory) end
     end)
 
-    -- ── SECTION 2: Pet Finder (WildPetRef) — Realtime ────────────
+    --  SECTION 2: Pet Finder (WildPetRef) -- Realtime 
     local finderCard, finderContent = CreateSectionCard("🔍 Pet Finder", 2, Colors.Warning)
 
     CreateInfoText(finderContent, "Cara Kerja",
@@ -5030,7 +5012,7 @@ Pages["Pets"] = function()
             local distStr = dist < math.huge and string.format("%.0f studs", dist) or "?"
             local petName = HumanizePetName(entry.name or "Unknown")
 
-            -- ── Row: [●] Nama Pet   Rarity          Jarak   [TP →] ──
+            --  Row: [] Nama Pet   Rarity          Jarak   [TP ->] 
             -- Layout: bullet(12) + name(26-170) + rarity(180-300) + dist(310-420) + tp(right)
             local row = Create("Frame", {
                 Parent = listContainer,
@@ -5051,7 +5033,7 @@ Pages["Pets"] = function()
             })
             CreateCorner(bullet, 4)
 
-            -- Nama pet (bold, rarity color) — lebar 130px
+            -- Nama pet (bold, rarity color) -- lebar 130px
             Create("TextLabel", {
                 Parent = row,
                 Size = UDim2.new(0, 130, 1, 0),
@@ -5065,7 +5047,7 @@ Pages["Pets"] = function()
                 TextTruncate = Enum.TextTruncate.AtEnd,
             })
 
-            -- Rarity label — mulai di 164 (jarak 8px setelah nama berakhir di ~156)
+            -- Rarity label -- mulai di 164 (jarak 8px setelah nama berakhir di ~156)
             Create("TextLabel", {
                 Parent = row,
                 Size = UDim2.new(0, 90, 1, 0),
@@ -5078,7 +5060,7 @@ Pages["Pets"] = function()
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
 
-            -- Jarak (muted) — mulai di 262 (jarak 8px setelah rarity ~90px)
+            -- Jarak (muted) -- mulai di 262 (jarak 8px setelah rarity ~90px)
             Create("TextLabel", {
                 Parent = row,
                 Size = UDim2.new(0, 80, 1, 0),
@@ -5188,7 +5170,7 @@ Pages["Pets"] = function()
     -- Build awal saat page dibuka
     task.defer(RebuildPetList)
 
-    -- ── SECTION 3: Auto Catch Wild Pets ──────────────────────────
+    --  SECTION 3: Auto Catch Wild Pets 
     local wildCard, wildContent = CreateSectionCard("🎯 Auto Catch Wild", 3, Colors.Warning)
 
     CreateInfoText(wildContent, "Auto Catch via WildPetRef",
@@ -5204,7 +5186,7 @@ Pages["Pets"] = function()
     }
     CreateMultiSelect(wildContent, "🐾Pilih Pet Target", WILD_PET_NAMES, "wildCatchTargets")
 
-    -- Toggle sederhana — toggle tetap ON, loop sendiri yang handle notif waiting
+    -- Toggle sederhana -- toggle tetap ON, loop sendiri yang handle notif waiting
     CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild",
         "ON: loop jalan terus, notif ⏳ saat menunggu spawn | OFF: loop berhenti",
         function(newVal)
@@ -5231,7 +5213,6 @@ Pages["Eggs"] = function()
 end
 
 -- ======================== FEATURE: PLAYER PAGE ========================
-if _G.MiracleLog then _G.MiracleLog("CP: FEATURE PLAYER") end
 Pages["Player"] = function()
     local statsCard, statsContent = CreateSectionCard("📊 Live Player Stats", 1, Colors.Accent)
     local _, hpLbl = CreateStatRow(statsContent, "Health", "100 / 100", Colors.Success)
@@ -5345,7 +5326,6 @@ Pages["Visuals"] = function()
 end
 
 -- ======================== FEATURE: TELEPORT PAGE ========================
-if _G.MiracleLog then _G.MiracleLog("CP: FEATURE TELEPORT") end
 Pages["Teleport"] = function()
     local tpCard, tpContent = CreateSectionCard("📍 Quick Teleport", 1, Colors.Accent)
     CreateInfoText(tpContent, "Scanner data", "Workspace.Teleports: Seeds, Sell, Gears, Props — all BasePart objects confirmed by scanner.")
@@ -5427,7 +5407,6 @@ Pages["Teleport"] = function()
 end
 
 -- ======================== FEATURE: UTILITY PAGE ========================
-if _G.MiracleLog then _G.MiracleLog("CP: FEATURE UTILITY") end
 Pages["Utility"] = function()
     local worthCard, worthContent = CreateSectionCard("💎 Item Inspector", 1, Colors.Gold)
     CreateInfoText(worthContent, "Fruit attrs from scanner", "Weight, SizeMultiplier, DecayAlpha, OvertimeGrowth, Mutation | Tomato [1.38kg, x1.53 size] | Blueberry [Rainbow][Potted, x1.95 size]")
@@ -5777,7 +5756,6 @@ Pages["Settings"] = function()
 end
 
 -- ======================== SIDEBAR CONNECTIONS ========================
-if _G.MiracleLog then _G.MiracleLog("CP: SIDEBAR CONNECTIONS") end
 local pageMap = {
     [BtnFarm] = "Farm", [BtnPlot] = "Plot", [BtnShop] = "Shop",
     [BtnSell] = "Sell", [BtnPets] = "Pets", [BtnEggs] = "Eggs",
@@ -5792,7 +5770,6 @@ for btn, pageName in pairs(pageMap) do
 end
 
 -- ======================== MOBILE TAB BAR CONNECTIONS ========================
-if _G.MiracleLog then _G.MiracleLog("CP: MOBILE TAB BAR CONNECTIONS") end
 if isMobile and MobileTabBar then
     local MAIN_TABS_MAP = {"Farm", "Shop", "Sell", "Pets", "More"}
     for _, tabName in ipairs(MAIN_TABS_MAP) do
@@ -5890,7 +5867,6 @@ SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
 end)
 
 -- ======================== MINIMIZED M LOGO ========================
-if _G.MiracleLog then _G.MiracleLog("CP: MINIMIZED LOGO") end
 -- PC only: minimize ke icon kecil M di layar
 -- Mobile: tidak dipakai (minimize = tutup GUI saja)
 local MinimizedLogo = Create("Frame", {
@@ -6001,7 +5977,6 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- ======================== WINDOW DRAG ========================
-if _G.MiracleLog then _G.MiracleLog("CP: WINDOW DRAG") end
 -- PC: drag via TopBar mouse
 -- Mobile: fullscreen, tidak perlu drag (tapi tetap support kalau ada)
 local dragging, dragStart, startPos = false, nil, nil
@@ -6025,7 +6000,6 @@ if not isMobile then
 end
 
 -- ======================== MINIMIZE / RESTORE ========================
-if _G.MiracleLog then _G.MiracleLog("CP: MINIMIZE/RESTORE") end
 local minimized = false
 
 local function DoMinimize()
@@ -6089,7 +6063,6 @@ LogoClick.MouseButton1Click:Connect(function()
 end)
 
 -- ======================== CONFIRM CLOSE MODAL ========================
-if _G.MiracleLog then _G.MiracleLog("CP: CONFIRM CLOSE MODAL") end
 local ConfirmModal = Create("Frame", {
     Parent = ScreenGui,
     Size = UDim2.new(1,0,1,0),
@@ -6168,7 +6141,6 @@ if not isMobile then
 end
 
 -- ======================== LOADING SCREEN ========================
-if _G.MiracleLog then _G.MiracleLog("CP: LOADING SCREEN") end
 local loadSteps = {
     {text = "Initializing core systems...", d = 0.3},
     {text = "Reading player attributes...", d = 0.3},
@@ -6196,7 +6168,7 @@ for _, s in ipairs(loadSteps) do totalDur += s.d end
 local elapsed = 0
 local conn
 conn = RunService.Heartbeat:Connect(function(dt)
-    -- Clamp dt maksimal 0.1s — cegah progress loncat karena frame spike di mobile
+    -- Clamp dt maksimal 0.1s -- cegah progress loncat karena frame spike di mobile
     elapsed = elapsed + math.min(dt, 0.1)
     local pct = math.clamp(elapsed / totalDur, 0, 1)
     Tween(LoadingBarFill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
