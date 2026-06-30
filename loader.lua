@@ -13,7 +13,7 @@
 -- ======================================================================
 
 -- Base raw URL for this repo (public). Trailing slash required.
-local BASE = "https://gitlab.com/miracle-group3/Miracle-Hub/-/raw/main/"
+local BASE = "https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/"
 
 -- Modules in load order. Append new ones here as the refactor progresses.
 local MODULES = {
