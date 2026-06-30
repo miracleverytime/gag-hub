@@ -1,1 +1,0 @@
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/scripts/GAG-Hub.lua"))()
