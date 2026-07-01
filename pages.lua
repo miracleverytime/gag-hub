@@ -1183,8 +1183,10 @@
         CreateInfoText(espContent, "ESP system", "Renders BillboardGuis on targets. Wild Pets dari Workspace.Map.WildPetRef, mutations dari plant attrs.")
         CreateToggle(espContent, "ESP Players", "espPlayers", "Shows player names/tags above heads")
         CreateToggle(espContent, "ESP Wild Pets", "espItems", "Highlights wild pets in workspace")
+        CreateToggle(espContent, "ESP Fruits", "espFruits", "Highlights harvestable fruits on the plot")
         CreateToggle(espContent, "ESP Mutations", "espMutations", "Shows mutation tags on plants")
         CreateToggle(espContent, "Show Plant Age", "showPlantAge", "Shows Age/MaxAge above each plant")
+        CreateToggle(espContent, "Show Fruit Weight", "showFruitWeight", "Shows fruit weight above harvestables")
         CreateActionButton(espContent, "Clear All ESP Labels", function()
             Logic.ClearESP()
             Notify("Visuals", "All ESP labels cleared.", Colors.TextMuted)
@@ -1562,10 +1564,13 @@
             States.fly = false
             States.espPlayers = false
             States.espItems = false
+            States.espFruits = false
             States.espMutations = false
             States.fullBright = false
             States.noFog = false
             States.noShadows = false
+            States.showFruitWeight = false
+            States.showPlantAge = false
             States.autoServerScanner = false
             States.serverScannerRarity = "Mythic"
             States.serverScannerDelay = 8

@@ -93,7 +93,7 @@ return function(ctx)
             if prompt.Enabled
                 and not prompt:GetAttribute("Collected")
                 and prompt:IsDescendantOf(myPlot) then
-                count += 1
+                count = count + 1
             end
         end
         return count
@@ -113,40 +113,40 @@ return function(ctx)
         local delay     = math.max(States.perFruitDelay or 0, 0)
 
         for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
-            if harvested >= remaining then break end
-            if not prompt:IsDescendantOf(myPlot) then continue end
-            if not prompt:IsDescendantOf(workspace) then continue end
-            if not prompt.Enabled then continue end
-            if prompt:GetAttribute("Collected") then continue end
+            if harvested < remaining
+                and prompt:IsDescendantOf(myPlot)
+                and prompt:IsDescendantOf(workspace)
+                and prompt.Enabled
+                and not prompt:GetAttribute("Collected") then
+                local harvestPart = prompt.Parent
+                local fruit = harvestPart and harvestPart.Parent
+                if fruit and fruit:IsA("Model") then
+                    local mut = fruit:GetAttribute("Mutation") or ""
+                    if not (mutFilter and mutFilter ~= "None" and mut == mutFilter) then
+                        local plantId = fruit:GetAttribute("PlantId")
+                        local fruitId = fruit:GetAttribute("FruitId")
+                        local fired   = false
 
-            local harvestPart = prompt.Parent
-            local fruit = harvestPart and harvestPart.Parent
-            if not (fruit and fruit:IsA("Model")) then continue end
+                        if Networking then
+                            pcall(function()
+                                Networking.Garden.CollectFruit:Fire(plantId, fruitId or "")
+                                fired = true
+                            end)
+                        end
 
-            local mut = fruit:GetAttribute("Mutation") or ""
-            if mutFilter and mutFilter ~= "None" and mut == mutFilter then continue end
+                        if not fired then
+                            pcall(function()
+                                fireproximityprompt(prompt)
+                                fired = true
+                            end)
+                        end
 
-            local plantId = fruit:GetAttribute("PlantId")
-            local fruitId = fruit:GetAttribute("FruitId")
-            local fired   = false
-
-            if Networking then
-                pcall(function()
-                    Networking.Garden.CollectFruit:Fire(plantId, fruitId or "")
-                    fired = true
-                end)
-            end
-
-            if not fired then
-                pcall(function()
-                    fireproximityprompt(prompt)
-                    fired = true
-                end)
-            end
-
-            if fired then
-                harvested += 1
-                if delay > 0 then task.wait(delay) end
+                        if fired then
+                            harvested = harvested + 1
+                            if delay > 0 then task.wait(delay) end
+                        end
+                    end
+                end
             end
         end
 
@@ -159,21 +159,25 @@ return function(ctx)
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(0.5)
-            if not States.autoHarvest then continue end
-            local currentCount = player:GetAttribute("FruitCount") or 0
-            if currentCount >= MAX_FRUIT_CAP then continue end
-            local now = os.clock()
-            if now < _harvestCooldown then continue end
-            local ready = GetReadyFruitCount()
-            if ready == 0 then continue end
-            pcall(function()
-                local harvested = DoHarvestAll(States.harvestFilterMutation)
-                if harvested > 0 and States.notifyHarvest then
-                    local after = player:GetAttribute("FruitCount") or 0
-                    Notify("Auto Harvest \226\156\133", harvested .. " buah | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Warning)
+            if States.autoHarvest then
+                local currentCount = player:GetAttribute("FruitCount") or 0
+                if currentCount < MAX_FRUIT_CAP then
+                    local now = os.clock()
+                    if now >= _harvestCooldown then
+                        local ready = GetReadyFruitCount()
+                        if ready > 0 then
+                            pcall(function()
+                                local harvested = DoHarvestAll(States.harvestFilterMutation)
+                                if harvested > 0 and States.notifyHarvest then
+                                    local after = player:GetAttribute("FruitCount") or 0
+                                    Notify("Auto Harvest \226\156\133", harvested .. " buah | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Warning)
+                                end
+                            end)
+                            _harvestCooldown = os.clock() + math.max(States.harvestLoopDelay or 2, 0.5)
+                        end
+                    end
                 end
-            end)
-            _harvestCooldown = os.clock() + math.max(States.harvestLoopDelay or 2, 0.5)
+            end
         end
     end)
 
@@ -211,7 +215,7 @@ return function(ctx)
         local count = 0
         for _, plant in ipairs(plantsFolder:GetChildren()) do
             if plant:GetAttribute("UserId") == player.UserId then
-                count += 1
+                count = count + 1
             end
         end
         return count
@@ -227,7 +231,7 @@ return function(ctx)
             if plant:GetAttribute("UserId") == player.UserId then
                 local name = plant:GetAttribute("SeedName") or plant:GetAttribute("SeedTool") or "?"
                 counts[name] = (counts[name] or 0) + 1
-                total += 1
+                total = total + 1
             end
         end
         return counts, total
@@ -337,27 +341,29 @@ return function(ctx)
         end
 
         for _, tool in ipairs(backpack:GetChildren()) do
-            if not tool:IsA("Tool") then continue end
-            local seedName = tool:GetAttribute("SeedTool")
-            if type(seedName) ~= "string" or seedName == "" then
-                local raw = tool:GetAttribute("SeedTool")
-                if raw ~= nil then
-                    seedName = tool.Name
-                else
-                    seedName = tool:GetAttribute("SeedName")
-                    if type(seedName) ~= "string" or seedName == "" then
-                        seedName = nil
-                        for _, s in ipairs(SEEDS) do
-                            if tool.Name == s or tool.Name == s .. " Seed" then
-                                seedName = s break
+            if tool:IsA("Tool") then
+                local seedName = tool:GetAttribute("SeedTool")
+                if type(seedName) ~= "string" or seedName == "" then
+                    local raw = tool:GetAttribute("SeedTool")
+                    if raw ~= nil then
+                        seedName = tool.Name
+                    else
+                        seedName = tool:GetAttribute("SeedName")
+                        if type(seedName) ~= "string" or seedName == "" then
+                            seedName = nil
+                            for _, s in ipairs(SEEDS) do
+                                if tool.Name == s or tool.Name == s .. " Seed" then
+                                    seedName = s
+                                    break
+                                end
                             end
                         end
                     end
                 end
+                if seedName and (allowedSeeds == nil or allowedSeeds[seedName]) then
+                    return {tool = tool, name = seedName}
+                end
             end
-            if not seedName then continue end
-            if allowedSeeds ~= nil and not allowedSeeds[seedName] then continue end
-            return {tool = tool, name = seedName}
         end
         return nil
     end
@@ -397,63 +403,66 @@ return function(ctx)
         while _G._MiracleHubSession == SESSION do
             if not States.autoPlant then
                 task.wait(0.5)
-                continue
-            end
-            local plantAreas = GetMyPlantAreas()
-            if #plantAreas == 0 then
-                if States.autoPlantNotify then
-                    Notify("Auto Plant \226\154\160", "PlantArea tidak ditemukan di Plot " .. MY_PLOT_ID
-                        .. ". Pastikan kamu di plotmu.", Colors.Warning, 5)
-                end
-                task.wait(5)
-                continue
-            end
-            local validPositions = BuildValidPlantPositions(plantAreas, 500)
-            if #validPositions == 0 then
-                if States.autoPlantNotify then
-                    local slotCount = CountPlantedSlots()
-                    Notify("Auto Plant",
-                        "Tidak ada slot kosong di Plot " .. MY_PLOT_ID
-                        .. " (" .. slotCount .. " tanaman ada). Harvest dulu lalu coba lagi.",
-                        Colors.Warning, 5)
-                end
-                task.wait(5)
-                continue
-            end
-            local planted    = 0
-            local noSeed     = false
-            local plantedLog = {}
-            for _, hitPos in ipairs(validPositions) do
-                if not States.autoPlant then break end
-                local seedEntry = GetNextSeedFromBackpack()
-                if not seedEntry then
-                    noSeed = true
-                    break
-                end
-                local ok = pcall(DoPlantFire, seedEntry.tool, seedEntry.name, hitPos)
-                if ok then
-                    planted += 1
-                    plantedLog[seedEntry.name] = (plantedLog[seedEntry.name] or 0) + 1
-                end
-                task.wait(0.3)
-            end
-            if States.autoPlantNotify then
-                if planted > 0 then
-                    local lines = {}
-                    for name, cnt in pairs(plantedLog) do
-                        table.insert(lines, name .. " - " .. cnt)
+            else
+                local plantAreas = GetMyPlantAreas()
+                if #plantAreas == 0 then
+                    if States.autoPlantNotify then
+                        Notify("Auto Plant \226\154\160", "PlantArea tidak ditemukan di Plot " .. MY_PLOT_ID
+                            .. ". Pastikan kamu di plotmu.", Colors.Warning, 5)
                     end
-                    table.sort(lines, function(a, b)
-                        local ca = tonumber(a:match("- (%d+)$")) or 0
-                        local cb = tonumber(b:match("- (%d+)$")) or 0
-                        return ca > cb
-                    end)
-                    NotifyStok(lines, Colors.Success, 8, "\240\159\140\177 Auto Plant (+" .. planted .. " ditanam)")
-                elseif noSeed then
-                    Notify("Auto Plant", "Seed habis di backpack (sesuai filter).", Colors.Warning, 3)
+                    task.wait(5)
+                else
+                    local validPositions = BuildValidPlantPositions(plantAreas, 500)
+                    if #validPositions == 0 then
+                        if States.autoPlantNotify then
+                            local slotCount = CountPlantedSlots()
+                            Notify("Auto Plant",
+                                "Tidak ada slot kosong di Plot " .. MY_PLOT_ID
+                                .. " (" .. slotCount .. " tanaman ada). Harvest dulu lalu coba lagi.",
+                                Colors.Warning, 5)
+                        end
+                        task.wait(5)
+                    else
+                        local planted = 0
+                        local noSeed = false
+                        local plantedLog = {}
+
+                        for _, hitPos in ipairs(validPositions) do
+                            if not States.autoPlant then break end
+                            local seedEntry = GetNextSeedFromBackpack()
+                            if not seedEntry then
+                                noSeed = true
+                                break
+                            end
+
+                            local ok = pcall(DoPlantFire, seedEntry.tool, seedEntry.name, hitPos)
+                            if ok then
+                                planted = planted + 1
+                                plantedLog[seedEntry.name] = (plantedLog[seedEntry.name] or 0) + 1
+                            end
+                            task.wait(0.3)
+                        end
+
+                        if States.autoPlantNotify then
+                            if planted > 0 then
+                                local lines = {}
+                                for name, cnt in pairs(plantedLog) do
+                                    table.insert(lines, name .. " - " .. cnt)
+                                end
+                                table.sort(lines, function(a, b)
+                                    local ca = tonumber(a:match("- (%d+)$")) or 0
+                                    local cb = tonumber(b:match("- (%d+)$")) or 0
+                                    return ca > cb
+                                end)
+                                NotifyStok(lines, Colors.Success, 8, "\240\159\140\177 Auto Plant (+" .. planted .. " ditanam)")
+                            elseif noSeed then
+                                Notify("Auto Plant", "Seed habis di backpack (sesuai filter).", Colors.Warning, 3)
+                            end
+                        end
+                    end
                 end
+                task.wait(0.5)
             end
-            task.wait(0.5)
         end
     end)
 
@@ -659,47 +668,52 @@ return function(ctx)
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(0.5)
-            if not States.autoWater then continue end
-            local now = os.clock()
-            if now < _waterCooldown then continue end
-            if not Networking then
-                task.wait(3)
-                continue
-            end
-            pcall(function()
-                local tool, canName = AcquireWateringCan()
-                if not tool or not canName then return end
-                local plants = GetPlantsFolder()
-                if not plants then return end
-                local watered = 0
-                for _, plant in ipairs(plants:GetChildren()) do
-                    if not States.autoWater then break end
-                    if not plant:IsA("Model") then continue end
-                    local hitPos = GetPlantWaterPos(plant)
-                    if not hitPos then continue end
-                    local needsWater = plant:GetAttribute("NeedsWater")
-                    local waterLevel = plant:GetAttribute("WaterLevel")
-                    if needsWater == false then continue end
-                    if waterLevel ~= nil and waterLevel >= 1 then continue end
-                    if not IsToolEquipped(tool) then
-                        local t2, cn2 = AcquireWateringCan()
-                        if not t2 then break end
-                        tool, canName = t2, cn2
-                    end
-                    HopToNearPos(hitPos)
-                    local ok = pcall(function()
-                        Networking.WateringCan.UseWateringCan:Fire(hitPos, canName, tool)
+            if States.autoWater then
+                local now = os.clock()
+                if now >= _waterCooldown and Networking then
+                    pcall(function()
+                        local tool, canName = AcquireWateringCan()
+                        if not tool or not canName then return end
+                        local plants = GetPlantsFolder()
+                        if not plants then return end
+
+                        local watered = 0
+                        for _, plant in ipairs(plants:GetChildren()) do
+                            if States.autoWater and plant:IsA("Model") then
+                                local hitPos = GetPlantWaterPos(plant)
+                                if hitPos then
+                                    local needsWater = plant:GetAttribute("NeedsWater")
+                                    local waterLevel = plant:GetAttribute("WaterLevel")
+                                    local shouldSkip = (needsWater == false) or (waterLevel ~= nil and waterLevel >= 1)
+                                    if not shouldSkip then
+                                        if not IsToolEquipped(tool) then
+                                            local t2, cn2 = AcquireWateringCan()
+                                            if not t2 then break end
+                                            tool, canName = t2, cn2
+                                        end
+
+                                        HopToNearPos(hitPos)
+                                        local ok = pcall(function()
+                                            Networking.WateringCan.UseWateringCan:Fire(hitPos, canName, tool)
+                                        end)
+                                        if ok then
+                                            watered = watered + 1
+                                            task.wait(math.max(States.perFruitDelay or 0.05, 0.05))
+                                        end
+                                    end
+                                end
+                            end
+                        end
+
+                        if watered > 0 and States.notifyHarvest then
+                            Notify("Auto Water \240\159\146\167", "Siram " .. watered .. " tanaman di Plot " .. MY_PLOT_ID, Colors.Electric, 3)
+                        end
                     end)
-                    if ok then
-                        watered += 1
-                        task.wait(math.max(States.perFruitDelay or 0.05, 0.05))
-                    end
+                    _waterCooldown = os.clock() + math.max(States.harvestLoopDelay or 5, 1)
+                elseif not Networking then
+                    task.wait(3)
                 end
-                if watered > 0 and States.notifyHarvest then
-                    Notify("Auto Water \240\159\146\167", "Siram " .. watered .. " tanaman di Plot " .. MY_PLOT_ID, Colors.Electric, 3)
-                end
-            end)
-            _waterCooldown = os.clock() + math.max(States.harvestLoopDelay or 5, 1)
+            end
         end
     end)
 
@@ -738,22 +752,23 @@ return function(ctx)
         local positions = {}
         if not plantsFolder then return positions end
         for _, plant in ipairs(plantsFolder:GetChildren()) do
-            if not plant:IsA("Model") then continue end
-            local pos
-            local ok, cf = pcall(function() return plant:GetPivot() end)
-            if ok and cf then
-                pos = cf.Position
-            else
-                local pp = plant.PrimaryPart
-                if pp then pos = pp.Position
+            if plant:IsA("Model") then
+                local pos
+                local ok, cf = pcall(function() return plant:GetPivot() end)
+                if ok and cf then
+                    pos = cf.Position
                 else
-                    for _, d in ipairs(plant:GetDescendants()) do
-                        if d:IsA("BasePart") then pos = d.Position break end
+                    local pp = plant.PrimaryPart
+                    if pp then pos = pp.Position
+                    else
+                        for _, d in ipairs(plant:GetDescendants()) do
+                            if d:IsA("BasePart") then pos = d.Position break end
+                        end
                     end
                 end
-            end
-            if pos then
-                table.insert(positions, Vector2.new(pos.X, pos.Z))
+                if pos then
+                    table.insert(positions, Vector2.new(pos.X, pos.Z))
+                end
             end
         end
         return positions
@@ -866,21 +881,21 @@ return function(ctx)
                         tooClose = true break
                     end
                 end
-                if tooClose then continue end
-
-                local count = 0
-                for _, p in ipairs(uncovered) do
-                    local dx = cand.X - p.X
-                    local dz = cand.Z - p.Y
-                    if dx*dx + dz*dz <= r2 then
-                        count += 1
+                if not tooClose then
+                    local count = 0
+                    for _, p in ipairs(uncovered) do
+                        local dx = cand.X - p.X
+                        local dz = cand.Z - p.Y
+                        if dx*dx + dz*dz <= r2 then
+                            count = count + 1
+                        end
                     end
-                end
 
-                if count > bestCount then
-                    bestCount = count
-                    bestVec3  = cand
-                    bestPos   = Vector2.new(cand.X, cand.Z)
+                    if count > bestCount then
+                        bestCount = count
+                        bestVec3  = cand
+                        bestPos   = Vector2.new(cand.X, cand.Z)
+                    end
                 end
             end
 
@@ -1044,12 +1059,12 @@ return function(ctx)
         local bp = player:FindFirstChildOfClass("Backpack")
         if bp then
             for _, t in ipairs(bp:GetChildren()) do
-                if t:IsA("Tool") and t:GetAttribute("Sprinkler") then count += 1 end
+                if t:IsA("Tool") and t:GetAttribute("Sprinkler") then count = count + 1 end
             end
         end
         if player.Character then
             local held = player.Character:FindFirstChildOfClass("Tool")
-            if held and held:GetAttribute("Sprinkler") then count += 1 end
+            if held and held:GetAttribute("Sprinkler") then count = count + 1 end
         end
         return count
     end
@@ -1060,7 +1075,6 @@ return function(ctx)
         if not c then return end
         local hrp = c:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        -- Teleport tepat di atas target, sedikit offset X agar tidak nge-block raycast
         hrp.CFrame = CFrame.new(Vector3.new(pos.X + 0.5, pos.Y + 4, pos.Z + 0.5))
         task.wait(0.1)
     end
@@ -1068,48 +1082,35 @@ return function(ctx)
     local _lastSprinklerFire = 0
 
     local function DoPlaceSprinklerAt(pos, tool, sprinklerName)
-        -- Rate-limit: minimal 0.5s antar placement
         local now = os.clock()
         local gap = 0.5 - (now - _lastSprinklerFire)
         if gap > 0 then task.wait(gap) end
 
         local myPlot = GetMyPlot()
         local countBeforePlot = myPlot and CountPlotSprinklers(myPlot) or 0
+        local countBeforeInv = CountSprinklerTools()
 
-        -- Pastikan tool masih ada dan valid
         if not (tool and tool.Parent) then
             local t2, sn2 = AcquireSprinklerTool()
             if not t2 then return false end
             tool, sprinklerName = t2, sn2
         end
 
-        -- Equip tool ke karakter
         if not IsToolEquipped(tool) then
             local ok = EquipTool(tool)
             if not ok then return false end
         end
 
-        -- Snap posisi ke surface PlantArea yang benar
         local hitPos = SnapPosToSurface(pos)
-
-        -- Teleport player dekat target agar server raycast bisa hit
         TeleportNear(hitPos)
-
         task.wait(0.15)
 
-        -- Pastikan tool masih equipped setelah teleport
         if not IsToolEquipped(tool) then
             EquipTool(tool)
             task.wait(0.1)
         end
 
-        -- Ambil plotId player
         local plotId = player:GetAttribute("PlotId") or MY_PLOT_ID
-
-        -- Hitung jumlah sprinkler sebelum fire (untuk verifikasi success)
-        local countBefore = CountSprinklerTools()
-
-        -- Fire remote langsung (sesuai decompile StevenController.TryPlace)
         local attemptPoints = {
             hitPos,
             hitPos + Vector3.new(0.35, 0, 0),
@@ -1143,7 +1144,7 @@ return function(ctx)
 
                 local countAfterPlot = myPlot and CountPlotSprinklers(myPlot) or 0
                 local countAfterInv = CountSprinklerTools()
-                if countAfterPlot > countBeforePlot or countAfterInv < countBefore then
+                if countAfterPlot > countBeforePlot or countAfterInv < countBeforeInv then
                     success = true
                     break
                 end
@@ -1165,62 +1166,63 @@ return function(ctx)
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(0.5)
-            if not States.autoSprinkler then continue end
-            local now = os.clock()
-            if now < _sprinklerCooldown then continue end
-
-            pcall(function()
-                local tool, sprinklerName = AcquireSprinklerTool()
-                if not tool or not sprinklerName then
-                    Notify("Auto Sprinkler", "\226\154\160 Tidak ada sprinkler di backpack!", Colors.Warning, 3)
-                    _sprinklerCooldown = os.clock() + 5
-                    return
-                end
-
-                local positions = GetSprinklerPlacePositions(20, sprinklerName)
-                if #positions == 0 then
-                    -- Semua sudah ter-cover atau tidak ada tanaman
-                    _sprinklerCooldown = os.clock() + 15
-                    return
-                end
-
-                local placed = 0
-                local failed = 0
-
-                for _, pos in ipairs(positions) do
-                    if not States.autoSprinkler then break end
-
-                    -- Re-acquire tool setiap iterasi (bisa berubah setelah placement)
-                    local curTool, curName = AcquireSprinklerTool()
-                    if not curTool then
-                        Notify("Auto Sprinkler", "\226\154\160 Sprinkler habis di backpack!", Colors.Warning, 3)
-                        break
-                    end
-                    tool, sprinklerName = curTool, curName
-
-                    local success = false
-                    local ok = pcall(function()
-                        success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
-                    end)
-
-                    if ok and success then
-                        placed += 1
-                    else
-                        failed += 1
-                        -- Jika gagal terus, beri jeda sebentar
-                        if failed >= 3 then
-                            task.wait(1)
-                            failed = 0
+            if States.autoSprinkler then
+                local now = os.clock()
+                if now >= _sprinklerCooldown then
+                    pcall(function()
+                        local tool, sprinklerName = AcquireSprinklerTool()
+                        if not tool or not sprinklerName then
+                            Notify("Auto Sprinkler", "\226\154\160 Tidak ada sprinkler di backpack!", Colors.Warning, 3)
+                            _sprinklerCooldown = os.clock() + 5
+                            return
                         end
-                    end
-                end
 
-                if placed > 0 then
-                    Notify("Auto Sprinkler \240\159\140\191",
-                        "Pasang " .. placed .. "/" .. #positions .. " sprinkler di Plot " .. MY_PLOT_ID,
-                        Colors.Success, 4)
+                        local positions = GetSprinklerPlacePositions(20, sprinklerName)
+                        if #positions == 0 then
+                            _sprinklerCooldown = os.clock() + 15
+                            return
+                        end
+
+                        local placed = 0
+                        local failed = 0
+
+                        for _, pos in ipairs(positions) do
+                            if not States.autoSprinkler then break end
+
+                            local curTool, curName = AcquireSprinklerTool()
+                            if not curTool then
+                                Notify("Auto Sprinkler", "\226\154\160 Sprinkler habis di backpack!", Colors.Warning, 3)
+                                break
+                            end
+                            tool, sprinklerName = curTool, curName
+
+                            local success = false
+                            local ok = pcall(function()
+                                success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
+                            end)
+
+                            if ok and success then
+                                placed = placed + 1
+                            else
+                                failed = failed + 1
+                                if failed >= 3 then
+                                    task.wait(1)
+                                    failed = 0
+                                end
+                            end
+                        end
+
+                        if placed > 0 then
+                            Notify("Auto Sprinkler \240\159\140\191",
+                                "Pasang " .. placed .. "/" .. #positions .. " sprinkler di Plot " .. MY_PLOT_ID,
+                                Colors.Success, 5)
+                        else
+                            Notify("Auto Sprinkler", "Tidak ada sprinkler yang berhasil dipasang. Pastikan kamu di plotmu dan sudah ada tanaman.", Colors.Warning)
+                        end
+                    end)
+                    _sprinklerCooldown = os.clock() + 15
                 end
-            end)
+            end
 
             _sprinklerCooldown = os.clock() + 15
         end
@@ -1274,73 +1276,76 @@ return function(ctx)
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(States.sellLoopDelay or 3)
-            if not States.autoSell then continue end
-            if not Networking then
-                Notify("Auto Sell", "\226\157\140 Networking module tidak ditemukan!", Colors.Error)
-                task.wait(5)
-                continue
-            end
-            pcall(function()
-                local fruits = {}
-                for _, tool in ipairs(player.Backpack:GetChildren()) do
-                    if tool:GetAttribute("HarvestedFruit") or tool:GetAttribute("FruitName") then
-                        table.insert(fruits, tool)
-                    end
-                end
-                if player.Character then
-                    local held = player.Character:FindFirstChildOfClass("Tool")
-                    if held and (held:GetAttribute("HarvestedFruit") or held:GetAttribute("FruitName")) then
-                        table.insert(fruits, held)
-                    end
-                end
-                if #fruits == 0 then return end
-
-                if States.autoUseDailyDeal then
-                    pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
-                    local dealResult = UseDailyDeal()
-                    if dealResult and dealResult.Success then
-                        if States.notifySell then
-                            Notify("Daily Deal! \240\159\140\136", "Sold " .. (dealResult.SoldCount or 0) .. " buah = " .. tostring(dealResult.SellPrice or 0) .. "\194\162 (5x bonus!)", Colors.Success, 10)
-                        end
-                        return
-                    end
-                end
-
-                if NeedsSelectiveSell() then
-                    local soldCount = 0
-                    local skippedCount = 0
-                    for _, tool in ipairs(fruits) do
-                        if not States.autoSell then break end
-                        if ShouldKeepFruit(tool) then
-                            skippedCount += 1
-                            continue
-                        end
-                        local fruitId = tool:GetAttribute("Id")
-                        if not fruitId then continue end
-                        local result = SellFruitById(fruitId)
-                        if result and result.Success then
-                            soldCount += 1
-                        elseif result and result.Reason == "Favorited" then
-                            skippedCount += 1
-                        end
-                        task.wait(States.sellDelay or 0.1)
-                    end
-                    if States.notifySell and soldCount > 0 then
-                        Notify("Auto Sell", "Sold " .. soldCount .. " buah (skip " .. skippedCount .. " mutation)", Colors.Gold, 10)
-                    end
+            if States.autoSell then
+                if not Networking then
+                    Notify("Auto Sell", "\226\157\140 Networking module tidak ditemukan!", Colors.Error)
+                    task.wait(5)
                 else
-                    local result = SellAllFruits()
-                    if result and result.Success then
-                        if States.notifySell then
-                            Notify("Auto Sell \226\156\133", "Sold " .. (result.SoldCount or #fruits) .. " buah = " .. tostring(result.SellPrice or 0) .. "\194\162", Colors.Gold, 10)
+                    pcall(function()
+                        local fruits = {}
+                        for _, tool in ipairs(player.Backpack:GetChildren()) do
+                            if tool:GetAttribute("HarvestedFruit") or tool:GetAttribute("FruitName") then
+                                table.insert(fruits, tool)
+                            end
                         end
-                    elseif result then
-                        if States.notifySell then
-                            Notify("Auto Sell", "Gagal: " .. tostring(result.Reason or "unknown"), Colors.Error)
+                        if player.Character then
+                            local held = player.Character:FindFirstChildOfClass("Tool")
+                            if held and (held:GetAttribute("HarvestedFruit") or held:GetAttribute("FruitName")) then
+                                table.insert(fruits, held)
+                            end
                         end
-                    end
+                        if #fruits == 0 then return end
+
+                        if States.autoUseDailyDeal then
+                            pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
+                            local dealResult = UseDailyDeal()
+                            if dealResult and dealResult.Success then
+                                if States.notifySell then
+                                    Notify("Daily Deal! \240\159\140\136", "Sold " .. (dealResult.SoldCount or 0) .. " buah = " .. tostring(dealResult.SellPrice or 0) .. "\194\162 (5x bonus!)", Colors.Success, 10)
+                                end
+                                return
+                            end
+                        end
+
+                        if NeedsSelectiveSell() then
+                            local soldCount = 0
+                            local skippedCount = 0
+                            for _, tool in ipairs(fruits) do
+                                if States.autoSell then
+                                    if ShouldKeepFruit(tool) then
+                                        skippedCount = skippedCount + 1
+                                    else
+                                        local fruitId = tool:GetAttribute("Id")
+                                        if fruitId then
+                                            local result = SellFruitById(fruitId)
+                                            if result and result.Success then
+                                                soldCount = soldCount + 1
+                                            elseif result and result.Reason == "Favorited" then
+                                                skippedCount = skippedCount + 1
+                                            end
+                                        end
+                                    end
+                                end
+                                task.wait(States.sellDelay or 0.1)
+                            end
+                            if States.notifySell and soldCount > 0 then
+                                Notify("Auto Sell", "Sold " .. soldCount .. " buah (skip " .. skippedCount .. " mutation)", Colors.Gold, 10)
+                            end
+                        else
+                            local result = SellAllFruits()
+                            if result and result.Success then
+                                if States.notifySell then
+                                    Notify("Auto Sell \226\156\133", "Sold " .. (result.SoldCount or #fruits) .. " buah = " .. tostring(result.SellPrice or 0) .. "\194\162", Colors.Gold, 10)
+                                end
+                            elseif result then
+                                if States.notifySell then
+                                    Notify("Auto Sell", "Gagal: " .. tostring(result.Reason or "unknown"), Colors.Error)
+                                end
+                            end
+                        end
+                    end)
                 end
-            end)
+            end
         end
     end)
 
@@ -1528,38 +1533,40 @@ return function(ctx)
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(math.max(States.shopLoopDelay or 0.5, 0.1))
-            if not States.autoBuySeed then continue end
-            pcall(function()
-                local items = ReplicatedStorage:FindFirstChild("StockValues")
-                    and ReplicatedStorage.StockValues:FindFirstChild("SeedShop")
-                    and ReplicatedStorage.StockValues.SeedShop:FindFirstChild("Items")
-                local targets = {}
-                if States.autoBuyAll then
-                    if not items then return end
-                    for _, stockVal in ipairs(items:GetChildren()) do
-                        if stockVal:IsA("NumberValue") then
-                            table.insert(targets, stockVal.Name)
+            if States.autoBuySeed then
+                pcall(function()
+                    local items = ReplicatedStorage:FindFirstChild("StockValues")
+                        and ReplicatedStorage.StockValues:FindFirstChild("SeedShop")
+                        and ReplicatedStorage.StockValues.SeedShop:FindFirstChild("Items")
+                    local targets = {}
+                    if States.autoBuyAll then
+                        if not items then return end
+                        for _, stockVal in ipairs(items:GetChildren()) do
+                            if stockVal:IsA("NumberValue") then
+                                table.insert(targets, stockVal.Name)
+                            end
                         end
-                    end
-                else
-                    targets = States.autoBuySeedTargets or {}
-                    if #targets == 0 then return end
-                end
-                for _, seedName in ipairs(targets) do
-                    if not States.autoBuySeed then return end
-                    local stock = GetSeedStock(seedName)
-                    if stock > 0 then
-                        _notifiedEmpty[seedName] = false
-                        BuySeedPacket(seedName, 1)
-                        task.wait(States.buyDelay or 0.05)
                     else
-                        if States.notifyBuy and not _notifiedEmpty[seedName] then
-                            _notifiedEmpty[seedName] = true
-                            Notify("Auto Buy", seedName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                        targets = States.autoBuySeedTargets or {}
+                        if #targets == 0 then return end
+                    end
+                    for _, seedName in ipairs(targets) do
+                        if States.autoBuySeed then
+                            local stock = GetSeedStock(seedName)
+                            if stock > 0 then
+                                _notifiedEmpty[seedName] = false
+                                BuySeedPacket(seedName, 1)
+                                task.wait(States.buyDelay or 0.05)
+                            else
+                                if States.notifyBuy and not _notifiedEmpty[seedName] then
+                                    _notifiedEmpty[seedName] = true
+                                    Notify("Auto Buy", seedName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                end
+                            end
                         end
                     end
-                end
-            end)
+                end)
+            end
         end
     end)
 
@@ -1568,41 +1575,43 @@ return function(ctx)
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(math.max(States.gearShopLoopDelay or 0.5, 0.1))
-            if not States.autoBuyGear then continue end
-            pcall(function()
-                local items = ReplicatedStorage:FindFirstChild("StockValues")
-                    and ReplicatedStorage.StockValues:FindFirstChild("GearShop")
-                    and ReplicatedStorage.StockValues.GearShop:FindFirstChild("Items")
-                local targets = {}
-                if States.autoBuyGearAll then
-                    if not items then return end
-                    for _, stockVal in ipairs(items:GetChildren()) do
-                        if stockVal:IsA("NumberValue") then
-                            table.insert(targets, stockVal.Name)
+            if States.autoBuyGear then
+                pcall(function()
+                    local items = ReplicatedStorage:FindFirstChild("StockValues")
+                        and ReplicatedStorage.StockValues:FindFirstChild("GearShop")
+                        and ReplicatedStorage.StockValues.GearShop:FindFirstChild("Items")
+                    local targets = {}
+                    if States.autoBuyGearAll then
+                        if not items then return end
+                        for _, stockVal in ipairs(items:GetChildren()) do
+                            if stockVal:IsA("NumberValue") then
+                                table.insert(targets, stockVal.Name)
+                            end
                         end
-                    end
-                else
-                    targets = States.autoBuyGearTargets or {}
-                    if #targets == 0 then return end
-                end
-                for _, gearName in ipairs(targets) do
-                    if not States.autoBuyGear then return end
-                    local stock = GetGearStock(gearName)
-                    if stock > 0 then
-                        _notifiedEmptyGear[gearName] = false
-                        BuyGearPacket(gearName, 1)
-                        if States.notifyBuyGear then
-                            Notify("Auto Buy Gear", "\226\156\133 Beli: " .. gearName .. " (stok: " .. stock .. ")", Colors.Electric, 3)
-                        end
-                        task.wait(States.gearBuyDelay or 0.05)
                     else
-                        if States.notifyBuyGear and not _notifiedEmptyGear[gearName] then
-                            _notifiedEmptyGear[gearName] = true
-                            Notify("Auto Buy Gear", gearName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                        targets = States.autoBuyGearTargets or {}
+                        if #targets == 0 then return end
+                    end
+                    for _, gearName in ipairs(targets) do
+                        if States.autoBuyGear then
+                            local stock = GetGearStock(gearName)
+                            if stock > 0 then
+                                _notifiedEmptyGear[gearName] = false
+                                BuyGearPacket(gearName, 1)
+                                if States.notifyBuyGear then
+                                    Notify("Auto Buy Gear", "\226\156\133 Beli: " .. gearName .. " (stok: " .. stock .. ")", Colors.Electric, 3)
+                                end
+                                task.wait(States.gearBuyDelay or 0.05)
+                            else
+                                if States.notifyBuyGear and not _notifiedEmptyGear[gearName] then
+                                    _notifiedEmptyGear[gearName] = true
+                                    Notify("Auto Buy Gear", gearName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                end
+                            end
                         end
                     end
-                end
-            end)
+                end)
+            end
         end
     end)
 
@@ -1611,44 +1620,46 @@ return function(ctx)
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(math.max(States.crateShopLoopDelay or 0.5, 0.1))
-            if not States.autoBuyCrate then continue end
-            pcall(function()
-                local items = ReplicatedStorage:FindFirstChild("StockValues")
-                    and ReplicatedStorage.StockValues:FindFirstChild("CrateShop")
-                    and ReplicatedStorage.StockValues.CrateShop:FindFirstChild("Items")
-                local targets = {}
-                if States.autoBuyCrateAll then
-                    if not items then return end
-                    for _, stockVal in ipairs(items:GetChildren()) do
-                        if stockVal:IsA("NumberValue") then
-                            table.insert(targets, stockVal.Name)
+            if States.autoBuyCrate then
+                pcall(function()
+                    local items = ReplicatedStorage:FindFirstChild("StockValues")
+                        and ReplicatedStorage.StockValues:FindFirstChild("CrateShop")
+                        and ReplicatedStorage.StockValues.CrateShop:FindFirstChild("Items")
+                    local targets = {}
+                    if States.autoBuyCrateAll then
+                        if not items then return end
+                        for _, stockVal in ipairs(items:GetChildren()) do
+                            if stockVal:IsA("NumberValue") then
+                                table.insert(targets, stockVal.Name)
+                            end
                         end
-                    end
-                    if #targets == 0 then
-                        targets = CRATES
-                    end
-                else
-                    targets = States.autoBuyCrateTargets or {}
-                    if #targets == 0 then return end
-                end
-                for _, crateName in ipairs(targets) do
-                    if not States.autoBuyCrate then return end
-                    local stock = GetCrateStock(crateName)
-                    if stock > 0 then
-                        _notifiedEmptyCrate[crateName] = false
-                        BuyCratePacket(crateName, 1)
-                        if States.notifyBuyCrate then
-                            Notify("Auto Buy Crate", "\226\156\133 Beli: " .. crateName .. " (stok: " .. stock .. ")", Colors.Warning, 3)
+                        if #targets == 0 then
+                            targets = CRATES
                         end
-                        task.wait(States.crateBuyDelay or 0.05)
                     else
-                        if States.notifyBuyCrate and not _notifiedEmptyCrate[crateName] then
-                            _notifiedEmptyCrate[crateName] = true
-                            Notify("Auto Buy Crate", crateName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                        targets = States.autoBuyCrateTargets or {}
+                        if #targets == 0 then return end
+                    end
+                    for _, crateName in ipairs(targets) do
+                        if States.autoBuyCrate then
+                            local stock = GetCrateStock(crateName)
+                            if stock > 0 then
+                                _notifiedEmptyCrate[crateName] = false
+                                BuyCratePacket(crateName, 1)
+                                if States.notifyBuyCrate then
+                                    Notify("Auto Buy Crate", "\226\156\133 Beli: " .. crateName .. " (stok: " .. stock .. ")", Colors.Warning, 3)
+                                end
+                                task.wait(States.crateBuyDelay or 0.05)
+                            else
+                                if States.notifyBuyCrate and not _notifiedEmptyCrate[crateName] then
+                                    _notifiedEmptyCrate[crateName] = true
+                                    Notify("Auto Buy Crate", crateName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                end
+                            end
                         end
                     end
-                end
-            end)
+                end)
+            end
         end
     end)
 
@@ -2154,13 +2165,58 @@ return function(ctx)
 
     -- ====================== ESP SYSTEM ======================
     local espLabels = {}
+    local espStateSnapshot = {
+        espPlayers = nil,
+        espItems = nil,
+        espFruits = nil,
+        espMutations = nil,
+        showPlantAge = nil,
+        showFruitWeight = nil,
+    }
+
+    local function TrackESP(instance)
+        if instance then
+            table.insert(espLabels, instance)
+        end
+        return instance
+    end
+
     local function ClearESP()
-        for _, v in pairs(espLabels) do
+        for _, v in ipairs(espLabels) do
             if v and v.Parent then v:Destroy() end
         end
-        espLabels = {}
+        table.clear(espLabels)
+        espStateSnapshot = {
+            espPlayers = nil,
+            espItems = nil,
+            espFruits = nil,
+            espMutations = nil,
+            showPlantAge = nil,
+            showFruitWeight = nil,
+        }
     end
     Logic.ClearESP = ClearESP
+
+    local function GetModelRootPart(model)
+        if not model then return nil end
+        if model.PrimaryPart then return model.PrimaryPart end
+        local ok, pivot = pcall(function() return model:GetPivot() end)
+        if ok and pivot then
+            local root = model:FindFirstChild("HumanoidRootPart") or model:FindFirstChildWhichIsA("BasePart")
+            if root then return root end
+        end
+        return model:FindFirstChildWhichIsA("BasePart")
+    end
+
+    local function AttachESPMarker(parent, name)
+        if not parent then return nil end
+        local marker = parent:FindFirstChild(name)
+        if marker then return marker end
+        marker = Instance.new("ObjectValue")
+        marker.Name = name
+        marker.Parent = parent
+        return TrackESP(marker)
+    end
 
     local function MakeESPLabel(adornee, text, color)
         local billboard = Create("BillboardGui", {
@@ -2189,11 +2245,30 @@ return function(ctx)
             Font = Enum.Font.GothamBold,
             TextXAlignment = Enum.TextXAlignment.Center,
         })
-        table.insert(espLabels, billboard)
-        return billboard
+        return TrackESP(billboard)
     end
 
     RunService.Heartbeat:Connect(function()
+        local currentSnapshot = {
+            espPlayers = States.espPlayers,
+            espItems = States.espItems,
+            espFruits = States.espFruits,
+            espMutations = States.espMutations,
+            showPlantAge = States.showPlantAge,
+            showFruitWeight = States.showFruitWeight,
+        }
+        local snapshotChanged = false
+        for k, v in pairs(currentSnapshot) do
+            if espStateSnapshot[k] ~= v then
+                snapshotChanged = true
+                break
+            end
+        end
+        if snapshotChanged then
+            ClearESP()
+            espStateSnapshot = currentSnapshot
+        end
+
         if States.espPlayers then
             for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
                 if p ~= player and p.Character then
@@ -2201,14 +2276,8 @@ return function(ctx)
                     if rootPart and not rootPart:FindFirstChild("MiracleESP_Player") then
                         local bb = MakeESPLabel(rootPart, p.DisplayName .. "\n@" .. p.Name, Colors.Electric)
                         bb.Name = "MiracleESP_Player_" .. p.Name
-                        Create("ObjectValue", {Parent = rootPart, Name = "MiracleESP_Player"})
+                        AttachESPMarker(rootPart, "MiracleESP_Player")
                     end
-                end
-            end
-        else
-            for _, v in pairs(espLabels) do
-                if v and v.Name and v.Name:find("ESPPlayer") then
-                    v:Destroy()
                 end
             end
         end
@@ -2225,8 +2294,37 @@ return function(ctx)
                             local rarity = part:GetAttribute("Rarity") or "?"
                             local col = RarityColor and RarityColor[rarity] or Colors.Warning
                             MakeESPLabel(part, "\240\159\144\190 " .. rarity, col)
-                            Create("ObjectValue", {Parent = part, Name = "MiracleESP_WP"})
+                            AttachESPMarker(part, "MiracleESP_WP")
                         end
+                    end
+                end
+            end
+        end
+
+        if States.espFruits or States.showFruitWeight then
+            local myPlot = GetMyPlot()
+            if myPlot then
+                for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
+                    if not prompt:IsDescendantOf(myPlot) then continue end
+                    local fruitPart = prompt.Parent
+                    local fruit = fruitPart and fruitPart.Parent
+                    if not (fruit and fruit:IsA("Model")) then continue end
+
+                    local rootPart = GetModelRootPart(fruit)
+                    if rootPart and not rootPart:FindFirstChild("MiracleESP_Fruit") then
+                        local seedName = fruit:GetAttribute("SeedName") or fruit.Name or "Fruit"
+                        local weight = fruit:GetAttribute("Weight")
+                        local mut = GetMutation(fruit)
+                        local label = seedName
+                        if States.showFruitWeight and weight then
+                            label = label .. string.format(" %.2fkg", weight)
+                        end
+                        if States.espFruits and mut and mut ~= "" and mut ~= "None" then
+                            label = mut .. " " .. label
+                        end
+                        local color = mut and mut ~= "" and mut ~= "None" and ctx.UI.GetMutationColor(mut) or Colors.Warning
+                        MakeESPLabel(rootPart, label, color)
+                        AttachESPMarker(rootPart, "MiracleESP_Fruit")
                     end
                 end
             end
@@ -2238,11 +2336,11 @@ return function(ctx)
                 for _, plant in ipairs(plants:GetChildren()) do
                     local mut = GetMutation(plant)
                     if mut and mut ~= "" and mut ~= "None" then
-                        local rootPart = plant:FindFirstChildWhichIsA("BasePart")
+                        local rootPart = GetModelRootPart(plant)
                         if rootPart and not rootPart:FindFirstChild("MiracleESP_Mut") then
                             local sn = plant:GetAttribute("SeedName") or "Plant"
                             MakeESPLabel(rootPart, mut .. " " .. sn, ctx.UI.GetMutationColor(mut))
-                            Create("ObjectValue", {Parent = rootPart, Name = "MiracleESP_Mut"})
+                            AttachESPMarker(rootPart, "MiracleESP_Mut")
                         end
                     end
                 end
@@ -2256,11 +2354,11 @@ return function(ctx)
                     local age = plant:GetAttribute("Age")
                     local maxAge = plant:GetAttribute("MaxAge")
                     if age and maxAge then
-                        local rootPart = plant:FindFirstChildWhichIsA("BasePart")
+                        local rootPart = GetModelRootPart(plant)
                         if rootPart and not rootPart:FindFirstChild("MiracleESP_Age") then
                             local sn = plant:GetAttribute("SeedName") or "Plant"
                             MakeESPLabel(rootPart, sn .. " " .. age .. "/" .. maxAge, age >= maxAge and Colors.Success or Colors.TextMuted)
-                            Create("ObjectValue", {Parent = rootPart, Name = "MiracleESP_Age"})
+                            AttachESPMarker(rootPart, "MiracleESP_Age")
                         end
                     end
                 end
@@ -2268,13 +2366,38 @@ return function(ctx)
         end
 
         local lighting = game:GetService("Lighting")
+        if not Logic._lightingDefaults then
+            Logic._lightingDefaults = {
+                Brightness = lighting.Brightness,
+                Ambient = lighting.Ambient,
+                OutdoorAmbient = lighting.OutdoorAmbient,
+                FogStart = lighting.FogStart,
+                FogEnd = lighting.FogEnd,
+                GlobalShadows = lighting.GlobalShadows,
+            }
+        end
+        local defaults = Logic._lightingDefaults
         if States.fullBright then
             lighting.Brightness = States.brightness
             lighting.Ambient = Color3.fromRGB(255, 255, 255)
             lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+        else
+            lighting.Brightness = defaults.Brightness
+            lighting.Ambient = defaults.Ambient
+            lighting.OutdoorAmbient = defaults.OutdoorAmbient
         end
-        if States.noFog then lighting.FogEnd = 100000 lighting.FogStart = 100000 end
-        if States.noShadows then lighting.GlobalShadows = false end
+        if States.noFog then
+            lighting.FogEnd = 100000
+            lighting.FogStart = 100000
+        else
+            lighting.FogEnd = defaults.FogEnd
+            lighting.FogStart = defaults.FogStart
+        end
+        if States.noShadows then
+            lighting.GlobalShadows = false
+        else
+            lighting.GlobalShadows = defaults.GlobalShadows
+        end
         if States.lockWalkSpeed and humanoid then humanoid.WalkSpeed = States.walkSpeed end
         if States.lockJumpPower and humanoid then humanoid.JumpPower = States.jumpPower end
     end)
@@ -2315,27 +2438,34 @@ return function(ctx)
 
     -- Anti AFK
     local VirtualUser = game:GetService("VirtualUser")
+    local function TriggerAntiAfk()
+        pcall(function()
+            local cam = workspace.CurrentCamera
+            if VirtualUser.CaptureController then
+                VirtualUser:CaptureController()
+            end
+            if VirtualUser.Button2Down and VirtualUser.Button2Up and cam then
+                VirtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
+                task.wait(0.1)
+                VirtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
+            end
+            if mousemoverel then
+                mousemoverel(1, 0)
+                mousemoverel(-1, 0)
+            end
+        end)
+    end
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
-            task.wait(60)
+            task.wait(45)
             if States.antiAfk then
-                pcall(function()
-                    local cam = workspace.CurrentCamera
-                    VirtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
-                    task.wait(0.1)
-                    VirtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
-                end)
+                TriggerAntiAfk()
             end
         end
     end)
     player.Idled:Connect(function()
         if States.antiAfk then
-            pcall(function()
-                local cam = workspace.CurrentCamera
-                VirtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
-                task.wait(0.1)
-                VirtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
-            end)
+            TriggerAntiAfk()
         end
     end)
 
