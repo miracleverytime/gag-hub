@@ -6,13 +6,6 @@
 -- Reads from ctx: Colors, States, Data, UI.*, Logic.*, player, services,
 --   MY_PLOT_ID, MAX_FRUIT_CAP, MAX_EQUIPPED_PETS, GetActivePage, SESSION
 -- ======================================================================
-
-                            if part and part.Parent and IsWildPetFree(part) then
-                                if Logic.WaitForWildPetApproach then
-                                    Logic.WaitForWildPetApproach(part, 1.2, 10)
-                                end
-                                BuyWildPet(part)
-                            end
     local Colors            = ctx.Colors
     local States            = ctx.States
     local Data              = ctx.Data
@@ -146,7 +139,7 @@
                     if not seedEntry then break end
                     local ok = pcall(DoPlantFire, seedEntry.tool, seedEntry.name, hitPos)
                     if ok then
-                        planted += 1
+                        planted = planted + 1
                         plantedLog[seedEntry.name] = (plantedLog[seedEntry.name] or 0) + 1
                     end
                     task.wait(0.3)
@@ -177,22 +170,23 @@
             local counts = {}
             local total = 0
             for _, tool in ipairs(backpack:GetChildren()) do
-                if not tool:IsA("Tool") then continue end
-                local seedName = tool:GetAttribute("SeedTool")
-                if type(seedName) == "boolean" then seedName = tool.Name end
-                if type(seedName) ~= "string" or seedName == "" then
-                    seedName = tool:GetAttribute("SeedName")
-                end
-                if not seedName then
-                    for _, s in ipairs(SEEDS) do
-                        if tool.Name == s or tool.Name == s .. " Seed" then
-                            seedName = s break
+                if tool:IsA("Tool") then
+                    local seedName = tool:GetAttribute("SeedTool")
+                    if type(seedName) == "boolean" then seedName = tool.Name end
+                    if type(seedName) ~= "string" or seedName == "" then
+                        seedName = tool:GetAttribute("SeedName")
+                    end
+                    if not seedName then
+                        for _, s in ipairs(SEEDS) do
+                            if tool.Name == s or tool.Name == s .. " Seed" then
+                                seedName = s break
+                            end
                         end
                     end
-                end
-                if seedName then
-                    counts[seedName] = (counts[seedName] or 0) + 1
-                    total += 1
+                    if seedName then
+                        counts[seedName] = (counts[seedName] or 0) + 1
+                        total = total + 1
+                    end
                 end
             end
             if total == 0 then
@@ -270,17 +264,19 @@
             if not myPlot then Notify("Scan", "\226\157\140 Plot tidak ditemukan!", Colors.Error) return end
             local readyList, total = {}, 0
             for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
-                if not prompt:IsDescendantOf(myPlot) then continue end
-                local harvestPart = prompt.Parent
-                local fruit = harvestPart and harvestPart.Parent
-                if not (fruit and fruit:IsA("Model")) then continue end
-                total += 1
-                if prompt.Enabled and not prompt:GetAttribute("Collected") then
-                    local plant = fruit.Parent and fruit.Parent.Parent
-                    local sn = (plant and plant:GetAttribute("SeedName"))
-                        or fruit:GetAttribute("SeedName") or "?"
-                    local mut = fruit:GetAttribute("Mutation") or ""
-                    table.insert(readyList, sn .. (mut ~= "" and " ["..mut.."]" or ""))
+                if prompt:IsDescendantOf(myPlot) then
+                    local harvestPart = prompt.Parent
+                    local fruit = harvestPart and harvestPart.Parent
+                    if fruit and fruit:IsA("Model") then
+                        total = total + 1
+                        if prompt.Enabled and not prompt:GetAttribute("Collected") then
+                            local plant = fruit.Parent and fruit.Parent.Parent
+                            local sn = (plant and plant:GetAttribute("SeedName"))
+                                or fruit:GetAttribute("SeedName") or "?"
+                            local mut = fruit:GetAttribute("Mutation") or ""
+                            table.insert(readyList, sn .. (mut ~= "" and " ["..mut.."]" or ""))
+                        end
+                    end
                 end
             end
             local currentCount = player:GetAttribute("FruitCount") or 0
@@ -348,20 +344,22 @@
             task.spawn(function()
                 local watered = 0
                 for _, plant in ipairs(plants:GetChildren()) do
-                    if not plant:IsA("Model") then continue end
-                    local hitPos = GetPlantWaterPos(plant)
-                    if not hitPos then continue end
-                    if not IsToolEquipped(tool) then
-                        local t2, cn2 = AcquireWateringCan()
-                        if not t2 then break end
-                        tool, canName = t2, cn2
+                    if plant:IsA("Model") then
+                        local hitPos = GetPlantWaterPos(plant)
+                        if hitPos then
+                            if not IsToolEquipped(tool) then
+                                local t2, cn2 = AcquireWateringCan()
+                                if not t2 then break end
+                                tool, canName = t2, cn2
+                            end
+                            HopToNearPos(hitPos)
+                            pcall(function()
+                                Networking.WateringCan.UseWateringCan:Fire(hitPos, canName, tool)
+                            end)
+                            watered = watered + 1
+                            task.wait(math.max(States.perFruitDelay or 0.05, 0.05))
+                        end
                     end
-                    HopToNearPos(hitPos)
-                    pcall(function()
-                        Networking.WateringCan.UseWateringCan:Fire(hitPos, canName, tool)
-                    end)
-                    watered += 1
-                    task.wait(math.max(States.perFruitDelay or 0.05, 0.05))
                 end
                 Notify("Auto Water \226\156\133", "Siram " .. watered .. " tanaman di Plot " .. MY_PLOT_ID, Colors.Success)
             end)
@@ -422,7 +420,7 @@
                 for _, pos in ipairs(positions) do
                     pcall(function()
                         local success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
-                        if success then placed += 1 end
+                        if success then placed = placed + 1 end
                     end)
                     -- Re-acquire setelah tiap placement (tool di-consume server)
                     local t2, sn2 = AcquireSprinklerTool()
@@ -501,13 +499,13 @@
                     local plantsF = myPlot:FindFirstChild("Plants")
                     if plantsF then
                         for _, p in ipairs(plantsF:GetChildren()) do
-                            if p:IsA("Model") then total += 1 end
+                            if p:IsA("Model") then total = total + 1 end
                         end
                     end
                     for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
                         if prompt.Enabled and not prompt:GetAttribute("Collected")
                             and prompt:IsDescendantOf(myPlot) then
-                            readyFruits += 1
+                            readyFruits = readyFruits + 1
                         end
                     end
                     plantCntLbl.Text = tostring(total)
@@ -572,7 +570,7 @@
             for _, desc in ipairs(game:GetService("Workspace"):GetDescendants()) do
                 if desc:IsA("ProximityPrompt") and desc.Name == "PickUpPottedPlantPrompt" then
                     SafeFirePrompt(desc)
-                    picked += 1
+                    picked = picked + 1
                     task.wait(0.2)
                 end
             end
@@ -677,7 +675,7 @@
         local _predictTick = 0
         RunService.Heartbeat:Connect(function(dt)
             if GetActivePage() ~= "Shop" then return end
-            _predictTick += dt
+            _predictTick = _predictTick + dt
             if _predictTick < 0.5 then return end
             _predictTick = 0
             local data = GetRestockData()
@@ -694,7 +692,7 @@
             local available = 0
             if items then
                 for _, c in ipairs(items:GetChildren()) do
-                    if c:IsA("NumberValue") and c.Value > 0 then available += 1 end
+                    if c:IsA("NumberValue") and c.Value > 0 then available = available + 1 end
                 end
             end
             stockCountLbl.Text = available .. " seed ada stok"
@@ -776,7 +774,7 @@
                 local stock = GetCrateStock(crateName)
                 if stock > 0 then
                     BuyCratePacket(crateName, 1)
-                    bought += 1
+                    bought = bought + 1
                     task.wait(0.1)
                 end
             end
@@ -889,12 +887,21 @@
             if #fruits == 0 then Notify("Sell", "Tidak ada buah di backpack.", Colors.TextMuted) return end
             local sold, skipped = 0, 0
             for _, tool in ipairs(fruits) do
-                if ShouldKeepFruit(tool) then skipped += 1; continue end
-                local fruitId = tool:GetAttribute("Id")
-                if not fruitId then skipped += 1; continue end
-                local ok, result = pcall(function() return Networking.NPCS.SellFruit:Fire(fruitId) end)
-                if ok and result and result.Success then sold += 1
-                elseif result and result.Reason == "Favorited" then skipped += 1 end
+                if ShouldKeepFruit(tool) then
+                    skipped = skipped + 1
+                else
+                    local fruitId = tool:GetAttribute("Id")
+                    if not fruitId then
+                        skipped = skipped + 1
+                    else
+                        local ok, result = pcall(function() return Networking.NPCS.SellFruit:Fire(fruitId) end)
+                        if ok and result and result.Success then
+                            sold = sold + 1
+                        elseif result and result.Reason == "Favorited" then
+                            skipped = skipped + 1
+                        end
+                    end
+                end
                 task.wait(States.sellDelay or 0.1)
             end
             Notify("Sell Selective", "Sold " .. sold .. " buah, skip " .. skipped, Colors.Gold, 10)
@@ -908,14 +915,15 @@
         local _bagTick = 0
         RunService.Heartbeat:Connect(function(dt)
             if GetActivePage() ~= "Sell" then return end
-            _bagTick += dt
+            _bagTick = _bagTick + dt
             if _bagTick < 0.5 then return end
             _bagTick = 0
             local fruits, seeds, pets = 0, 0, 0
             for _, t in ipairs(player.Backpack:GetChildren()) do
-                if t:GetAttribute("HarvestedFruit") then fruits += 1
-                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds += 1
-                elseif t:GetAttribute("Pet") then pets += 1 end
+                if t:GetAttribute("HarvestedFruit") then fruits = fruits + 1
+                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds = seeds + 1
+                elseif t:GetAttribute("Pet") then pets = pets + 1
+                else g = g + 1 end
             end
             fruitLbl.Text = tostring(fruits)
             seedLbl.Text = tostring(seeds)
@@ -1073,8 +1081,9 @@
         task.spawn(function()
             while finderPageAlive and _G._MiracleHubSession == SESSION do
                 task.wait(2)
-                if not finderPageAlive or GetActivePage() ~= "Pets" then continue end
-                pcall(RebuildPetList)
+                if finderPageAlive and GetActivePage() == "Pets" then
+                    pcall(RebuildPetList)
+                end
             end
         end)
         local _finderConn
@@ -1141,7 +1150,7 @@
             hpLbl.Text = math.floor(ctx.humanoid.Health) .. " / " .. ctx.humanoid.MaxHealth
             wsLbl.Text = string.format("%.1f", ctx.humanoid.WalkSpeed)
             jpLbl.Text = string.format("%.1f", ctx.humanoid.JumpPower)
-            _playerTick += dt
+            _playerTick = _playerTick + dt
             if _playerTick < 0.5 then return end
             _playerTick = 0
             bpLbl.Text = tostring(#player.Backpack:GetChildren())
@@ -1325,10 +1334,10 @@
         CreateActionButton(worthContent, "Count Bag Contents", function()
             local f, s, p2, g = 0, 0, 0, 0
             for _, t in ipairs(player.Backpack:GetChildren()) do
-                if t:GetAttribute("HarvestedFruit") then f += 1
-                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then s += 1
-                elseif t:GetAttribute("Pet") then p2 += 1
-                else g += 1 end
+                if t:GetAttribute("HarvestedFruit") then f = f + 1
+                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then s = s + 1
+                elseif t:GetAttribute("Pet") then p2 = p2 + 1
+                else g = g + 1 end
             end
             Notify("Bag Contents", "Fruits:" .. f .. " | Seeds:" .. s .. " | Pets:" .. p2 .. " | Other:" .. g, Colors.Accent)
         end)
@@ -1440,7 +1449,7 @@
         local _serverTick = 0
         RunService.Heartbeat:Connect(function(dt)
             if GetActivePage() ~= "Server" then return end
-            _serverTick += dt
+            _serverTick = _serverTick + dt
             if _serverTick < 1 then return end
             _serverTick = 0
             pcLbl.Text = tostring(#game:GetService("Players"):GetPlayers())
@@ -1479,7 +1488,10 @@
             local targetRarity = States.serverScannerRarity or "Mythic"
             Notify("Server Scanner", "Mulai cari server dengan pet " .. targetRarity .. ".", Colors.Warning, 4)
             task.spawn(function()
-                local ok, result = Logic.HopUntilWildPetRarityFound and Logic.HopUntilWildPetRarityFound(targetRarity)
+                local ok, result = false, nil
+                if Logic.HopUntilWildPetRarityFound then
+                    ok, result = Logic.HopUntilWildPetRarityFound(targetRarity)
+                end
                 if ok and type(result) == "table" and result.found then
                     Notify("Server Scanner", targetRarity .. " pet sudah ada di server ini.", Colors.Success, 4)
                 elseif ok then
@@ -1492,7 +1504,10 @@
         end)
         CreateActionButton(scanContent, "Run Hunt Once", function()
             local targetRarity = States.serverScannerRarity or "Mythic"
-            local ok, result = Logic.HopUntilWildPetRarityFound and Logic.HopUntilWildPetRarityFound(targetRarity)
+            local ok, result = false, nil
+            if Logic.HopUntilWildPetRarityFound then
+                ok, result = Logic.HopUntilWildPetRarityFound(targetRarity)
+            end
             if ok and type(result) == "table" and result.found then
                 Notify("Server Scanner", targetRarity .. " pet sudah ada di server ini.", Colors.Success, 4)
             elseif ok then
@@ -1612,4 +1627,3 @@
 
     ctx.__pagesLoaded = true
     return ctx
-end
