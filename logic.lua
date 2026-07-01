@@ -981,10 +981,6 @@ return function(ctx)
         -- Dapatkan radius sprinkler yang akan dipakai
         local radius = GetSprinklerRadius(sprinklerName or "Common Sprinkler")
 
-        -- Posisi semua tanaman di plot
-        local plantPositions = GetPlantPositions()
-        if #plantPositions == 0 then return {} end
-
         -- Sprinkler yang sudah terpasang
         local existingSprinklers = GetExistingSprinklers(myPlot)
 
@@ -1000,8 +996,21 @@ return function(ctx)
             end
         end
 
-        -- Greedy coverage
-        local positions = GreedySprinklerCover(candidates, plantPositions, radius, existingSprinklers)
+        -- Posisi semua tanaman di plot. Kalau belum ada tanaman sama sekali,
+        -- tetap pasang sprinkler berdasarkan grid PlantArea (pre-place),
+        -- bukan berhenti total seperti sebelumnya.
+        local plantPositions = GetPlantPositions()
+        local positions
+        if #plantPositions == 0 then
+            positions = {}
+            for _, cand in ipairs(candidates) do
+                if not IsPointCovered(Vector2.new(cand.X, cand.Z), existingSprinklers) then
+                    table.insert(positions, cand)
+                end
+            end
+        else
+            positions = GreedySprinklerCover(candidates, plantPositions, radius, existingSprinklers)
+        end
 
         -- Trim ke maxCount
         if maxCount and #positions > maxCount then
@@ -1127,12 +1136,12 @@ return function(ctx)
                 end)
                 fired = ok
             end
-            if not fired and PacketRemote then
-                local ok = pcall(function()
-                    PacketRemote:FireServer(126, point, sprinklerName, tool, plotId)
-                end)
-                fired = ok
-            end
+            -- NOTE: no PacketRemote fallback here — packet ID 126 is EquipGear
+            -- (see Data.PACKET in core.lua), not sprinkler placement. There is
+            -- no confirmed legacy packet ID for PlaceSprinkler, so firing 126
+            -- would silently misfire EquipGear instead of placing a sprinkler.
+            -- Networking.Place.PlaceSprinkler is the correct, always-available
+            -- transport (required directly in core.lua), so this is safe.
             return fired
         end
 
@@ -1179,6 +1188,12 @@ return function(ctx)
 
                         local positions = GetSprinklerPlacePositions(20, sprinklerName)
                         if #positions == 0 then
+                            local plantAreas = GetMyPlantAreas()
+                            if #plantAreas == 0 then
+                                Notify("Auto Sprinkler", "\226\154\160 PlantArea tidak ditemukan di Plot " .. MY_PLOT_ID, Colors.Warning, 3)
+                            end
+                            -- Kalau plantAreas ada tapi positions kosong, berarti plot
+                            -- sudah full-covered sprinkler — tidak perlu notif tiap cycle.
                             _sprinklerCooldown = os.clock() + 15
                             return
                         end
