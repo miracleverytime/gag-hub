@@ -6,6 +6,8 @@
 -- Reads from ctx: Colors, States, Data, UI.*, Logic.*, player, services,
 --   MY_PLOT_ID, MAX_FRUIT_CAP, MAX_EQUIPPED_PETS, GetActivePage, SESSION
 -- ======================================================================
+
+return function(ctx)
     local Colors            = ctx.Colors
     local States            = ctx.States
     local Data              = ctx.Data
@@ -918,7 +920,7 @@
             _bagTick = _bagTick + dt
             if _bagTick < 0.5 then return end
             _bagTick = 0
-            local fruits, seeds, pets = 0, 0, 0
+            local fruits, seeds, pets, g = 0, 0, 0, 0
             for _, t in ipairs(player.Backpack:GetChildren()) do
                 if t:GetAttribute("HarvestedFruit") then fruits = fruits + 1
                 elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds = seeds + 1
@@ -1627,3 +1629,4 @@
 
     ctx.__pagesLoaded = true
     return ctx
+end
