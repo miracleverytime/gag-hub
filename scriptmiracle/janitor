@@ -1,0 +1,294 @@
+-- https://lua.expert/
+local Heartbeat = game:GetService("RunService").Heartbeat
+local v1 = newproxy(true)
+
+getmetatable(v1).__tostring = function() --[[ Line: 11 ]]
+	return "IndicesReference"
+end
+
+local v2 = newproxy(true)
+
+getmetatable(v2).__tostring = function() --[[ Line: 16 ]]
+	return "LinkToInstanceIndex"
+end
+
+local t = {
+	ClassName = "Janitor",
+	__index = {
+		CurrentlyCleaning = true,
+		[v1] = nil
+	}
+}
+local t2 = {
+	["function"] = true,
+	RBXScriptConnection = "Disconnect"
+}
+
+function t.new() --[[ new | Line: 40 | Upvalues: v1 (copy), t (copy) ]]
+	return setmetatable({
+		CurrentlyCleaning = false,
+		[v1] = nil
+	}, t)
+end
+function t.Is(p1) --[[ Is | Line: 52 | Upvalues: t (copy) ]]
+	return if type(p1) == "table" then getmetatable(p1) == t else false
+end
+t.is = t.Is
+
+local function Add(p1, p2, p3, p4) --[[ Add | Line: 65 | Upvalues: v1 (copy), t2 (copy) ]]
+	if p4 == nil then
+		p4 = newproxy(false)
+	end
+
+	if p4 then
+		p1:Remove(p4)
+
+		local v2 = p1[v1]
+
+		if not v2 then
+			v2 = {}
+			p1[v1] = v2
+		end
+
+		v2[p4] = p2
+	end
+
+	local v3 = if p3 then p3 else t2[typeof(p2)] or "Destroy"
+
+	if type(p2) ~= "function" then
+		local _ = p2[v3]
+	end
+
+	p1[p2] = v3
+
+	return p2, p4
+end
+
+t.__index.Add = Add
+t.__index.Give = t.__index.Add
+
+local function AddObject(p1, p2) --[[ AddObject | Line: 130 ]]
+	local v1 = newproxy(false)
+
+	return p1:Add(p2, false, v1), v1
+end
+
+t.__index.AddObject = AddObject
+t.__index.GiveObject = t.__index.AddObject
+
+local function Remove(p1, p2) --[[ Remove | Line: 154 | Upvalues: v1 (copy) ]]
+	local v12 = p1[v1]
+
+	if v12 then
+		local v2 = v12[p2]
+
+		if v2 then
+			local v3 = p1[v2]
+
+			if v3 then
+				if v3 == true then
+					v2()
+				else
+					local v4 = v2[v3]
+
+					if v4 then
+						v4(v2)
+					end
+				end
+
+				p1[v2] = nil
+			end
+
+			v12[p2] = nil
+		end
+	end
+
+	return p1
+end
+
+t.__index.Remove = Remove
+
+local function Get(p1, p2) --[[ Get | Line: 188 | Upvalues: v1 (copy) ]]
+	local v12 = p1[v1]
+
+	if v12 then
+		return v12[p2]
+	end
+end
+
+t.__index.Get = Get
+
+local function Cleanup(p1) --[[ Cleanup | Line: 199 | Upvalues: v1 (copy) ]]
+	if p1.CurrentlyCleaning then
+		return
+	end
+
+	p1.CurrentlyCleaning = nil
+
+	for v12, v2 in next, p1 do
+		if v12 ~= v1 then
+			local v3 = type(v12)
+
+			if v3 == "string" or v3 == "number" then
+				p1[v12] = nil
+
+				continue
+			end
+
+			if v2 == true then
+				v12()
+			else
+				local v4 = v12[v2]
+
+				if v4 then
+					v4(v12)
+				end
+			end
+
+			p1[v12] = nil
+		end
+	end
+
+	local v5 = p1[v1]
+
+	if v5 then
+		for v6 in next, v5 do
+			v5[v6] = nil
+		end
+
+		p1[v1] = {}
+	end
+
+	p1.CurrentlyCleaning = false
+end
+
+t.__index.Cleanup = Cleanup
+t.__index.Clean = t.__index.Cleanup
+
+local function Destroy(p1) --[[ Destroy | Line: 245 ]]
+	p1:Cleanup()
+end
+
+t.__index.Destroy = Destroy
+t.__call = t.__index.Cleanup
+
+local t3 = {
+	Connected = true
+}
+
+t3.__index = t3
+function t3.Disconnect(p1) --[[ Disconnect | Line: 259 ]]
+	if not p1.Connected then
+		return
+	end
+
+	p1.Connected = false
+	p1.Connection:Disconnect()
+end
+function t3.__tostring(p1) --[[ __tostring | Line: 266 ]]
+	return "Disconnect<" .. tostring(p1.Connected) .. ">"
+end
+
+local function LinkToInstance(p1, p2, p3) --[[ LinkToInstance | Line: 276 | Upvalues: v2 (copy), t3 (copy), Heartbeat (copy) ]]
+	local v1 = nil
+	local v22 = p3 and newproxy(false) or v2
+	local v3 = if p2.Parent == nil then true else false
+	local v5 = setmetatable({}, t3)
+
+	local function ChangedFunction(p12, p2) --[[ ChangedFunction | Line: 282 | Upvalues: v5 (copy), v3 (ref), Heartbeat (ref), v1 (ref), p1 (copy) ]]
+		if not v5.Connected then
+			return
+		end
+
+		v3 = p2 == nil
+
+		if not v3 then
+			return
+		end
+
+		coroutine.wrap(function() --[[ Line: 288 | Upvalues: Heartbeat (ref), v5 (ref), v1 (ref), p1 (ref), v3 (ref) ]]
+			Heartbeat:Wait()
+
+			if not v5.Connected then
+				return
+			end
+
+			if not v1.Connected then
+				p1:Cleanup()
+
+				return
+			end
+
+			while v3 and (v1.Connected and v5.Connected) do
+				Heartbeat:Wait()
+			end
+
+			if not (v5.Connected and v3) then
+				return
+			end
+
+			p1:Cleanup()
+		end)()
+	end
+
+	v1 = p2.AncestryChanged:Connect(ChangedFunction)
+	v5.Connection = v1
+
+	if v3 then
+		local v6 = p2.Parent
+
+		if v5.Connected then
+			v3 = if v6 == nil then true else false
+
+			if v3 then
+				coroutine.wrap(function() --[[ Line: 288 | Upvalues: Heartbeat (ref), v5 (copy), v1 (ref), p1 (copy), v3 (ref) ]]
+					Heartbeat:Wait()
+
+					if not v5.Connected then
+						return
+					end
+
+					if not v1.Connected then
+						p1:Cleanup()
+
+						return
+					end
+
+					while v3 and (v1.Connected and v5.Connected) do
+						Heartbeat:Wait()
+					end
+
+					if not (v5.Connected and v3) then
+						return
+					end
+
+					p1:Cleanup()
+				end)()
+			end
+		end
+	end
+
+	return p1:Add(v5, "Disconnect", v22)
+end
+
+t.__index.LinkToInstance = LinkToInstance
+
+local function LinkToInstances(p1, ...) --[[ LinkToInstances | Line: 324 | Upvalues: t (copy) ]]
+	local v1 = t.new()
+
+	for i, v in ipairs({ ... }) do
+		v1:Add(p1:LinkToInstance(v, true), "Disconnect")
+	end
+
+	return v1
+end
+
+t.__index.LinkToInstances = LinkToInstances
+
+for v3, v4 in next, t.__index do
+	local v5 = string.lower(v3)
+
+	t.__index[string.sub(v5, 1, 1) .. string.sub(v3, 2)] = v4
+end
+
+return t

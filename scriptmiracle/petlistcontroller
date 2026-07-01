@@ -1,0 +1,837 @@
+-- https://lua.expert/
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Networking = require(ReplicatedStorage.SharedModules.Networking)
+local PetData = require(ReplicatedStorage.SharedData.PetData)
+local PetTypes = require(ReplicatedStorage.SharedData.PetTypes)
+local PetSlotPrices = require(ReplicatedStorage.SharedData.PetSlotPrices)
+local AnimatedGradient = require(ReplicatedStorage.SharedModules.AnimatedGradient)
+local Gradients = ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("RarityData"):WaitForChild("Gradients")
+local LocalPlayer = Players.LocalPlayer
+local GuiController = require(LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("Controllers"):WaitForChild("GuiController"))
+local t = {
+	Common = Color3.fromRGB(180, 180, 180),
+	Uncommon = Color3.fromRGB(60, 200, 70),
+	Rare = Color3.fromRGB(60, 130, 255),
+	Epic = Color3.fromRGB(160, 60, 220),
+	Legendary = Color3.fromRGB(255, 215, 0),
+	Mythic = Color3.fromRGB(220, 40, 40)
+}
+local v1 = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+	ColorSequenceKeypoint.new(0.16, Color3.fromRGB(255, 165, 0)),
+	ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 255, 0)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 200, 0)),
+	ColorSequenceKeypoint.new(0.66, Color3.fromRGB(0, 100, 255)),
+	ColorSequenceKeypoint.new(0.83, Color3.fromRGB(140, 0, 200)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 200))
+})
+local v2 = ColorSequence.new({ ColorSequenceKeypoint.new(0, Color3.new(0/255, 0/255, 0/255)), ColorSequenceKeypoint.new(1, Color3.new(255/255, 255/255, 255/255)) })
+local Common = t.Common
+local t2 = {
+	StartOrder = 4
+}
+local v3 = nil
+local v4 = nil
+local v5 = nil
+local v6 = nil
+local t3 = {}
+local t4 = {}
+
+local function refreshScreenGuiEnabled() --[[ refreshScreenGuiEnabled | Line: 104 | Upvalues: v5 (ref), t4 (copy), t3 (copy) ]]
+	if not v5 then
+		return
+	end
+
+	v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+end
+
+local t5 = {}
+local v7 = 0
+
+local function refreshHeader() --[[ refreshHeader | Line: 119 | Upvalues: t5 (copy), LocalPlayer (copy), PetSlotPrices (copy), v7 (ref) ]]
+	if #t5 == 0 then
+		return
+	end
+
+	local v1 = LocalPlayer:GetAttribute("MaxEquippedPets")
+	local v3 = ("%*/%* Active"):format(v7, type(v1) == "number" and v1 > 0 and math.floor(v1) or PetSlotPrices.BaseMax)
+
+	for v4, v5 in t5 do
+		v5.Text = v3
+	end
+end
+
+local function recountEquipped() --[[ recountEquipped | Line: 129 | Upvalues: t4 (copy), v7 (ref), t5 (copy), LocalPlayer (copy), PetSlotPrices (copy) ]]
+	local count = 0
+
+	for v1 in t4 do
+		count = count + 1
+	end
+
+	v7 = count
+
+	if #t5 == 0 then
+		return
+	end
+
+	local v2 = LocalPlayer:GetAttribute("MaxEquippedPets")
+	local v4 = ("%*/%* Active"):format(count, type(v2) == "number" and v2 > 0 and math.floor(v2) or PetSlotPrices.BaseMax)
+
+	for v5, v6 in t5 do
+		v6.Text = v4
+	end
+end
+
+local function applyRarityToLabel(p1, p2) --[[ applyRarityToLabel | Line: 138 | Upvalues: t (copy), v1 (copy), v2 (copy), Common (copy) ]]
+	local v12 = t[p2]
+
+	if v12 then
+		p1.TextColor3 = v12
+
+		return
+	end
+
+	if p2 ~= "Super" and p2 ~= "Secret" then
+		p1.TextColor3 = Common
+
+		return
+	end
+
+	p1.TextColor3 = Color3.new(255/255, 255/255, 255/255)
+
+	for v22, v3 in p1:GetChildren() do
+		if v3:IsA("UIGradient") then
+			v3:Destroy()
+		end
+	end
+
+	local UIGradient = Instance.new("UIGradient")
+
+	UIGradient.Color = if p2 == "Super" then v1 else v2
+	UIGradient.Parent = p1
+end
+
+local function applyRarityToBothLabels(p1, p2) --[[ applyRarityToBothLabels | Line: 173 | Upvalues: applyRarityToLabel (copy) ]]
+	if p1:IsA("TextLabel") and not (if p2 == "Super" then true elseif p2 == "Secret" then true else false) then
+		applyRarityToLabel(p1, p2)
+	end
+
+	for v2, v3 in p1:GetChildren() do
+		if v3:IsA("TextLabel") then
+			applyRarityToLabel(v3, p2)
+		end
+	end
+end
+
+local function applyRainbowToLabel(p1) --[[ applyRainbowToLabel | Line: 187 | Upvalues: AnimatedGradient (copy), v1 (copy) ]]
+	p1.TextColor3 = Color3.new(255/255, 255/255, 255/255)
+
+	for v12, v2 in p1:GetChildren() do
+		if v2:IsA("UIGradient") then
+			AnimatedGradient:Remove(v2)
+			v2:Destroy()
+		end
+	end
+
+	local UIGradient = Instance.new("UIGradient")
+
+	UIGradient.Color = v1
+	UIGradient.Parent = p1
+	AnimatedGradient:Add(UIGradient)
+end
+
+local function applyRainbowToBothLabels(p1) --[[ applyRainbowToBothLabels | Line: 205 | Upvalues: applyRainbowToLabel (copy) ]]
+	for v1, v2 in p1:GetChildren() do
+		if v2:IsA("TextLabel") then
+			applyRainbowToLabel(v2)
+		end
+	end
+end
+
+local function setLabelText(p1, p2) --[[ setLabelText | Line: 213 ]]
+	if p1:IsA("TextLabel") then
+		p1.Text = p2
+	end
+
+	for v1, v2 in p1:GetChildren() do
+		if v2:IsA("TextLabel") then
+			v2.Text = p2
+		end
+	end
+end
+
+local function showPetInfo(p1, p2, p3) --[[ showPetInfo | Line: 238 | Upvalues: v6 (ref), PetData (copy), GuiController (copy), PetTypes (copy), AnimatedGradient (copy), Gradients (copy), v1 (copy) ]]
+	if not v6 then
+		return
+	end
+
+	local v2 = PetData.GetImage(p1, p2)
+	local v3 = (PetData[p1] or {}).Rarity or "Common"
+	local v4 = PetData.GetDescription(p1, p2, p3)
+	local MainFrame = v6:FindFirstChild("MainFrame")
+	local v5 = if MainFrame then MainFrame:FindFirstChild("Content") else MainFrame
+	local v62 = if v5 then v5:FindFirstChild("Info") else v5
+
+	if v62 then
+		local ImageDisplay = v62:FindFirstChild("ImageDisplay")
+		local v7 = if ImageDisplay then ImageDisplay:FindFirstChild("PetImage") else ImageDisplay
+
+		if v7 and v7:IsA("ImageLabel") then
+			v7.Image = v2
+
+			if p3 == PetTypes.Rainbow then
+				AnimatedGradient:AddRainbowColor(v7, "ImageColor3")
+			else
+				AnimatedGradient:Remove(v7)
+			end
+		end
+
+		local v8 = PetData.GetDisplayName(p1, p2)
+		local PetName = v62:FindFirstChild("PetName")
+
+		if PetName and PetName:IsA("TextLabel") then
+			PetName.Text = v8
+
+			local TextLabel = PetName:FindFirstChild("TextLabel")
+
+			if TextLabel and TextLabel:IsA("TextLabel") then
+				TextLabel.Text = v8
+			end
+		end
+
+		local Description = v62:FindFirstChild("Description")
+
+		if Description and Description:IsA("TextLabel") then
+			Description.Text = v4
+		end
+
+		local Rarity = v62:FindFirstChild("Rarity")
+
+		if Rarity then
+			for v9, v10 in Rarity:GetChildren() do
+				if v10:IsA("UIGradient") then
+					v10:Destroy()
+				end
+			end
+
+			local v11 = Gradients:FindFirstChild(v3)
+
+			if v11 then
+				v11:Clone().Parent = Rarity
+			end
+
+			local Rarity_Text = Rarity:FindFirstChild("Rarity_Text")
+
+			if Rarity_Text and Rarity_Text:IsA("TextLabel") then
+				Rarity_Text.Text = v3
+
+				local TextLabel = Rarity_Text:FindFirstChild("TextLabel")
+
+				if TextLabel and TextLabel:IsA("TextLabel") then
+					TextLabel.Text = v3
+				end
+			end
+		end
+
+		local PetType = v62:FindFirstChild("PetType")
+
+		if PetType and PetType:IsA("Frame") then
+			local v122 = PetTypes.GetDisplayText(p3)
+			local UIGradient = PetType:FindFirstChildOfClass("UIGradient")
+
+			if v122 then
+				PetType.Visible = true
+
+				local PetType_Text = PetType:FindFirstChild("PetType_Text")
+
+				if PetType_Text and PetType_Text:IsA("TextLabel") then
+					PetType_Text.Text = v122
+
+					local TextLabel = PetType_Text:FindFirstChild("TextLabel")
+
+					if TextLabel and TextLabel:IsA("TextLabel") then
+						TextLabel.Text = v122
+					end
+				end
+
+				if UIGradient then
+					UIGradient.Color = v1
+					AnimatedGradient:Add(UIGradient)
+				end
+			else
+				PetType.Visible = false
+
+				if UIGradient then
+					AnimatedGradient:Remove(UIGradient)
+				end
+			end
+		end
+	end
+
+	GuiController:Open("PetInfo")
+end
+
+function t2.ShowPetInfo(p1, p2, p3, p4) --[[ ShowPetInfo | Line: 352 | Upvalues: showPetInfo (copy) ]]
+	showPetInfo(p2, p3, p4)
+end
+
+local function destroyClone(p1) --[[ destroyClone | Line: 356 | Upvalues: t4 (copy), v7 (ref), t5 (copy), LocalPlayer (copy), PetSlotPrices (copy), v5 (ref), t3 (copy) ]]
+	local v1 = t4[p1]
+
+	if not v1 then
+		return
+	end
+
+	t4[p1] = nil
+	v1:Destroy()
+
+	local count = 0
+
+	for v2 in t4 do
+		count = count + 1
+	end
+
+	v7 = count
+
+	if #t5 ~= 0 then
+		local v3 = LocalPlayer:GetAttribute("MaxEquippedPets")
+		local v52 = ("%*/%* Active"):format(count, type(v3) == "number" and v3 > 0 and math.floor(v3) or PetSlotPrices.BaseMax)
+
+		for v6, v72 in t5 do
+			v72.Text = v52
+		end
+	end
+
+	if not v5 then
+		return
+	end
+
+	v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+end
+
+local function buildClone(p1) --[[ buildClone | Line: 366 | Upvalues: v3 (ref), v4 (ref), t4 (copy), PetData (copy), PetTypes (copy), AnimatedGradient (copy), setLabelText (copy), applyRainbowToBothLabels (copy), applyRarityToBothLabels (copy), v7 (ref), t5 (copy), LocalPlayer (copy), PetSlotPrices (copy), v5 (ref), t3 (copy), Networking (copy), showPetInfo (copy) ]]
+	if not (v3 and v4) then
+		return
+	end
+
+	if t4[p1.Id] then
+		return
+	end
+
+	local v2 = PetData.GetImage(p1.Name, p1.Size)
+	local v32 = (PetData[p1.Name] or {}).Rarity or "Common"
+	local v42 = v3:Clone()
+
+	v42.Name = ("PetEntry_%*"):format(p1.Id)
+	v42.Visible = true
+
+	local Main_Frame = v42:FindFirstChild("Main_Frame")
+
+	if not Main_Frame then
+		v42:Destroy()
+
+		return
+	end
+
+	local isRainbow = p1.Type == PetTypes.Rainbow
+	local PetImage = Main_Frame:FindFirstChild("PetImage")
+
+	if PetImage and PetImage:IsA("ImageLabel") then
+		PetImage.Image = v2
+
+		if isRainbow then
+			AnimatedGradient:AddRainbowColor(PetImage, "ImageColor3")
+		end
+	end
+
+	local TextLabel = Main_Frame:FindFirstChild("TextLabel")
+
+	if TextLabel then
+		setLabelText(TextLabel, PetData.GetDisplayName(p1.Name, p1.Size))
+
+		if isRainbow then
+			applyRainbowToBothLabels(TextLabel)
+		else
+			applyRarityToBothLabels(TextLabel, v32)
+		end
+	end
+
+	local Unequip = Main_Frame:FindFirstChild("Unequip")
+
+	if Unequip and Unequip:IsA("GuiButton") then
+		Unequip.Activated:Connect(function() --[[ Line: 409 | Upvalues: p1 (copy), t4 (ref), v7 (ref), t5 (ref), LocalPlayer (ref), PetSlotPrices (ref), v5 (ref), t3 (ref), Networking (ref) ]]
+			local Id = p1.Id
+			local v1 = t4[Id]
+
+			if v1 then
+				t4[Id] = nil
+				v1:Destroy()
+
+				local count = 0
+
+				for v2 in t4 do
+					count = count + 1
+				end
+
+				v7 = count
+
+				if #t5 ~= 0 then
+					local v3 = LocalPlayer:GetAttribute("MaxEquippedPets")
+					local v52 = ("%*/%* Active"):format(count, type(v3) == "number" and v3 > 0 and math.floor(v3) or PetSlotPrices.BaseMax)
+
+					for v6, v72 in t5 do
+						v72.Text = v52
+					end
+				end
+
+				if v5 then
+					v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+				end
+			end
+
+			Networking.Pets.RequestUnequip:Fire(p1.Id)
+		end)
+	end
+
+	local InfoFrame = Main_Frame:FindFirstChild("InfoFrame")
+	local v52 = if InfoFrame then InfoFrame:FindFirstChild("InfoButton") else InfoFrame
+
+	if v52 and v52:IsA("GuiButton") then
+		v52.Activated:Connect(function() --[[ Line: 425 | Upvalues: showPetInfo (ref), p1 (copy) ]]
+			showPetInfo(p1.Name, p1.Size, p1.Type)
+		end)
+	end
+
+	v42.Parent = v4
+	t4[p1.Id] = v42
+
+	local count = 0
+
+	for v6 in t4 do
+		count = count + 1
+	end
+
+	v7 = count
+
+	if #t5 ~= 0 then
+		local v72 = LocalPlayer:GetAttribute("MaxEquippedPets")
+		local v9 = ("%*/%* Active"):format(v7, type(v72) == "number" and v72 > 0 and math.floor(v72) or PetSlotPrices.BaseMax)
+
+		for v10, v11 in t5 do
+			v11.Text = v9
+		end
+	end
+
+	if not v5 then
+		return
+	end
+
+	v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+end
+
+local function rebuildAllFromList(p1) --[[ rebuildAllFromList | Line: 436 | Upvalues: t4 (copy), v7 (ref), t5 (copy), LocalPlayer (copy), PetSlotPrices (copy), v5 (ref), t3 (copy), buildClone (copy) ]]
+	for v1 in t4 do
+		local v2 = t4[v1]
+
+		if v2 then
+			t4[v1] = nil
+			v2:Destroy()
+
+			local count = 0
+
+			for v3 in t4 do
+				count = count + 1
+			end
+
+			v7 = count
+
+			if #t5 ~= 0 then
+				local v4 = LocalPlayer:GetAttribute("MaxEquippedPets")
+				local v6 = ("%*/%* Active"):format(count, type(v4) == "number" and v4 > 0 and math.floor(v4) or PetSlotPrices.BaseMax)
+
+				for v72, v8 in t5 do
+					v8.Text = v6
+				end
+			end
+
+			if v5 then
+				v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+			end
+		end
+	end
+
+	if type(p1) ~= "table" then
+		return
+	end
+
+	for v10, v11 in p1 do
+		if type(v11) == "table" and type(v11.Id) == "string" then
+			buildClone(v11)
+		end
+	end
+end
+
+function t2.Start(p1) --[[ Start | Line: 451 | Upvalues: LocalPlayer (copy), v5 (ref), v6 (ref), GuiController (copy), v4 (ref), v3 (ref), t5 (copy), PetSlotPrices (copy), Networking (copy), v7 (ref), buildClone (copy), t4 (copy), t3 (copy), rebuildAllFromList (copy) ]]
+	local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+	local PetList = PlayerGui:WaitForChild("PetList", 30)
+
+	if not PetList then
+		return
+	end
+
+	if PetList:IsA("ScreenGui") then
+		v5 = PetList
+		PetList.Enabled = false
+	end
+
+	local PetInfo = PlayerGui:WaitForChild("PetInfo", 10)
+
+	if PetInfo and PetInfo:IsA("ScreenGui") then
+		v6 = PetInfo
+		PetInfo.Enabled = false
+
+		local MainFrame = PetInfo:FindFirstChild("MainFrame")
+		local v1 = if MainFrame then MainFrame:FindFirstChild("Header") else MainFrame
+		local v2 = if v1 then v1:FindFirstChild("ExitButton") else v1
+
+		if v2 and v2:IsA("GuiButton") then
+			v2.Activated:Connect(function() --[[ Line: 482 | Upvalues: GuiController (ref) ]]
+				GuiController:Close()
+			end)
+		end
+	end
+
+	local Frame = PetList:WaitForChild("Frame", 10)
+	local v32 = if Frame then Frame:WaitForChild("Notepad", 10) else Frame
+	local v42 = if v32 then v32:WaitForChild("ScrollingFrame", 10) else v32
+	local v52 = if v42 then v42:WaitForChild("Template", 10) else v42
+
+	if not (Frame and (v32 and (v42 and v52))) then
+		return
+	end
+
+	if not v52:IsA("GuiObject") then
+		return
+	end
+
+	v4 = v42
+	v3 = v52
+	v52.Visible = false
+
+	local Header = Frame:FindFirstChild("Header")
+	local v62 = if Header then Header:FindFirstChild("TextLabel") else Header
+
+	if v62 and v62:IsA("TextLabel") then
+		table.insert(t5, v62)
+
+		for v8, v9 in v62:GetChildren() do
+			if v9:IsA("TextLabel") then
+				table.insert(t5, v9)
+			end
+		end
+	end
+
+	local t = {}
+
+	local function getMaxSlots() --[[ getMaxSlots | Line: 521 | Upvalues: LocalPlayer (ref), PetSlotPrices (ref) ]]
+		local v1 = LocalPlayer:GetAttribute("MaxEquippedPets")
+
+		if type(v1) == "number" and v1 > 0 then
+			return math.floor(v1)
+		end
+
+		return PetSlotPrices.BaseMax
+	end
+
+	local function refreshPriceLabels() --[[ refreshPriceLabels | Line: 527 | Upvalues: LocalPlayer (ref), PetSlotPrices (ref), t (copy) ]]
+		local v1 = LocalPlayer:GetAttribute("MaxEquippedPets")
+		local v4 = PetSlotPrices.GetNextPrice(if type(v1) == "number" and v1 > 0 then math.floor(v1) else PetSlotPrices.BaseMax)
+		local v5 = if v4 then PetSlotPrices.AbbreviatePrice(v4) else "MAX"
+
+		if v5 == "MAX" then
+			for v6, v7 in t do
+				v7.Text = "MAX SLOTS"
+			end
+		else
+			for v8, v9 in t do
+				v9.Text = "+1 MAX [" .. tostring(v5) .. "\194\162]"
+			end
+		end
+	end
+
+	local v11 = Frame:FindFirstChild("MaxSlot", true) or Frame:FindFirstChild("HeaderMaxSlot", true) or PetList:FindFirstChild("MaxSlot", true) or PetList:FindFirstChild("HeaderMaxSlot", true)
+	local v12 = nil
+
+	if v11 and v11:IsA("GuiButton") then
+		v12 = v11
+	elseif v11 then
+		for v13, v14 in v11:GetDescendants() do
+			if v14:IsA("GuiButton") then
+				v12 = v14
+
+				break
+			end
+		end
+	end
+
+	if v11 then
+		local Purchase = v11:FindFirstChild("Purchase")
+
+		if Purchase then
+			for v15, v16 in Purchase:GetDescendants() do
+				if v16:IsA("TextLabel") then
+					table.insert(t, v16)
+				end
+			end
+		end
+
+		if v12 then
+			v12.Activated:Connect(function() --[[ Line: 595 | Upvalues: Networking (ref) ]]
+				Networking.Pets.RequestPurchasePetSlot:Fire()
+			end)
+		end
+	end
+
+	LocalPlayer:GetAttributeChangedSignal("MaxEquippedPets"):Connect(function() --[[ Line: 602 | Upvalues: t5 (ref), LocalPlayer (ref), PetSlotPrices (ref), v7 (ref), refreshPriceLabels (copy) ]]
+		if #t5 ~= 0 then
+			local v1 = LocalPlayer:GetAttribute("MaxEquippedPets")
+			local v3 = ("%*/%* Active"):format(v7, type(v1) == "number" and v1 > 0 and math.floor(v1) or PetSlotPrices.BaseMax)
+
+			for v4, v5 in t5 do
+				v5.Text = v3
+			end
+		end
+
+		refreshPriceLabels()
+	end)
+
+	if #t5 ~= 0 then
+		local v17 = LocalPlayer:GetAttribute("MaxEquippedPets")
+		local v19 = ("%*/%* Active"):format(v7, type(v17) == "number" and v17 > 0 and math.floor(v17) or PetSlotPrices.BaseMax)
+
+		for v20, v21 in t5 do
+			v21.Text = v19
+		end
+	end
+
+	refreshPriceLabels()
+	Networking.Pets.PetEquipped.OnClientEvent:Connect(function(p1, p2) --[[ Line: 614 | Upvalues: buildClone (ref) ]]
+		if type(p1) ~= "string" then
+			return
+		end
+
+		if type(p2) == "table" then
+			p2.Id = p2.Id or p1
+			p2.Name = p2.Name or "Pet"
+			buildClone(p2)
+		end
+	end)
+	Networking.Pets.PetUnequipped.OnClientEvent:Connect(function(p1) --[[ Line: 624 | Upvalues: t4 (ref), v7 (ref), t5 (ref), LocalPlayer (ref), PetSlotPrices (ref), v5 (ref), t3 (ref) ]]
+		if type(p1) ~= "string" then
+			return
+		end
+
+		local v1 = t4[p1]
+
+		if not v1 then
+			return
+		end
+
+		t4[p1] = nil
+		v1:Destroy()
+
+		local count = 0
+
+		for v2 in t4 do
+			count = count + 1
+		end
+
+		v7 = count
+
+		if #t5 ~= 0 then
+			local v3 = LocalPlayer:GetAttribute("MaxEquippedPets")
+			local v52 = ("%*/%* Active"):format(count, type(v3) == "number" and v3 > 0 and math.floor(v3) or PetSlotPrices.BaseMax)
+
+			for v6, v72 in t5 do
+				v72.Text = v52
+			end
+		end
+
+		if not v5 then
+			return
+		end
+
+		v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+	end)
+
+	local function trackToolPet(p1) --[[ trackToolPet | Line: 629 | Upvalues: t3 (ref), v5 (ref), t4 (ref) ]]
+		local function update() --[[ update | Line: 630 | Upvalues: p1 (copy), t3 (ref), v5 (ref), t4 (ref) ]]
+			local v1 = p1:GetAttribute("PetId")
+
+			if type(v1) ~= "string" or v1 == "" then
+				return
+			end
+
+			t3[v1] = true
+
+			if not v5 then
+				return
+			end
+
+			v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+		end
+
+		local v1 = p1:GetAttribute("PetId")
+
+		if type(v1) == "string" and v1 ~= "" then
+			t3[v1] = true
+
+			if v5 then
+				v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+			end
+		end
+
+		p1:GetAttributeChangedSignal("PetId"):Connect(update)
+	end
+
+	local function untrackToolPet(p1) --[[ untrackToolPet | Line: 641 | Upvalues: t3 (ref), v5 (ref), t4 (ref) ]]
+		local v1 = p1:GetAttribute("PetId")
+
+		if type(v1) ~= "string" or v1 == "" then
+			return
+		end
+
+		t3[v1] = nil
+
+		if not v5 then
+			return
+		end
+
+		v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+	end
+
+	local function watchContainer(p1) --[[ watchContainer | Line: 648 | Upvalues: t3 (ref), v5 (ref), t4 (ref) ]]
+		for v1, v2 in p1:GetChildren() do
+			if v2:IsA("Tool") then
+				local function update() --[[ update | Line: 630 | Upvalues: v2 (copy), t3 (ref), v5 (ref), t4 (ref) ]]
+					local v1 = v2:GetAttribute("PetId")
+
+					if type(v1) ~= "string" or v1 == "" then
+						return
+					end
+
+					t3[v1] = true
+
+					if not v5 then
+						return
+					end
+
+					v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+				end
+
+				local v3 = v2:GetAttribute("PetId")
+
+				if type(v3) == "string" and v3 ~= "" then
+					t3[v3] = true
+
+					if v5 then
+						v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+					end
+				end
+
+				v2:GetAttributeChangedSignal("PetId"):Connect(update)
+			end
+		end
+
+		p1.ChildAdded:Connect(function(p1) --[[ Line: 652 | Upvalues: t3 (ref), v5 (ref), t4 (ref) ]]
+			if not p1:IsA("Tool") then
+				return
+			end
+
+			local function update() --[[ update | Line: 630 | Upvalues: p1 (copy), t3 (ref), v5 (ref), t4 (ref) ]]
+				local v1 = p1:GetAttribute("PetId")
+
+				if type(v1) ~= "string" or v1 == "" then
+					return
+				end
+
+				t3[v1] = true
+
+				if not v5 then
+					return
+				end
+
+				v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+			end
+
+			local v1 = p1:GetAttribute("PetId")
+
+			if type(v1) == "string" and v1 ~= "" then
+				t3[v1] = true
+
+				if v5 then
+					v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+				end
+			end
+
+			p1:GetAttributeChangedSignal("PetId"):Connect(update)
+		end)
+		p1.ChildRemoved:Connect(function(p1) --[[ Line: 655 | Upvalues: t3 (ref), v5 (ref), t4 (ref) ]]
+			if not p1:IsA("Tool") then
+				return
+			end
+
+			local v1 = p1:GetAttribute("PetId")
+
+			if type(v1) ~= "string" then
+				return
+			end
+
+			if v1 == "" then
+				return
+			end
+
+			t3[v1] = nil
+
+			if not v5 then
+				return
+			end
+
+			v5.Enabled = if next(t4) == nil then next(t3) ~= nil else true
+		end)
+	end
+
+	task.spawn(function() --[[ Line: 660 | Upvalues: LocalPlayer (ref), watchContainer (copy) ]]
+		local Backpack = LocalPlayer:WaitForChild("Backpack", 30)
+
+		if not Backpack then
+			return
+		end
+
+		watchContainer(Backpack)
+	end)
+
+	local function onCharacter(p1) --[[ onCharacter | Line: 665 | Upvalues: watchContainer (copy) ]]
+		watchContainer(p1)
+	end
+
+	if LocalPlayer.Character then
+		watchContainer(LocalPlayer.Character)
+	end
+
+	LocalPlayer.CharacterAdded:Connect(onCharacter)
+	task.spawn(function() --[[ Line: 676 | Upvalues: Networking (ref), rebuildAllFromList (ref) ]]
+		local ok, result = pcall(function() --[[ Line: 677 | Upvalues: Networking (ref) ]]
+			return Networking.Pets.GetEquippedPets:Fire()
+		end)
+
+		if not ok or type(result) ~= "table" then
+			return
+		end
+
+		rebuildAllFromList(result)
+	end)
+end
+
+return t2

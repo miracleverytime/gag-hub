@@ -1,0 +1,39 @@
+-- https://lua.expert/
+local t = {
+	SnapToGrid = function(p1, p2, p3) --[[ SnapToGrid | Line: 3 ]]
+		local v1 = p2.CFrame:PointToObjectSpace(p1)
+
+		return p2.CFrame:PointToWorldSpace((Vector3.new(math.round(v1.X / p3) * p3, v1.Y, math.round(v1.Z / p3) * p3)))
+	end,
+	GetGardenRotationY = function(p1) --[[ GetGardenRotationY | Line: 13 ]]
+		local _, v1, _2 = p1.CFrame:ToEulerAnglesYXZ()
+
+		return v1
+	end,
+	CalculateYOffset = function(p1) --[[ CalculateYOffset | Line: 18 ]]
+		if p1 and p1.PrimaryPart then
+			local PrimaryPart = p1.PrimaryPart
+
+			return PrimaryPart.Size.Y / 2 + (p1:GetPivot().Position.Y - PrimaryPart.Position.Y)
+		end
+
+		return 0
+	end
+}
+
+function t.PositionModel(p1, p2, p3, p4) --[[ PositionModel | Line: 32 | Upvalues: t (copy) ]]
+	if p1 and p1.PrimaryPart then
+		local v1 = CFrame.Angles(0, p3 + math.rad(p4), 0)
+		local FloorAttachment = p1.PrimaryPart:FindFirstChild("FloorAttachment")
+
+		if FloorAttachment then
+			return CFrame.new(p2) * v1 * FloorAttachment.CFrame:Inverse()
+		end
+
+		return CFrame.new(p2 + Vector3.new(0, t.CalculateYOffset(p1), 0)) * v1
+	end
+
+	return CFrame.new(p2)
+end
+
+return t

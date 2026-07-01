@@ -1,0 +1,873 @@
+-- https://lua.expert/
+local ReplicaShared = game.ReplicatedStorage.ReplicaShared
+local Remote = require(ReplicaShared.Remote)
+local Signal = require(ReplicaShared.Signal)
+local Maid = require(ReplicaShared.Maid)
+local t = {}
+local CollectionService = game:GetService("CollectionService")
+
+game:GetService("ReplicatedStorage")
+game:GetService("Players")
+
+local v1 = false
+local t2 = {}
+local t3 = {}
+local t4 = {}
+local t5 = {}
+local t6 = {}
+local v2 = Remote.New("ReplicaRequestData")
+local v3 = Remote.New("ReplicaSet")
+local v4 = Remote.New("ReplicaSetValues")
+local v5 = Remote.New("ReplicaTableInsert")
+local v6 = Remote.New("ReplicaTableRemove")
+local v7 = Remote.New("ReplicaWrite")
+local v8 = Remote.New("ReplicaSignal")
+local v9 = Remote.New("ReplicaParent")
+local v10 = Remote.New("ReplicaCreate")
+local v11 = Remote.New("ReplicaBind")
+local v12 = Remote.New("ReplicaDestroy")
+local v13 = Remote.New("ReplicaSignalUnreliable", true)
+local t7 = {}
+local v14 = false
+
+local function LoadWriteLib(p1) --[[ LoadWriteLib | Line: 112 | Upvalues: t7 (copy) ]]
+	local v1 = t7[p1]
+
+	if v1 ~= nil then
+		return v1
+	end
+
+	local list = {}
+
+	for k, v in pairs((require(p1))) do
+		table.insert(list, { k, v })
+	end
+
+	table.sort(list, function(p1, p2) --[[ Line: 128 ]]
+		return p1[1] < p2[1]
+	end)
+
+	local t = {}
+
+	for i, v in ipairs(list) do
+		local t2 = {
+			Name = v[1],
+			Id = i,
+			fn = v[2]
+		}
+
+		t[v[1]] = t2
+		t[i] = t2
+	end
+
+	t7[p1] = t
+
+	return t
+end
+
+local v15 = nil
+
+local function AcquireRunnerThreadAndCallEventHandler(p1, ...) --[[ AcquireRunnerThreadAndCallEventHandler | Line: 178 | Upvalues: v15 (ref) ]]
+	local v1 = v15
+
+	v15 = nil
+	p1(...)
+	v15 = v1
+end
+
+local function RunEventHandlerInFreeThread(...) --[[ RunEventHandlerInFreeThread | Line: 186 | Upvalues: AcquireRunnerThreadAndCallEventHandler (copy) ]]
+	AcquireRunnerThreadAndCallEventHandler(...)
+
+	while true do
+		AcquireRunnerThreadAndCallEventHandler(coroutine.yield())
+	end
+end
+
+local t8 = {
+	IsReady = false,
+	OnLocalReady = Signal.New()
+}
+
+t8.__index = t8
+
+local function ReplicaNew(p1, p2) --[[ ReplicaNew | Line: 199 | Upvalues: LoadWriteLib (copy), t4 (copy), t3 (copy), Signal (copy), Maid (copy), t (copy), t8 (copy) ]]
+	local v1 = if p2[5] == nil then nil else LoadWriteLib(p2[5])
+	local v4 = t4[p2[4]] or t3[p2[4]]
+	local v6 = setmetatable({
+		BoundInstance = nil,
+		Tags = p2[2],
+		Data = p2[3],
+		Id = p1,
+		Token = p2[1],
+		Parent = v4,
+		Children = {},
+		OnClientEvent = Signal.New(),
+		Maid = Maid.New(t),
+		self_creation = p2,
+		write_lib = v1,
+		set_listeners = {},
+		write_listeners = {},
+		changed_listeners = Signal.New()
+	}, t8)
+
+	if v4 ~= nil then
+		v4.Children[v6] = true
+	end
+
+	return v6
+end
+
+function t8.RequestData() --[[ RequestData | Line: 238 | Upvalues: v1 (ref), v2 (copy), t8 (copy) ]]
+	if v1 ~= true then
+		v1 = true
+		task.spawn(function() --[[ Line: 246 | Upvalues: v2 (ref), t8 (ref) ]]
+			v2:FireServer()
+
+			while task.wait(2) and t8.IsReady ~= true do
+				v2:FireServer()
+			end
+		end)
+	end
+end
+function t8.OnNew(p1, p2) --[[ OnNew | Line: 261 | Upvalues: t6 (copy), Signal (copy), t2 (copy), v15 (ref), RunEventHandlerInFreeThread (copy) ]]
+	if type(p1) ~= "string" then
+		error((("[%*]: \"token\" must be a string"):format(script.Name)))
+	end
+
+	local v1 = t6[p1]
+
+	if v1 == nil then
+		local v2 = Signal.New()
+
+		t6[p1] = v2
+		v1 = v2
+	end
+
+	local v3 = t2[p1]
+	local v4 = v1:Connect(p2)
+
+	if v3 ~= nil then
+		local t = {}
+
+		for k in pairs(v3) do
+			t[k] = true
+		end
+
+		task.defer(function() --[[ Line: 285 | Upvalues: t (copy), v4 (copy), v15 (ref), RunEventHandlerInFreeThread (ref), p2 (copy) ]]
+			for k in pairs(t) do
+				if v4.IsConnected ~= true then
+					break
+				end
+
+				if not v15 then
+					v15 = coroutine.create(RunEventHandlerInFreeThread)
+				end
+
+				task.spawn(v15, p2, k)
+			end
+		end)
+	end
+
+	return v4
+end
+function t8.FromId(p1) --[[ FromId | Line: 303 | Upvalues: t3 (copy) ]]
+	return t3[p1]
+end
+function t8.Test() --[[ Test | Line: 307 | Upvalues: t2 (copy), t3 (copy), t4 (copy), t5 (copy) ]]
+	return {
+		TokenReplicas = t2,
+		Replicas = t3,
+		BindReplicas = t4,
+		BindInstances = t5
+	}
+end
+function t8.OnSet(p1, p2, p3) --[[ OnSet | Line: 316 | Upvalues: Signal (copy) ]]
+	local v1 = table.concat(p2, ".")
+	local v2 = p1.set_listeners[v1]
+
+	if v2 == nil then
+		local v3 = Signal.New()
+
+		p1.set_listeners[v1] = v3
+		v2 = v3
+	end
+
+	return v2:Connect(p3)
+end
+function t8.OnWrite(p1, p2, p3) --[[ OnWrite | Line: 327 | Upvalues: Signal (copy) ]]
+	local v1 = p1.write_listeners[p2]
+
+	if v1 == nil then
+		local v2 = Signal.New()
+
+		p1.write_listeners[p2] = v2
+		v1 = v2
+	end
+
+	return v1:Connect(p3)
+end
+function t8.OnChange(p1, p2) --[[ OnChange | Line: 337 ]]
+	return p1.changed_listeners:Connect(p2)
+end
+function t8.GetChild(p1, p2) --[[ GetChild | Line: 341 ]]
+	if type(p2) ~= "string" then
+		error((("[%*]: \"token\" must be a string"):format(script.Name)))
+	end
+
+	for k in pairs(p1.Children) do
+		if k.Token == p2 then
+			return k
+		end
+	end
+
+	return nil
+end
+function t8.FireServer(p1, ...) --[[ FireServer | Line: 353 | Upvalues: v8 (copy) ]]
+	v8:FireServer(p1.Id, ...)
+end
+function t8.UFireServer(p1, ...) --[[ UFireServer | Line: 357 | Upvalues: v13 (copy) ]]
+	v13:FireServer(p1.Id, ...)
+end
+function t8.Identify(p1) --[[ Identify | Line: 361 ]]
+	local v1 = ""
+	local v2 = true
+
+	for k, v in pairs(p1.Tags) do
+		v1 = v1 .. ("%*%*=%*"):format(if v2 == true then "" else ";", tostring(k), (tostring(v)))
+		v2 = false
+	end
+
+	return ("[Id:%*;Token:%*;Tags:[%*]]"):format(p1.Id, p1.Token, v1)
+end
+function t8.IsActive(p1) --[[ IsActive | Line: 371 ]]
+	return p1.Maid:IsActive()
+end
+function t8.Set(p1, p2, p3) --[[ Set | Line: 375 | Upvalues: v14 (ref) ]]
+	if v14 ~= true then
+		error((("[%*]: \"Set()\" can\'t be called outside of WriteLibs client-side"):format(script.Name)))
+	end
+
+	local Data = p1.Data
+
+	for i = 1, #p2 - 1 do
+		Data = Data[p2[i]]
+	end
+
+	local v1 = p2[#p2]
+	local v2 = Data[v1]
+
+	Data[v1] = p3
+
+	if next(p1.set_listeners) ~= nil then
+		local v3 = p1.set_listeners[table.concat(p2, ".")]
+
+		if v3 ~= nil then
+			v3:Fire(p3, v2)
+		end
+	end
+
+	p1.changed_listeners:Fire("Set", p2, p3, v2)
+end
+function t8.SetValues(p1, p2, p3) --[[ SetValues | Line: 403 | Upvalues: v14 (ref) ]]
+	if v14 ~= true then
+		error((("[%*]: \"SetValues()\" can\'t be called outside of WriteLibs client-side"):format(script.Name)))
+	end
+
+	local Data = p1.Data
+
+	for i, v in ipairs(p2) do
+		Data = Data[v]
+	end
+
+	for k, v in pairs(p3) do
+		Data[k] = v
+	end
+
+	p1.changed_listeners:Fire("SetValues", p2, p3)
+end
+function t8.TableInsert(p1, p2, p3, p4) --[[ TableInsert | Line: 425 | Upvalues: v14 (ref) ]]
+	if v14 ~= true then
+		error((("[%*]: \"TableInsert()\" can\'t be called outside of WriteLibs client-side"):format(script.Name)))
+	end
+
+	local Data = p1.Data
+
+	for i, v in ipairs(p2) do
+		Data = Data[v]
+	end
+
+	if p4 == nil then
+		table.insert(Data, p3)
+		p4 = #Data
+	else
+		table.insert(Data, p4, p3)
+	end
+
+	p1.changed_listeners:Fire("TableInsert", p2, p3, p4)
+
+	return p4
+end
+function t8.TableRemove(p1, p2, p3) --[[ TableRemove | Line: 452 | Upvalues: v14 (ref) ]]
+	if v14 ~= true then
+		error((("[%*]: \"TableRemove()\" can\'t be called outside of WriteLibs client-side"):format(script.Name)))
+	end
+
+	local Data = p1.Data
+
+	for i, v in ipairs(p2) do
+		Data = Data[v]
+	end
+
+	local v1 = table.remove(Data, p3)
+
+	p1.changed_listeners:Fire("TableRemove", p2, v1, p3)
+
+	return v1
+end
+function t8.Write(p1, p2, ...) --[[ Write | Line: 474 | Upvalues: v14 (ref) ]]
+	if v14 ~= true then
+		error((("[%*]: \"Write()\" can\'t be called outside of WriteLibs client-side"):format(script.Name)))
+	end
+
+	local v2 = table.pack(p1.write_lib[p2].fn(p1, ...))
+	local v3 = p1.write_listeners[p2]
+
+	if v3 == nil then
+		return table.unpack(v2)
+	end
+
+	v3:Fire(...)
+
+	return table.unpack(v2)
+end
+
+local function v16(p1, p2) --[[ DestroyReplica | Line: 496 | Upvalues: v16 (copy), t2 (copy), t3 (copy), t4 (copy), t (copy) ]]
+	for k in pairs(p1.Children) do
+		v16(k, true)
+	end
+
+	if p2 ~= true and p1.Parent ~= nil then
+		p1.Parent.Children[p1] = nil
+	end
+
+	local Id = p1.Id
+	local v1 = t2[p1.Token]
+
+	if v1 ~= nil then
+		v1[p1] = nil
+	end
+
+	if t3[Id] == p1 then
+		t3[Id] = nil
+	end
+
+	if t4[Id] ~= p1 then
+		p1.Maid:Unlock(t)
+		p1.Maid:Cleanup()
+		p1.BoundInstance = nil
+
+		return
+	end
+
+	t4[Id] = nil
+	p1.Maid:Unlock(t)
+	p1.Maid:Cleanup()
+	p1.BoundInstance = nil
+end
+
+local function v17(p1, p2) --[[ ReplicaToBindBuffer | Line: 528 | Upvalues: ReplicaNew (copy), t4 (copy), v17 (copy), v16 (copy) ]]
+	local v1 = ReplicaNew(p1.Id, p1.self_creation)
+
+	t4[p1.Id] = v1
+
+	for k in pairs(p1.Children) do
+		v17(k, true)
+	end
+
+	if p2 == true then
+		return v1
+	end
+
+	v16(p1)
+
+	return v1
+end
+
+local function v18(p1, p2) --[[ ReplicaFromBindBuffer | Line: 549 | Upvalues: t4 (copy), t2 (copy), t3 (copy), v18 (copy), t6 (copy) ]]
+	local v1
+
+	if p2 == nil then
+		p2 = {}
+		v1 = true
+	else
+		v1 = false
+	end
+
+	t4[p1.Id] = nil
+
+	local Token = p1.Token
+	local v2 = t2[Token]
+
+	if v2 == nil then
+		v2 = {}
+		t2[Token] = v2
+	end
+
+	v2[p1] = true
+	t3[p1.Id] = p1
+	table.insert(p2, p1)
+
+	for k in pairs(p1.Children) do
+		v18(k, p2)
+	end
+
+	if v1 ~= true then
+		return
+	end
+
+	for i, v in ipairs(p2) do
+		local v3 = t6[v.Token]
+
+		if v3 ~= nil then
+			v3:Fire(v)
+		end
+	end
+end
+
+local function v19(p1, p2, p3) --[[ CreationScan | Line: 588 | Upvalues: v19 (copy) ]]
+	local v1 = p1[p3]
+
+	if v1 == nil then
+		return
+	end
+
+	table.sort(v1, function(p1, p2) --[[ Line: 592 ]]
+		return p1.Id < p2.Id
+	end)
+
+	for i, v in ipairs(v1) do
+		p2(v.Id, v.SelfCreation)
+		v19(p1, p2, v.Id)
+	end
+end
+
+local function BreadthCreationSort(p1, p2, p3) --[[ BreadthCreationSort | Line: 604 | Upvalues: v19 (copy) ]]
+	local list = {}
+	local t = {}
+	local t2 = {}
+
+	if type(p1[1]) == "table" then
+		for i, v in ipairs(p1) do
+			for k, v2 in pairs(v) do
+				local t3 = {
+					Id = tonumber(k),
+					SelfCreation = v2
+				}
+				local v22 = v2[4]
+
+				if v22 == 0 or t3.Id == p2 then
+					table.insert(list, t3)
+
+					continue
+				end
+
+				if v[tostring(v22)] == nil then
+					table.insert(t2, t3)
+
+					continue
+				end
+
+				local v3 = t[v22]
+
+				if v3 == nil then
+					v3 = {}
+					t[v22] = v3
+				end
+
+				table.insert(v3, t3)
+			end
+		end
+	else
+		for k, v in pairs(p1) do
+			local t3 = {
+				Id = tonumber(k),
+				SelfCreation = v
+			}
+			local v4 = v[4]
+
+			if v4 == 0 or t3.Id == p2 then
+				table.insert(list, t3)
+
+				continue
+			end
+
+			if p1[tostring(v4)] == nil then
+				table.insert(t2, t3)
+
+				continue
+			end
+
+			local v5 = t[v4]
+
+			if v5 == nil then
+				v5 = {}
+				t[v4] = v5
+			end
+
+			table.insert(v5, t3)
+		end
+	end
+
+	table.sort(list, function(p1, p2) --[[ Line: 655 ]]
+		return p1.Id < p2.Id
+	end)
+
+	for i, v in ipairs(list) do
+		p3(v.Id, v.SelfCreation)
+		v19(t, p3, v.Id)
+	end
+
+	if #t2 ~= 0 then
+		local v6 = ("[%*]: GROUP REPLICATION ERROR - Missing parents for:\n"):format(script.Name)
+
+		for i = 1, math.min(#t2, 50) do
+			local v7 = t2[i]
+			local SelfCreation = v7.SelfCreation
+			local v8 = ""
+			local v9 = true
+
+			for k, v in pairs(SelfCreation[2]) do
+				v8 = v8 .. ("%*%*=%*"):format(if v9 == true then "" else ";", tostring(k), (tostring(v)))
+				v9 = false
+			end
+
+			v6 = v6 .. ("[Id:%*;ParentId:%*;Token:%*;Tags:[%*]]\n"):format(v7.Id, SelfCreation[4], SelfCreation[1], v8)
+		end
+
+		if #t2 > 50 then
+			v6 = v6 .. ("(hiding %* more)\n"):format(50 - #t2)
+		end
+
+		local _ = v6 .. "Traceback:\n" .. debug.traceback()
+	end
+
+	return {}
+end
+
+local function GetInternalReplica(p1) --[[ GetInternalReplica | Line: 695 | Upvalues: t3 (copy), t4 (copy) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 ~= nil then
+		return v1
+	end
+
+	error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+end
+
+v2.OnClientEvent:Connect(function() --[[ Line: 705 | Upvalues: t8 (copy) ]]
+	if t8.IsReady ~= true then
+		t8.IsReady = true
+		t8.OnLocalReady:Fire()
+	end
+end)
+v3.OnClientEvent:Connect(function(p1, p2, p3) --[[ Line: 716 | Upvalues: t3 (copy), t4 (copy), v14 (ref) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	v14 = true
+
+	local ok, result = pcall(v1.Set, v1, p2, p3)
+
+	v14 = false
+
+	if ok == true then
+		return
+	end
+
+	error(("[%*]: Error while updating replica:\n%*\n"):format(script.Name, (v1:Identify())) .. result)
+end)
+v4.OnClientEvent:Connect(function(p1, p2, p3) --[[ Line: 726 | Upvalues: t3 (copy), t4 (copy), v14 (ref) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	v14 = true
+
+	local ok, result = pcall(v1.SetValues, v1, p2, p3)
+
+	v14 = false
+
+	if ok == true then
+		return
+	end
+
+	error(("[%*]: Error while updating replica:\n%*\n"):format(script.Name, (v1:Identify())) .. result)
+end)
+v5.OnClientEvent:Connect(function(p1, p2, p3, p4) --[[ Line: 736 | Upvalues: t3 (copy), t4 (copy), v14 (ref) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	v14 = true
+
+	local ok, result = pcall(v1.TableInsert, v1, p2, p3, p4)
+
+	v14 = false
+
+	if ok == true then
+		return
+	end
+
+	error(("[%*]: Error while updating replica:\n%*\n"):format(script.Name, (v1:Identify())) .. result)
+end)
+v6.OnClientEvent:Connect(function(p1, p2, p3) --[[ Line: 746 | Upvalues: t3 (copy), t4 (copy), v14 (ref) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	v14 = true
+
+	local ok, result = pcall(v1.TableRemove, v1, p2, p3)
+
+	v14 = false
+
+	if ok == true then
+		return
+	end
+
+	error(("[%*]: Error while updating replica:\n%*\n"):format(script.Name, (v1:Identify())) .. result)
+end)
+v7.OnClientEvent:Connect(function(p1, p2, ...) --[[ Line: 756 | Upvalues: t3 (copy), t4 (copy), v14 (ref) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	v14 = true
+
+	local ok, result = pcall(v1.Write, v1, v1.write_lib[p2].Name, ...)
+
+	v14 = false
+
+	if ok == true then
+		return
+	end
+
+	error(("[%*]: Error while updating replica:\n%*\n"):format(script.Name, (v1:Identify())) .. result)
+end)
+
+local function RemoteSignalHandle(p1, ...) --[[ RemoteSignalHandle | Line: 767 | Upvalues: t3 (copy), t4 (copy) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	v1.OnClientEvent:Fire(...)
+end
+
+v8.OnClientEvent:Connect(RemoteSignalHandle)
+v13.OnClientEvent:Connect(RemoteSignalHandle)
+v9.OnClientEvent:Connect(function(p1, p2) --[[ Line: 775 | Upvalues: t3 (copy), t4 (copy), v18 (copy), v17 (copy) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	local v2 = v1.Parent
+	local v3 = t3[p2] or t4[p2]
+
+	if v3 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p2)))
+	end
+
+	v2.Children[v1] = nil
+	v3.Children[v1] = true
+	v1.Parent = v3
+	v1.self_creation[4] = p2
+
+	if t4[v2.Id] ~= nil and t3[p2] ~= nil then
+		v18(v1)
+
+		return
+	end
+
+	if t3[v2.Id] == nil or t4[p2] == nil then
+		return
+	end
+
+	v17(v1)
+end)
+v10.OnClientEvent:Connect(function(p1, p2) --[[ Line: 796 | Upvalues: BreadthCreationSort (copy), ReplicaNew (copy), t5 (copy), t4 (copy), t2 (copy), t3 (copy), t6 (copy) ]]
+	local list = {}
+
+	BreadthCreationSort(p1, p2, function(p1, p2) --[[ Line: 800 | Upvalues: ReplicaNew (ref), t5 (ref), t4 (ref), t2 (ref), t3 (ref), list (copy) ]]
+		local v1 = p2[4]
+		local v2 = ReplicaNew(p1, p2)
+		local v3 = false
+
+		if v1 == 0 then
+			if v2.Tags.Bind == true then
+				local v4 = t5[p1]
+
+				v2.BoundInstance = v4
+
+				if v4 == nil then
+					v3 = true
+				end
+			end
+		elseif t4[v1] ~= nil then
+			v3 = true
+		end
+
+		if v3 == true then
+			t4[p1] = v2
+
+			return
+		end
+
+		local Token = v2.Token
+		local v5 = t2[Token]
+
+		if v5 == nil then
+			v5 = {}
+			t2[Token] = v5
+		end
+
+		v5[v2] = true
+		t3[p1] = v2
+		table.insert(list, v2)
+	end)
+
+	for i, v in ipairs(list) do
+		local v1 = t6[v.Token]
+
+		if v1 ~= nil then
+			v1:Fire(v)
+		end
+	end
+end)
+v11.OnClientEvent:Connect(function(p1) --[[ Line: 855 | Upvalues: t3 (copy), t4 (copy), t5 (copy), v17 (copy) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	v1.Tags.Bind = true
+
+	local v2 = t5[p1]
+
+	v1.BoundInstance = v2
+
+	if v2 ~= nil then
+		return
+	end
+
+	v17(v1)
+end)
+v12.OnClientEvent:Connect(function(p1) --[[ Line: 869 | Upvalues: t3 (copy), t4 (copy), v16 (copy) ]]
+	local v1 = t3[p1] or t4[p1]
+
+	if v1 == nil then
+		error((("[%*]: Received update for missing replica [Id:%*]"):format(script.Name, p1)))
+	end
+
+	v16(v1)
+end)
+
+local function OnBindInstanceAdded(p1) --[[ OnBindInstanceAdded | Line: 876 | Upvalues: t5 (copy), t4 (copy), v18 (copy) ]]
+	local v1 = p1.Value
+	local v2 = p1.Parent
+
+	t5[v1] = v2
+
+	local v3 = t4[v1]
+
+	if v3 == nil then
+		return
+	end
+
+	v3.BoundInstance = v2
+	v18(v3)
+end
+
+local function OnBindInstanceRemoved(p1) --[[ OnBindInstanceRemoved | Line: 891 | Upvalues: t5 (copy), t3 (copy), v17 (copy) ]]
+	local v1 = p1.Value
+
+	t5[v1] = nil
+
+	local v2 = t3[v1]
+
+	if v2 == nil then
+		return
+	end
+
+	v17(v2)
+end
+
+CollectionService:GetInstanceAddedSignal("REPLICA"):Connect(function(p1) --[[ Line: 904 | Upvalues: t5 (copy), t4 (copy), v18 (copy) ]]
+	if p1:IsA("NumberValue") ~= true then
+		return
+	end
+
+	local v1 = p1.Value
+	local v2 = p1.Parent
+
+	t5[v1] = v2
+
+	local v3 = t4[v1]
+
+	if v3 == nil then
+		return
+	end
+
+	v3.BoundInstance = v2
+	v18(v3)
+end)
+CollectionService:GetInstanceRemovedSignal("REPLICA"):Connect(function(p1) --[[ Line: 910 | Upvalues: t5 (copy), t3 (copy), v17 (copy) ]]
+	if p1:IsA("NumberValue") ~= true then
+		return
+	end
+
+	local v1 = p1.Value
+
+	t5[v1] = nil
+
+	local v2 = t3[v1]
+
+	if v2 == nil then
+		return
+	end
+
+	v17(v2)
+end)
+
+for k, v in pairs(CollectionService:GetTagged("REPLICA")) do
+	if v:IsA("NumberValue") == true then
+		local v20 = v.Value
+		local v21 = v.Parent
+
+		t5[v20] = v21
+
+		local v22 = t4[v20]
+
+		if v22 ~= nil then
+			v22.BoundInstance = v21
+			v18(v22)
+		end
+	end
+end
+
+return t8

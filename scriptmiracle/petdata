@@ -1,0 +1,448 @@
+-- https://lua.expert/
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PetSizes = require(ReplicatedStorage.SharedData.PetSizes)
+local PetTypes = require(ReplicatedStorage.SharedData.PetTypes)
+local PetFlags = require(ReplicatedStorage.SharedModules.Flags.PetFlags)
+local GearImages = ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("GearImages")
+
+local function getGearImage(p1) --[[ getGearImage | Line: 9 | Upvalues: GearImages (copy) ]]
+	local v1 = GearImages:FindFirstChild(p1)
+
+	if v1 and v1:IsA("StringValue") then
+		return v1.Value
+	end
+
+	return ""
+end
+
+local function formatNumber(p1) --[[ formatNumber | Line: 19 ]]
+	return string.gsub(string.format("%.2f", p1), "%.?0+$", "")
+end
+
+local function variantBoost(p1, p2) --[[ variantBoost | Line: 27 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	return PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1)
+end
+
+local function chanceClause(p1, p2) --[[ chanceClause | Line: 34 ]]
+	if p1 == 2 then
+		return ("<b>doubles</b> the chance for plants and fruit to turn %*"):format(p2)
+	end
+
+	return ("<b>multiplies</b> the chance for plants and fruit to turn %* by <b>x%*</b>"):format(p2, (string.gsub(string.format("%.2f", p1), "%.?0+$", "")))
+end
+
+local t = {}
+local t2 = {
+	DisplayName = "Raccoon",
+	Rarity = "Super",
+	SpawnChance = 0.24,
+	BasePrice = 5000000,
+	Offset = Vector3.new(0, 2.5, 0)
+}
+local Raccoon = GearImages:FindFirstChild("Raccoon")
+
+t2.Image = if Raccoon and Raccoon:IsA("StringValue") then Raccoon.Value else ""
+function t2.Description(p1, p2) --[[ Description | Line: 47 | Upvalues: PetSizes (copy), PetTypes (copy) ]]
+	local v1 = PetSizes.Normalize(p1)
+	local sum = 25
+
+	if v1 == "Huge" then
+		sum = 100
+	elseif v1 == "Big" then
+		sum = 50
+	end
+
+	if p2 == PetTypes.Rainbow then
+		sum = sum + 10
+	end
+
+	return ("Sneaks out at <b>night</b> to <font color=\"#ff0000\">steal</font> fruit from empty gardens and <font color=\"#55ff55\">raises your steal limit by +%*</font>"):format(sum)
+end
+t2.NeededWeather = {}
+t2.NeededTimeCycle = {}
+t.Raccoon = t2
+
+local t3 = {
+	DisplayName = "Monkey",
+	Rarity = "Mythic",
+	SpawnChance = 0.2,
+	BasePrice = 1000000,
+	Offset = Vector3.new(0, 2.5, 0)
+}
+local Monkey = GearImages:FindFirstChild("Monkey")
+
+t3.Image = if Monkey and Monkey:IsA("StringValue") then Monkey.Value else ""
+function t3.Description(p1, p2) --[[ Description | Line: 71 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	local v1 = PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1)
+
+	if v1 > 1 then
+		return ("Swings around your <b>garden</b> and <font color=\"#55ff55\">picks ripe fruit <b>x%*</b> as often</font> and brings it straight to you"):format((string.gsub(string.format("%.2f", v1), "%.?0+$", "")))
+	end
+
+	return "Swings around your <b>garden</b> and occasionally <font color=\"#55ff55\">picks ripe fruit</font> and brings it straight to you"
+end
+t3.NeededWeather = {}
+t3.NeededTimeCycle = {}
+t.Monkey = t3
+
+local t4 = {
+	DisplayName = "Robin",
+	Rarity = "Legendary",
+	SpawnChance = 2.86,
+	BasePrice = 75000,
+	Offset = Vector3.new(0, 5, 0)
+}
+local Robin = GearImages:FindFirstChild("Robin")
+
+t4.Image = if Robin and Robin:IsA("StringValue") then Robin.Value else ""
+function t4.Description(p1, p2) --[[ Description | Line: 89 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	local v1 = PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1)
+
+	if v1 > 1 then
+		return ("Flies around your <b>garden</b> eating ripe fruit and <font color=\"#55ff55\">drops seeds <b>x%*</b> as often</font>"):format((string.gsub(string.format("%.2f", v1), "%.?0+$", "")))
+	end
+
+	return "Flies around your <b>garden</b> eating ripe fruit and sometimes <font color=\"#55ff55\">drops seeds</font>"
+end
+t4.NeededWeather = {}
+t4.NeededTimeCycle = {}
+t.Robin = t4
+
+local t5 = {
+	DisplayName = "Frog",
+	Rarity = "Common",
+	SpawnChance = 11.9,
+	BasePrice = 10000,
+	Offset = Vector3.new(0, 2, 0)
+}
+local Frog = GearImages:FindFirstChild("Frog")
+
+t5.Image = if Frog and Frog:IsA("StringValue") then Frog.Value else ""
+function t5.Description(p1, p2) --[[ Description | Line: 107 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	return ("Hops around your <b>garden</b> and <font color=\"#55ff55\">boosts your jump height by +%*</font>"):format((string.gsub(string.format("%.2f", PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1) * 5), "%.?0+$", "")))
+end
+t5.NeededWeather = {}
+t5.NeededTimeCycle = {}
+t.Frog = t5
+
+local t6 = {
+	DisplayName = "Bunny",
+	Rarity = "Common",
+	SpawnChance = 11.9,
+	BasePrice = 20000,
+	Offset = Vector3.new(0, 2, 0)
+}
+local Bunny = GearImages:FindFirstChild("Bunny")
+
+t6.Image = if Bunny and Bunny:IsA("StringValue") then Bunny.Value else ""
+function t6.Description(p1, p2) --[[ Description | Line: 122 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	return ("Hops around your <b>garden</b> and <font color=\"#55ff55\">boosts your walk speed by +%*</font>"):format((string.gsub(string.format("%.2f", PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1) * 5), "%.?0+$", "")))
+end
+t6.NeededWeather = {}
+t6.NeededTimeCycle = {}
+t.Bunny = t6
+
+local t7 = {
+	DisplayName = "Deer",
+	Rarity = "Rare",
+	SpawnChance = 4.29,
+	BasePrice = 50000,
+	Offset = Vector3.new(0, 3, 0)
+}
+local Deer = GearImages:FindFirstChild("Deer")
+
+t7.Image = if Deer and Deer:IsA("StringValue") then Deer.Value else ""
+function t7.Description(p1, p2) --[[ Description | Line: 137 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	return ("Trots around your <b>garden</b> and helps plants <font color=\"#55ff55\">grow %*%% faster</font>"):format((string.gsub(string.format("%.2f", PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1) * 10), "%.?0+$", "")))
+end
+t7.NeededWeather = {}
+t7.NeededTimeCycle = {}
+t.Deer = t7
+
+local t8 = {
+	DisplayName = "Turtle",
+	Rarity = "Rare",
+	SpawnChance = 3.75,
+	BasePrice = 70000,
+	Offset = Vector3.new(0, 3, 0)
+}
+local Turtle = GearImages:FindFirstChild("Turtle")
+
+t8.Image = if Turtle and Turtle:IsA("StringValue") then Turtle.Value else ""
+function t8.Description(p1, p2) --[[ Description | Line: 153 | Upvalues: PetSizes (copy), PetTypes (copy) ]]
+	local v1 = PetSizes.Normalize(p1)
+	local sum = 10
+
+	if v1 == "Huge" then
+		sum = 100
+	elseif v1 == "Big" then
+		sum = 50
+	end
+
+	if p2 == PetTypes.Rainbow then
+		sum = sum + 20
+	end
+
+	return ("Lugs a heavy shell that <font color=\"#55ff55\">adds +%* backpack space</font> but <font color=\"#ff5555\">slows your walk speed by 2</font>"):format(sum)
+end
+t8.NeededWeather = {}
+t8.NeededTimeCycle = {}
+t.Turtle = t8
+
+local t9 = {
+	DisplayName = "Bear",
+	Rarity = "Mythic",
+	Description = "Defends your <b>garden</b> by <font color=\"#ff8800\">tackling intruders</font>, pinning them down, then <font color=\"#ff8800\">throwing them</font> away",
+	SpawnChance = 0.225,
+	BasePrice = 5000000,
+	Offset = Vector3.new(0, 3, 0)
+}
+local Bear = GearImages:FindFirstChild("Bear")
+
+t9.Image = if Bear and Bear:IsA("StringValue") then Bear.Value else ""
+t9.NeededWeather = {}
+t9.NeededTimeCycle = {}
+t.Bear = t9
+
+local t10 = {
+	DisplayName = "Owl",
+	Rarity = "Uncommon",
+	SpawnChance = 7.14,
+	BasePrice = 25000,
+	Offset = Vector3.new(0, 5, 0)
+}
+local Owl = GearImages:FindFirstChild("Owl")
+
+t10.Image = if Owl and Owl:IsA("StringValue") then Owl.Value else ""
+function t10.Description(p1, p2) --[[ Description | Line: 192 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	return ("<font color=\"#55ff55\">Extends your view distance by %*%%</font> at night and <font color=\"#ffaa00\">hoots loudly</font> when a rare pet spawns"):format((string.gsub(string.format("%.2f", PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1) * 12.5), "%.?0+$", "")))
+end
+t10.NeededWeather = {}
+t10.NeededTimeCycle = {}
+t.Owl = t10
+
+local t11 = {
+	DisplayName = "Bee",
+	Rarity = "Legendary",
+	Description = "Patrols your <b>garden</b> and <font color=\"#ff8800\">swarms intruders</font> to defend your fruit",
+	SpawnChance = 2.38,
+	BasePrice = 1000000,
+	Offset = Vector3.new(0, 5, 0)
+}
+local Bee = GearImages:FindFirstChild("Bee")
+
+t11.Image = if Bee and Bee:IsA("StringValue") then Bee.Value else ""
+t11.NeededWeather = {}
+t11.NeededTimeCycle = {}
+t.Bee = t11
+
+local t12 = {
+	DisplayName = "Unicorn",
+	Rarity = "Mythic",
+	SpawnChance = 0.71,
+	BasePrice = 4000000,
+	Offset = Vector3.new(0, 3, 0)
+}
+local Unicorn = GearImages:FindFirstChild("Unicorn")
+
+t12.Image = if Unicorn and Unicorn:IsA("StringValue") then Unicorn.Value else ""
+function t12.Description(p1, p2) --[[ Description | Line: 219 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	local v1 = PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1) + 1
+
+	return ("Trots around your <b>garden</b> and %*"):format(if v1 == 2 then "<b>doubles</b> the chance for plants and fruit to turn <font color=\"#ff66ff\">Rainbow</font>" else ("<b>multiplies</b> the chance for plants and fruit to turn <font color=\"#ff66ff\">Rainbow</font> by <b>x%*</b>"):format((string.gsub(string.format("%.2f", v1), "%.?0+$", ""))))
+end
+t12.NeededWeather = {}
+t12.NeededTimeCycle = {}
+t.Unicorn = t12
+
+local t13 = {
+	DisplayName = "Black Dragon",
+	Rarity = "Super",
+	SpawnChance = 0,
+	BasePrice = 20000000,
+	Offset = Vector3.new(0, 5, 0)
+}
+local v12 = GearImages:FindFirstChild("Black Dragon")
+
+t13.Image = if v12 and v12:IsA("StringValue") then v12.Value else ""
+function t13.Description(p1, p2) --[[ Description | Line: 234 | Upvalues: PetSizes (copy) ]]
+	local v1 = PetSizes.Normalize(p1)
+	local v2 = 1
+
+	if v1 == "Huge" then
+		v2 = v2 * 2
+	elseif v1 == "Big" then
+		v2 = v2 * 1.25
+	end
+
+	if p2 == "Rainbow" then
+		v2 = v2 * 1.15
+	end
+
+	if v2 > 1 then
+		return ("Flies around <b>gardens</b> and <font color=\"#55ff55\">eats ripe fruit <b>x%*</b> as often</font>, <font color=\"#ffaa00\">laying eggs</font> that hatch into pets that much faster, <b>based on the fruit it ate</b>"):format((string.gsub(string.format("%.2f", v2), "%.?0+$", "")))
+	end
+
+	return "Flies around <b>gardens</b> <font color=\"#55ff55\">eating ripe fruit</font> and <font color=\"#ffaa00\">laying eggs</font> that hatch into pets <b>based on the fruit it ate</b>"
+end
+t13.NeededWeather = {}
+t13.NeededTimeCycle = {}
+t.BlackDragon = t13
+
+local t14 = {
+	DisplayName = "Ice Serpent",
+	Rarity = "Super",
+	SpawnChance = 0,
+	BasePrice = 20000000,
+	Offset = Vector3.new(0, 5, 0)
+}
+local v14 = GearImages:FindFirstChild("Ice Serpent")
+
+t14.Image = if v14 and v14:IsA("StringValue") then v14.Value else ""
+function t14.Description(p1, p2) --[[ Description | Line: 266 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	local v1 = PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1)
+
+	if v1 > 1 then
+		return ("Flies around your <b>garden</b> and <font color=\"#66ccff\">breathes frost</font> on intruders, <font color=\"#66ccff\">freezing them <b>x%*</b> as hard</font>"):format((string.gsub(string.format("%.2f", v1), "%.?0+$", "")))
+	end
+
+	return "Flies around your <b>garden</b> and <font color=\"#66ccff\">breathes frost</font> on intruders, freezing them solid"
+end
+t14.NeededWeather = {}
+t14.NeededTimeCycle = {}
+t.IceSerpent = t14
+
+local t15 = {
+	DisplayName = "Golden Dragonfly",
+	Rarity = "Mythic",
+	SpawnChance = 0.6,
+	BasePrice = 3000000,
+	Offset = Vector3.new(0, 5, 0)
+}
+local v16 = GearImages:FindFirstChild("Golden Dragonfly")
+
+t15.Image = if v16 and v16:IsA("StringValue") then v16.Value else ""
+function t15.Description(p1, p2) --[[ Description | Line: 284 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	local v1 = PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1) + 1
+
+	return ("Flies around your <b>garden</b> and %*"):format(if v1 == 2 then "<b>doubles</b> the chance for plants and fruit to turn <font color=\"#ffd700\">Gold</font>" else ("<b>multiplies</b> the chance for plants and fruit to turn <font color=\"#ffd700\">Gold</font> by <b>x%*</b>"):format((string.gsub(string.format("%.2f", v1), "%.?0+$", ""))))
+end
+t15.NeededWeather = {}
+t15.NeededTimeCycle = {}
+t.GoldenDragonfly = t15
+function t.GetImage(p1, p2) --[[ GetImage | Line: 300 | Upvalues: t (copy), PetSizes (copy), GearImages (copy) ]]
+	local v1 = t[p1]
+
+	if type(v1) ~= "table" then
+		return ""
+	end
+
+	local v2 = PetSizes.Normalize(p2)
+
+	if v2 then
+		local v3 = GearImages:FindFirstChild((("%* %*"):format(v2, (t.GetSpeciesDisplayName(p1)))))
+		local v4 = if v3 and v3:IsA("StringValue") then v3.Value else ""
+
+		if v4 ~= "" then
+			return v4
+		end
+	end
+
+	local Image = v1.Image
+
+	if type(Image) == "string" then
+		return Image
+	end
+
+	return ""
+end
+
+local function humanizeSpecies(p1) --[[ humanizeSpecies | Line: 321 ]]
+	return string.gsub(p1, "(%l)(%u)", "%1 %2")
+end
+
+function t.GetSpeciesDisplayName(p1) --[[ GetSpeciesDisplayName | Line: 329 | Upvalues: t (copy) ]]
+	local v1 = t[p1]
+
+	if type(v1) ~= "table" then
+		return string.gsub(p1, "(%l)(%u)", "%1 %2")
+	end
+
+	if type(v1.DisplayName) == "string" then
+		return v1.DisplayName
+	end
+
+	return string.gsub(p1, "(%l)(%u)", "%1 %2")
+end
+function t.GetDisplayName(p1, p2) --[[ GetDisplayName | Line: 340 | Upvalues: PetSizes (copy), t (copy) ]]
+	return PetSizes.DisplayName(t.GetSpeciesDisplayName(p1), p2)
+end
+function t.GetVariantDisplayName(p1, p2, p3) --[[ GetVariantDisplayName | Line: 348 | Upvalues: t (copy), PetTypes (copy), PetSizes (copy) ]]
+	local v1 = t.GetSpeciesDisplayName(p1)
+
+	if p3 == PetTypes.Rainbow then
+		v1 = ("Rainbow %*"):format(v1)
+	end
+
+	local v3 = PetSizes.DisplaySize(p2)
+
+	if v3 then
+		v1 = ("%* %*"):format(v3, v1)
+	end
+
+	return v1
+end
+function t.GetVariantBoost(p1, p2) --[[ GetVariantBoost | Line: 362 | Upvalues: PetTypes (copy), PetSizes (copy) ]]
+	return PetTypes.GetBoostMultiplier(p2) * PetSizes.GetBoostMultiplier(p1)
+end
+function t.GetDescription(p1, p2, p3) --[[ GetDescription | Line: 368 | Upvalues: t (copy) ]]
+	local v1 = t[p1]
+
+	if type(v1) ~= "table" then
+		return ""
+	end
+
+	local Description = v1.Description
+
+	if type(Description) == "function" then
+		return Description(p2, p3)
+	end
+
+	if type(Description) == "string" then
+		return Description
+	end
+
+	return ""
+end
+function t.GetBasePrice(p1) --[[ GetBasePrice | Line: 381 | Upvalues: t (copy), PetFlags (copy) ]]
+	local v1 = t[p1]
+
+	if type(v1) ~= "table" then
+		return 0
+	end
+
+	local v2 = PetFlags.BasePriceOverrides:Get()[p1]
+
+	if type(v2) == "number" then
+		return v2
+	end
+
+	local BasePrice = v1.BasePrice
+
+	if type(BasePrice) == "number" then
+		return BasePrice
+	end
+
+	return 0
+end
+function t.GetSellValue(p1) --[[ GetSellValue | Line: 395 | Upvalues: PetFlags (copy), t (copy) ]]
+	local v1 = PetFlags.SellPriceMultiplierOverrides:Get()[p1]
+
+	if type(v1) ~= "number" then
+		v1 = PetFlags.SellPriceMultiplier:Get()
+	end
+
+	return math.floor(t.GetBasePrice(p1) * v1)
+end
+
+return t

@@ -1,0 +1,510 @@
+-- https://lua.expert/
+local v1 = require("./Packet")
+
+return {
+	Notification = v1("Notify", v1.String, v1.Any),
+	ChatAnnouncement = v1("ChatAnnouncement", v1.String),
+	MagicDice = {
+		PlayRoll = v1("MagicDicePlayRoll", v1.Instance),
+		LoadingDone = v1("MagicDiceLoadingDone")
+	},
+	WeatherStaff = {
+		PlayCast = v1("WeatherStaffPlayCast", v1.Instance, v1.Boolean8),
+		TriggerWeather = v1("WeatherStaffTriggerWeather")
+	},
+	TeleportButton = {
+		Request = v1("TeleportButtonRequest", v1.String)
+	},
+	HelperRequest = v1("HelperRequestNotify", v1.NumberF64),
+	AntiAfk = {
+		RequestHop = v1("AntiAfkRequestHop")
+	},
+	Greenbean = {
+		Action = v1("GreenbeanAction", v1.String)
+	},
+	Plant = {
+		PlantSeed = v1("PlantSeed", v1.Vector3F32, v1.String, v1.Instance),
+		PlantFx = v1("PlantFx", v1.Vector3F32, v1.String, v1.String)
+	},
+	Carpet = {
+		Equip = v1("CarpetEquip"),
+		Unequip = v1("CarpetUnequip"),
+		Activated = v1("CarpetActivated", v1.Boolean8),
+		PlayAnimation = v1("CarpetPlayAnimation", v1.String),
+		StopAnimation = v1("CarpetStopAnimation", v1.String)
+	},
+	ShecklePop = {
+		PlayerDeath = v1("PlayerDeath", v1.Any),
+		SheckleCollect = v1("SheckleCollect", v1.Any)
+	},
+	Raccoon = {
+		RaccoonWalkToPoint = v1("RaccoonWalkToPoint", v1.Any, v1.Any, v1.Any, v1.Any)
+	},
+	Place = {
+		PlaceSprinkler = v1("PlaceSprinkler", v1.Vector3F32, v1.String, v1.Instance, v1.NumberU8),
+		PlaceGnome = v1("PlaceGnome", v1.Vector3F32, v1.String, v1.Instance),
+		RemoveGnome = v1("RemoveGnome", v1.Instance),
+		PlaceRaccoon = v1("PlaceRaccoon", v1.Vector3F32, v1.String, v1.Instance),
+		UseTeleporter = v1("UseTeleporter", v1.Vector3F32),
+		PlaceLadder = v1("PlaceLadder", v1.Vector3F32, v1.String, v1.Instance),
+		PlaceRake = v1("PlaceRake", v1.Vector3F32, v1.String, v1.Instance, v1.NumberU8, v1.NumberF32),
+		RakeActivated = v1("RakeActivated", v1.String, v1.Vector3F32),
+		PlaceBird = v1("PlaceBird", v1.Vector3F32, v1.String, v1.Instance),
+		TeleportedBack = v1("TeleportedBack")
+	},
+	PetTeleporter = {
+		Use = v1("PetTeleporterUse", v1.String),
+		Cooldown = v1("PetTeleporterCooldown", v1.NumberF64)
+	},
+	PetHunt = {
+		JoinQueue = v1("PetHuntJoinQueue", v1.String):Response(v1.Boolean8, v1.String),
+		LeaveQueue = v1("PetHuntLeaveQueue"):Response(v1.Boolean8, v1.String)
+	},
+	FreezeRay = {
+		Fire = v1("FreezeRayFire", v1.Vector3F32, v1.Instance),
+		FreezeFx = v1("FreezeRayFreezeFx", v1.Vector3F32, v1.Instance)
+	},
+	StrawberrySniper = {
+		Fire = v1("StrawberrySniperFire", v1.Vector3F32, v1.Instance, v1.Instance),
+		HitVFX = v1("StrawberrySniperHitVFX", v1.Vector3F32)
+	},
+	GrapplingHook = {
+		Fire = v1("GrapplingHookFire", v1.Vector3F32, v1.Instance),
+		Started = v1("GrapplingHookStarted", v1.Instance, v1.Vector3F32, v1.NumberF64),
+		Ended = v1("GrapplingHookEnded", v1.Instance),
+		ReportEnd = v1("GrapplingHookReportEnd")
+	},
+	Flash = {
+		Flash = v1("Flash", v1.String)
+	},
+	VineWrapper = {
+		Activate = v1("VineWrapperActivate", v1.Vector3F32),
+		AssignTarget = v1("VineWrapperAssign", v1.Instance, v1.NumberF32),
+		SendVisual = v1("SendVisualVine", v1.Instance, v1.Vector3F32),
+		Update = v1("UpdateVineTarget", v1.Vector3F32),
+		Release = v1("VineWrapperRelease"),
+		WrapCharacter = v1("VineWrapperWrapCharacter", v1.Instance),
+		UnwrapCharacter = v1("VineWrapperUnwrapCharacter", v1.Instance)
+	},
+	ExclusiveShop = {
+		DealUpdate = v1("ExclusiveShopDealUpdate", v1.Any)
+	},
+	ShovelFX = {
+		Protected = v1("Protected", v1.String),
+		RagdollRecover = v1("ShovelRagdollRecover")
+	},
+	ReturnNearestFruit = {
+		ReturnNearestFruit = v1("ReturnNearestFruit", v1.Any, v1.Any):Response(v1.Any, v1.Any)
+	},
+	SignTool = {
+		SetSignText = v1("SetSignText", v1.String),
+		SetSignImage = v1("SetSignImage", v1.String)
+	},
+	Megaphone = {
+		SetSoundId = v1("MegaphoneSetSoundId", v1.String),
+		Play = v1("MegaphonePlay", v1.NumberF32, v1.Boolean8)
+	},
+	Settings = {
+		UpdateSFX = v1("UpdateSFX", v1.Any),
+		UpdateMusic = v1("UpdateMusic", v1.Any),
+		UpdateMegaphone = v1("UpdateMegaphone", v1.Any),
+		SubmitCode = v1("SubmitCode", v1.Any):Response(v1.Any)
+	},
+	WeatherMachine = {
+		PlayerEntered = v1("PlayerEntered", v1.String, v1.String),
+		PlayerExited = v1("PlayerExited", v1.String, v1.String)
+	},
+	PowerHose = {
+		Activate = v1("PowerHoseActivate", v1.Instance),
+		KnockbackFx = v1("PowerHoseKnockbackFx", v1.Instance)
+	},
+	WateringCan = {
+		UseWateringCan = v1("UseWateringCan", v1.Vector3F32, v1.String, v1.Instance),
+		WateringCanFx = v1("WateringCanFx", v1.Vector3F32, v1.String, v1.Instance)
+	},
+	SkillPoints = {
+		SkillDataUpdated = v1("SkillDataUpdated", v1.NumberU16, v1.NumberU32, v1.Any),
+		SkillPointEarned = v1("SkillPointEarned"),
+		SpendSkillPoint = v1("SpendSkillPoint", v1.String),
+		RequestSkillData = v1("RequestSkillData"):Response(v1.Any)
+	},
+	Pets = {
+		PetEquipped = v1("PetEquipped", v1.String, v1.Any),
+		PetUnequipped = v1("PetUnequipped", v1.String),
+		RequestUnequip = v1("PetRequestUnequip", v1.String),
+		RequestEquipByName = v1("PetRequestEquipByName", v1.String),
+		RequestUnequipByName = v1("PetRequestUnequipByName", v1.String),
+		GetEquippedPets = v1("PetGetEquipped"):Response(v1.Any),
+		RequestToggleFollower = v1("PetRequestToggleFollower", v1.String),
+		RequestPurchasePetSlot = v1("PetRequestPurchaseSlot"),
+		WildPetTame = v1("WildPetTame", v1.Instance),
+		WildPetTameResult = v1("WildPetTameResult", v1.Instance, v1.NumberF64),
+		WildPetCollected = v1("WildPetCollected", v1.Instance, v1.String),
+		WanderArrived = v1("PetWanderArrived", v1.String),
+		ScarePet = v1("PetScare", v1.NumberF64, v1.String),
+		SnapPets = v1("PetSnapPets", v1.Vector3F32),
+		SnapPetsBroadcast = v1("PetSnapPetsBroadcast", v1.NumberF64),
+		FrogJump = v1("PetFrogJump")
+	},
+	GrowPlant = v1("GrowPlant", v1.String),
+	Shovel = {
+		UseShovel = v1("UseShovel", v1.String, v1.String, v1.String, v1.Instance),
+		HitPlayer = v1("HitPlayer", v1.NumberF64),
+		SwingShovel = v1("SwingShovel", v1.Instance)
+	},
+	Crowbar = {
+		SwingCrowbar = v1("SwingCrowbar"),
+		PryDoor = v1("PryDoor", v1.NumberF64, v1.String),
+		DoorForced = v1("DoorForced", v1.NumberF64, v1.String, v1.NumberF32),
+		HitPlayer = v1("CrowbarHitPlayer", v1.NumberF64)
+	},
+	Gnome = {
+		Positions = v1("GnomePositions", v1.InstanceVector3F24Array)
+	},
+	Bird = {
+		Positions = v1("BirdPositions", v1.InstanceVector3F24Array),
+		FruitEaten = v1("BirdFruitEaten", v1.Vector3F32),
+		SeedDropped = v1("BirdSeedDropped", v1.String, v1.String, v1.String)
+	},
+	Bee = {
+		Sting = v1("BeeSting", v1.NumberF32)
+	},
+	IceSerpent = {
+		BreathStart = v1("IceSerpentBreathStart", v1.Instance, v1.Instance, v1.NumberF32)
+	},
+	Steal = {
+		BeginSteal = v1("BeginSteal", v1.NumberF64, v1.String, v1.String),
+		CancelSteal = v1("CancelSteal"),
+		CompleteSteal = v1("CompleteSteal"),
+		StealStarted = v1("StealStarted", v1.Instance),
+		StealCancelled = v1("StealCancelled", v1.Instance),
+		MarkFruitStolen = v1("MarkFruitStolen", v1.NumberF64, v1.String, v1.String),
+		RestoreFruitAppearance = v1("RestoreFruitAppearance", v1.NumberF64, v1.String, v1.String),
+		DeleteFruitModels = v1("DeleteFruitModels", {
+			{
+				OwnerUserId = v1.NumberF64,
+				PlantId = v1.String,
+				FruitId = v1.String
+			}
+		}),
+		AddStolenFruitVisual = v1("AddStolenFruitVisual", v1.NumberF64, v1.String, v1.NumberF64, v1.NumberF64, v1.NumberF64, v1.String),
+		ClearStolenFruitVisuals = v1("ClearStolenFruitVisuals", v1.NumberF64),
+		RemoveStolenFruitVisual = v1("RemoveStolenFruitVisual", v1.NumberF64, v1.NumberF64),
+		PopVFX = v1("StealPopVFX", v1.Vector3F32, v1.Any)
+	},
+	Backpack = {
+		GetLayout = v1("BackpackGetLayout"):Response(v1.Any),
+		SaveLayout = v1("BackpackSaveLayout", v1.Any),
+		PromoteFruit = v1("BackpackPromoteFruit", v1.String):Response(v1.Any),
+		DemoteFruit = v1("BackpackDemoteFruit", v1.String):Response(v1.Any),
+		SetFruitFavorite = v1("BackpackSetFruitFavorite", v1.String, v1.Boolean8):Response(v1.Boolean8)
+	},
+	Trowel = {
+		MovePlant = v1("MovePlant", v1.String, v1.Vector3F32, v1.NumberF32),
+		MoveRejected = v1("MovePlantRejected", v1.String)
+	},
+	Wheelbarrow = {
+		Charge = v1("WheelbarrowCharge")
+	},
+	SeedShop = {
+		PurchaseSeed = v1("PurchaseSeed", v1.String),
+		PersonalRestock = v1("SeedShopPersonalRestock", v1.Any, v1.NumberF64)
+	},
+	CrateShop = {
+		PurchaseCrate = v1("PurchaseCrate", v1.String),
+		PersonalRestock = v1("CrateShopPersonalRestock", v1.Any, v1.NumberF64)
+	},
+	GearShop = {
+		PurchaseGear = v1("PurchaseGear", v1.String),
+		PersonalRestock = v1("GearShopPersonalRestock", v1.Any, v1.NumberF64),
+		EquipGear = v1("EquipGear", v1.String),
+		UnequipGear = v1("UnequipGear", v1.String),
+		GearEquipState = v1("GearEquipState", v1.String, v1.Boolean8),
+		RequestEquippableState = v1("RequestEquippableState"):Response(v1.Any)
+	},
+	Crate = {
+		OpenCrate = v1("OpenCrate", v1.String):Response(v1.Any),
+		ReplicateOpenCrate = v1("ReplicateOpenCrate", v1.Instance, v1.Any)
+	},
+	SeedPackSpawn = {
+		FX = v1("FX", v1.Vector3F32, v1.String),
+		Announce = v1("SeedPackAnnounce", v1.String),
+		Claimed = v1("SeedPackClaimed", v1.String, v1.String)
+	},
+	SeedPack = {
+		OpenSeedPack = v1("OpenSeedPack", v1.String):Response(v1.Any),
+		ReplicateOpenSeedPack = v1("ReplicateOpenSeedPack", v1.Instance, v1.String, v1.String, v1.String, v1.Vector3F24),
+		ConfirmSeedPack = v1("ConfirmSeedPack", v1.String, v1.String, v1.String),
+		ClickPack = v1("ClickSeedPack", v1.String)
+	},
+	Egg = {
+		OpenEgg = v1("OpenEgg", v1.String):Response(v1.Any),
+		ReplicateOpenEgg = v1("ReplicateOpenEgg", v1.Instance, v1.String, v1.String, v1.String, v1.Vector3F24, v1.String, v1.String),
+		ReplicateHatchInPlace = v1("ReplicateHatchInPlace", v1.Instance, v1.String, v1.String, v1.String, v1.Vector3F24, v1.String, v1.String),
+		ConfirmEgg = v1("ConfirmEgg", v1.String, v1.String, v1.String)
+	},
+	Spring = {
+		SpringFire = v1("SpringFire", v1.String),
+		SpringReload = v1("SpringReload", v1.String)
+	},
+	MoonBloom = {
+		GravityTouched = v1("MoonBloomGravityTouched")
+	},
+	BriarRose = {
+		Touched = v1("BriarRoseTouched"),
+		SetInvisible = v1("BriarRoseSetInvisible", v1.Boolean8)
+	},
+	BearTrap = {
+		BearTrap = v1("BearTrap", v1.String, v1.Vector3F32, v1.String),
+		Closed = v1("BearTrapClosed", v1.String),
+		Reset = v1("BearTrapReset", v1.String)
+	},
+	Seesaw = {
+		Sit = v1("SeesawSit", v1.NumberF64, v1.String, v1.NumberU8),
+		Unsit = v1("SeesawUnsit", v1.NumberF64, v1.String, v1.NumberU8),
+		SeatChanged = v1("SeesawSeatChanged", v1.NumberF64, v1.String, v1.NumberU8, v1.NumberF64, v1.NumberF64),
+		RequestState = v1("SeesawRequestState", v1.NumberF64, v1.String)
+	},
+	FakeSeat = {
+		Sit = v1("FakeSeatSit", v1.NumberF64, v1.String, v1.NumberU8),
+		Unsit = v1("FakeSeatUnsit", v1.NumberF64, v1.String, v1.NumberU8),
+		SeatChanged = v1("FakeSeatSeatChanged", v1.NumberF64, v1.String, v1.NumberU8, v1.NumberF64),
+		RequestState = v1("FakeSeatRequestState", v1.NumberF64, v1.String)
+	},
+	Prop = {
+		PlaceProp = v1("PlaceProp", v1.Vector3F32, v1.String, v1.Instance, v1.NumberF32),
+		PickupProp = v1("PickupProp", v1.String),
+		PropPlaced = v1("PropPlaced", v1.NumberF64, v1.String, {
+			PlacedAt = v1.NumberU32,
+			V = v1.NumberU32,
+			Positions = {
+				PosX = v1.NumberF24,
+				PosY = v1.NumberF24,
+				PosZ = v1.NumberF24,
+				Rotation = v1.NumberF32
+			},
+			PropName = v1.String
+		}),
+		PropRemoved = v1("PropRemoved", v1.NumberF64, v1.String),
+		MoveProp = v1("MoveProp", v1.String, v1.Vector3F24, v1.NumberF32),
+		PropMoved = v1("PropMoved", v1.NumberF64, v1.String, v1.Vector3F24, v1.NumberF32),
+		SetPropExtraData = v1("SetPropExtraData", v1.String, v1.String),
+		PropExtraDataUpdated = v1("PropExtraDataUpdated", v1.NumberF64, v1.String, v1.String)
+	},
+	NPCS = {
+		SellItem = v1("SellItem", v1.Vector3F32, v1.String, v1.Instance, v1.NumberU8),
+		AskBid = v1("AskBid", v1.String):Response(v1.Any),
+		AskBidAll = v1("AskBidAll"):Response(v1.Any),
+		SellFruit = v1("SellFruit", v1.String):Response(v1.Any),
+		SellPet = v1("SellPet", v1.String):Response(v1.Any),
+		GetFruitBid = v1("GetFruitBid", v1.String):Response(v1.Any),
+		SellAll = v1("SellAll"):Response(v1.Any),
+		PreviewSellAll = v1("PreviewSellAll"):Response(v1.Any),
+		CheckDailyDeal = v1("CheckDailyDeal"):Response(v1.Any),
+		UseDailyDealSingle = v1("UseDailyDealSingle", v1.String):Response(v1.Any),
+		UseDailyDealAll = v1("UseDailyDealAll"):Response(v1.Any),
+		LegendaryFx = v1("StevenLegendaryFx"),
+		DoubleOrNothing = v1("DoubleOrNothing"):Response(v1.Any),
+		CashOutDoubleOrNothing = v1("CashOutDoubleOrNothing"):Response(v1.Any)
+	},
+	Garden = {
+		RequestGardens = v1("GardenRequestGardens"),
+		SyncAllGardens = v1("GardenSyncAllGardens", v1.Any),
+		PlantAdded = v1("GardenPlantAdded", v1.NumberF64, v1.String, v1.Any),
+		PlantRemoved = v1("GardenPlantRemoved", v1.NumberF64, v1.String),
+		PlantMoved = v1("GardenPlantMoved", v1.NumberF64, v1.String, v1.Vector3F32, v1.NumberF32),
+		PlantGrowthUpdated = v1("GardenPlantGrowthUpdated", v1.NumberF64, v1.String, v1.NumberF32, v1.NumberF32, v1.NumberF32, v1.NumberF32, v1.NumberU8),
+		PlantAgeSync = v1("GardenPlantAgeSync", v1.NumberF64, v1.Any),
+		SprinklerAdded = v1("GardenSprinklerAdded", v1.NumberF64, v1.String, v1.Any),
+		SprinklerRemoved = v1("GardenSprinklerRemoved", v1.NumberF64, v1.String),
+		FruitAdded = v1("GardenFruitAdded", v1.NumberF64, v1.String, v1.String, v1.Any),
+		FruitRemoved = v1("GardenFruitRemoved", v1.NumberF64, v1.String, v1.String),
+		FruitGrowthUpdated = v1("GardenFruitGrowthUpdated", v1.NumberF64, v1.String, v1.String, v1.NumberF32, v1.NumberF32),
+		FruitAgeSync = v1("GardenFruitAgeSync", v1.NumberF64, v1.String, v1.Any),
+		FruitOvertimeGrowthUpdated = v1("GardenFruitOvertimeGrowthUpdated", v1.NumberF64, v1.String, v1.String, v1.NumberF32),
+		OfflineGrowthData = v1("GardenOfflineGrowthData", v1.Any, v1.Any, v1.NumberF64, v1.NumberF64),
+		RequestOfflineGrowthData = v1("GardenRequestOfflineGrowthData"):Response(v1.Any),
+		PlantMutationUpdated = v1("GardenPlantMutationUpdated", v1.NumberF64, v1.String, v1.String),
+		FruitMutationUpdated = v1("GardenFruitMutationUpdated", v1.NumberF64, v1.String, v1.String, v1.String),
+		CollectFruit = v1("CollectFruit", v1.String, v1.String),
+		GrowAllStarting = v1("GardenGrowAllStarting"),
+		GrowAllComplete = v1("GardenGrowAllComplete"),
+		GrowAllStartingForObserver = v1("GardenGrowAllStartingForObserver", v1.NumberF64, v1.Any),
+		GrowAllCompleteForObserver = v1("GardenGrowAllCompleteForObserver", v1.NumberF64, v1.Any, v1.Any),
+		RequestGrowAllData = v1("GardenRequestGrowAllData"):Response(v1.Any),
+		RakeAdded = v1("GardenRakeAdded", v1.NumberF64, v1.String, v1.Any),
+		RakeRemoved = v1("GardenRakeRemoved", v1.NumberF64, v1.String),
+		PlantLifecycleUpdated = v1("GardenPlantLifecycleUpdated", v1.NumberF64, v1.String, v1.String, v1.NumberF64),
+		PlantReviveProgressUpdated = v1("GardenPlantReviveProgressUpdated", v1.NumberF64, v1.String, v1.NumberF32),
+		PotPlant = v1("GardenPotPlant", v1.String),
+		PlantPotted = v1("GardenPlantPotted", v1.String)
+	},
+	PotPlacement = {
+		PlacePottedPlant = v1("PotPlacementPlacePottedPlant", v1.Vector3F32, v1.NumberF32, v1.String),
+		PottedPlantPlaced = v1("PotPlacementPottedPlantPlaced"),
+		PickUpPottedPlant = v1("PotPlacementPickUpPottedPlant", v1.String)
+	},
+	Mushrooms = {
+		SetInvisiblity = v1("SetInvisiblity", v1.Boolean8),
+		PlayFX = v1("PlayFX", v1.Color3)
+	},
+	Flashbang = {
+		Flashbang = v1("Flashbang"),
+		Detonate = v1("FlashbangDetonate")
+	},
+	Magnet = {
+		Activate = v1("MagnetActivate", v1.Instance, v1.NumberF32, v1.NumberF32),
+		Pull = v1("MagnetPull", v1.Instance, v1.NumberF32, v1.NumberF32)
+	},
+	FruitMagnet = {
+		Activate = v1("FruitMagnetActivate", v1.Instance, v1.NumberF32, v1.NumberF32)
+	},
+	Actions = {
+		ExpandGarden = v1("ExpandGarden"):Response(v1.Boolean8),
+		ChangeFenceTheme = v1("ChangeFenceTheme", v1.String):Response(v1.Boolean8),
+		LikeGarden = v1("LikeGarden", v1.NumberF64)
+	},
+	WeatherEffects = {
+		LightningStart = v1("LightningStart"),
+		LightningEnd = v1("LightningEnd"),
+		LightningStrike = v1("LightningStrike", v1.Vector3F32),
+		RainStart = v1("RainStart"),
+		RainEnd = v1("RainEnd"),
+		RainbowStart = v1("RainbowStart"),
+		RainbowEnd = v1("RainbowEnd"),
+		BloodmoonStart = v1("BloodmoonStart"),
+		BloodmoonEnd = v1("BloodmoonEnd"),
+		BloodmoonBeam = v1("BloodmoonBeam", v1.Vector3F32),
+		BlizzardStart = v1("BlizzardStart"),
+		BlizzardEnd = v1("BlizzardEnd"),
+		BlizzardBeam = v1("BlizzardBeam", v1.Vector3F32),
+		NightStart = v1("NightStart"),
+		NightEnd = v1("NightEnd"),
+		ShootingStar = v1("ShootingStar", v1.Vector3F32),
+		GoldMoonStrike = v1("GoldMoonStrike", v1.Vector3F32),
+		RainbowMoonStrike = v1("RainbowMoonStrike", v1.Vector3F32),
+		ChainPull = v1("ChainPull"),
+		Reticule = v1("Reticule", v1.CFrameF32U16, v1.NumberF64, v1.Color3, v1.NumberF64, v1.NumberF64)
+	},
+	SFX = {
+		PlaySound = v1("PlaySound", v1.String),
+		PlaySoundVolume = v1("PlaySoundVolume", v1.String, v1.NumberF32),
+		LocationSFX = v1("LocationSFX", v1.Vector3S16, v1.String),
+		OwlHoot = v1("OwlHoot", v1.String, v1.String)
+	},
+	Gifting = {
+		Send = v1("GiftingSend", v1.NumberF64, v1.String, v1.String),
+		Response = v1("GiftingResponse", v1.Instance, v1.Boolean8),
+		Prompted = v1("GiftingPrompted", v1.Instance, v1.String),
+		FakeFriendRequest = v1("GiftingFakeFriendRequest", v1.Instance),
+		FakeFriendRequestResponse = v1("GiftingFakeFriendRequestResponse", v1.Instance, v1.Boolean8)
+	},
+	Guild = {
+		GetMyGuild = v1("GuildGetMyGuild"):Response(v1.Any),
+		GetGuildById = v1("GuildGetGuildById", v1.String):Response(v1.Any),
+		GetOnlineMembers = v1("GuildGetOnlineMembers", v1.String):Response(v1.Any),
+		BrowseOpenGuilds = v1("GuildBrowseOpenGuilds"):Response(v1.Any),
+		GetLeaderboard = v1("GuildGetLeaderboard", v1.String):Response(v1.Any),
+		GetAuctionManifest = v1("GuildGetAuctionManifest"):Response(v1.Any),
+		GetCompetition = v1("GuildGetCompetition"):Response(v1.Any),
+		CheckCreateAvailability = v1("GuildCheckCreateAvail", v1.String, v1.String, v1.String):Response(v1.Boolean8, v1.String, v1.Boolean8),
+		CreateGuild = v1("GuildCreate", v1.String, v1.String, v1.String, v1.String, v1.String, v1.String):Response(v1.Boolean8, v1.String),
+		Join = v1("GuildJoin", v1.String):Response(v1.Boolean8, v1.String),
+		Invite = v1("GuildInvite", v1.NumberF64):Response(v1.Boolean8, v1.String),
+		RespondInvite = v1("GuildRespondInvite", v1.String, v1.Boolean8):Response(v1.Boolean8, v1.String),
+		Leave = v1("GuildLeave"):Response(v1.Boolean8, v1.String),
+		Kick = v1("GuildKick", v1.NumberF64):Response(v1.Boolean8, v1.String),
+		Promote = v1("GuildPromote", v1.NumberF64):Response(v1.Boolean8, v1.String),
+		Demote = v1("GuildDemote", v1.NumberF64):Response(v1.Boolean8, v1.String),
+		TransferOwnership = v1("GuildTransferOwnership", v1.NumberF64):Response(v1.Boolean8, v1.String),
+		BuySlots = v1("GuildBuySlots", v1.NumberF64, v1.String):Response(v1.Boolean8, v1.String),
+		EditGuild = v1("GuildEdit", v1.String, v1.String, v1.String, v1.String, v1.NumberF64, v1.String, v1.String):Response(v1.Boolean8, v1.String),
+		BuyAuctionItem = v1("GuildBuyAuctionItem", v1.String):Response(v1.Boolean8, v1.String),
+		Disband = v1("GuildDisband"):Response(v1.Boolean8, v1.String),
+		MailItem = v1("GuildMailItem", v1.NumberF64, v1.String, v1.String):Response(v1.Boolean8, v1.String),
+		TickUpdate = v1("GuildTickUpdate", v1.Any),
+		InvitePrompt = v1("GuildInvitePrompt", v1.String, v1.Any)
+	},
+	Mailbox = {
+		Send = v1("MailboxSend", v1.NumberF64, v1.String, v1.String),
+		SendBatch = v1("MailboxSendBatch", v1.NumberF64, v1.Any, v1.String):Response(v1.Boolean8, v1.String),
+		LookupPlayer = v1("MailboxLookupPlayer", v1.String):Response(v1.NumberF64, v1.String),
+		List = v1("MailboxList"):Response(v1.Any),
+		OpenInbox = v1("MailboxOpenInbox"):Response(v1.Any),
+		IndexProbe = v1("MailboxIndexProbe"):Response(v1.NumberF64),
+		Claim = v1("MailboxClaim", v1.String):Response(v1.Boolean8, v1.String),
+		Decline = v1("MailboxDecline", v1.String),
+		Updated = v1("MailboxUpdated", v1.Any),
+		GetStreaks = v1("MailboxGetStreaks"):Response(v1.Any),
+		GetReplyable = v1("MailboxGetReplyable"):Response(v1.Any),
+		DeleteReplyable = v1("MailboxDeleteReplyable", v1.String)
+	},
+	DevProducts = {
+		PurchaseWithTokens = v1("DevProductPurchaseWithTokens", v1.String):Response(v1.Boolean8, v1.String),
+		SetGiftTarget = v1("DevProductSetGiftTarget", v1.NumberF64),
+		GamepassPurchased = v1("DevProductGamepassPurchased", v1.String):Response(v1.Boolean8, v1.String),
+		InstantGrant = v1("DevProductInstantGrant", v1.String):Response(v1.Boolean8, v1.String),
+		InstantGrantGamepass = v1("DevProductInstantGrantGamepass", v1.String):Response(v1.Boolean8, v1.String),
+		GamepassGiftReceived = v1("DevProductGamepassGiftReceived", v1.String, v1.String)
+	},
+	ObjectPositionService = {
+		CreateServerValue = v1("CreateServerValue", v1.String, v1.String, v1.Vector3F32)
+	},
+	PoisonIvyService = {
+		TouchBegan = v1("TouchBegan", v1.Instance, v1.String),
+		TouchEnded = v1("TouchEnded", v1.Instance)
+	},
+	GhostPepperService = {
+		TouchBegan = v1("TouchBegan", v1.Instance, v1.String),
+		TouchEnded = v1("TouchEnded", v1.Instance)
+	},
+	FlytrapService = {
+		Chomp = v1("FlytrapServiceChomp", v1.Instance)
+	},
+	PoisonPlant = {
+		Poison = v1("PoisonPlantPoison", v1.Instance)
+	},
+	HypnoBloom = {
+		Hit = v1("HypnoBloomHit", v1.Instance)
+	},
+	Ragdoll = {
+		Enable = v1("RagdollEnable"),
+		Disable = v1("RagdollDisable"),
+		EnableForRig = v1("RagdollEnableForRig", v1.Instance),
+		DisableForRig = v1("RagdollDisableForRig", v1.Instance),
+		StartRagdoll = v1("RagdollStartFor", v1.Instance),
+		StopRagdoll = v1("RagdollStopFor", v1.Instance),
+		MotorsOnlyEnable = v1("RagdollMotorsOnlyEnable", v1.Instance),
+		MotorsOnlyDisable = v1("RagdollMotorsOnlyDisable", v1.Instance)
+	},
+	DroppedItem = {
+		RequestDrop = v1("DroppedItemRequestDrop", v1.String, v1.String),
+		PickupFx = v1("DroppedItemPickupFx", v1.Instance, v1.NumberF64)
+	},
+	Tutorial = {
+		Start = v1("TutorialStart", v1.String),
+		Complete = v1("TutorialComplete"),
+		Ready = v1("TutorialReady")
+	},
+	Release = {
+		Snapshot = v1("ReleaseSnapshot", v1.Any),
+		Request = v1("ReleaseRequest"):Response(v1.Any),
+		Changelog = v1("ReleaseChangelog", v1.Any),
+		ChangelogRequest = v1("ReleaseChangelogRequest"):Response(v1.Any),
+		SeenRequest = v1("SecretDropSeenRequest"):Response(v1.Any),
+		MarkSeen = v1("SecretDropMarkSeen", v1.String)
+	},
+	FruitStock = {
+		Snapshot = v1("FruitStockSnapshot", v1.Any),
+		Request = v1("FruitStockRequest"):Response(v1.Any)
+	},
+	Auctioneer = {
+		PurchaseLot = v1("AuctioneerPurchaseLot", v1.String, v1.NumberF64),
+		PurchaseResult = v1("AuctioneerPurchaseResult", v1.String, v1.Boolean8, v1.String),
+		Snapshot = v1("AuctioneerSnapshot", v1.Any),
+		StockUpdate = v1("AuctioneerStockUpdate", v1.Any),
+		RequestSnapshot = v1("AuctioneerRequestSnapshot"):Response(v1.Any),
+		PrepareRobux = v1("AuctioneerPrepareRobux", v1.String):Response(v1.Any)
+	},
+	PlayCutscene = v1("PlayCutscene", v1.String)
+}

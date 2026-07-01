@@ -1,0 +1,254 @@
+-- https://lua.expert/
+local t = {}
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Networking = require(ReplicatedStorage.SharedModules.Networking)
+local MessagePrompt = require(ReplicatedStorage.ClientModules.MessagePrompt)
+local PlayerStateClient = require(ReplicatedStorage.ClientModules.PlayerStateClient)
+local PetLureData = require(ReplicatedStorage.SharedModules.PetLureData)
+local PetHuntFlags = require(ReplicatedStorage.SharedModules.Flags.PetHuntFlags)
+local LocalPlayer = Players.LocalPlayer
+local v1 = setmetatable({}, {
+	__mode = "k"
+})
+local v2 = false
+local v3 = nil
+
+local function getNotificationController() --[[ getNotificationController | Line: 27 | Upvalues: v3 (ref) ]]
+	if v3 then
+		return v3
+	end
+
+	local ok, result = pcall(function() --[[ Line: 29 ]]
+		return require(script.Parent:WaitForChild("NotificationController"))
+	end)
+
+	if not ok then
+		return v3
+	end
+
+	v3 = result
+
+	return result
+end
+
+local function notify(p1) --[[ notify | Line: 39 | Upvalues: v3 (ref) ]]
+	if type(p1) ~= "string" or p1 == "" then
+		return
+	end
+
+	if not v3 then
+		local ok, result = pcall(function() --[[ Line: 29 ]]
+			return require(script.Parent:WaitForChild("NotificationController"))
+		end)
+
+		if ok then
+			v3 = result
+		end
+	end
+
+	local v1 = v3
+
+	if not v1 then
+		return
+	end
+
+	v1:CreateNotification(p1)
+end
+
+local function isQueued() --[[ isQueued | Line: 50 | Upvalues: PlayerStateClient (copy) ]]
+	local v1 = PlayerStateClient:GetLocalReplica()
+
+	return if v1 == nil or (v1.Data == nil or v1.Data.PetHuntEscrow == nil) then false else v1.Data.PetHuntEscrow ~= false
+end
+
+local function onActivated(p1) --[[ onActivated | Line: 55 | Upvalues: v2 (ref), PetHuntFlags (copy), PlayerStateClient (copy), MessagePrompt (copy), Networking (copy), v3 (ref), PetLureData (copy) ]]
+	local v1 = p1:GetAttribute("PetLure")
+
+	if type(v1) ~= "string" then
+		return
+	end
+
+	if v2 then
+		return
+	end
+
+	if not PetHuntFlags.OpenEnabled:GetAsync() then
+		return
+	end
+
+	v2 = true
+
+	local v22 = PlayerStateClient:GetLocalReplica()
+
+	v2 = false
+
+	if if v22 == nil or (v22.Data == nil or v22.Data.PetHuntEscrow == nil) then false else v22.Data.PetHuntEscrow ~= false then
+		if not MessagePrompt.Prompt({
+			message = "Leave the hunt queue? Your lure will be returned.",
+			titleOverride = "Leave Hunt Queue?",
+			yield = true,
+			hideClose = true,
+			options = MessagePrompt.Choices.YesNo
+		}) then
+			return
+		end
+
+		local _, v5 = Networking.PetHunt.LeaveQueue:Fire()
+		local v6 = v5 or "Left the hunt queue."
+
+		if type(v6) ~= "string" then
+			return
+		end
+
+		if v6 == "" then
+			return
+		end
+
+		if not v3 then
+			local ok, result = pcall(function() --[[ Line: 29 ]]
+				return require(script.Parent:WaitForChild("NotificationController"))
+			end)
+
+			if ok then
+				v3 = result
+			end
+		end
+
+		local v7 = v3
+
+		if not v7 then
+			return
+		end
+
+		v7:CreateNotification(v6)
+	else
+		local v8 = PetLureData.Get(v1)
+		local t = {
+			message = "Join the hunt? Once enough hunters gather you\'ll be whisked into a private arena. Your lure is returned if no hunt forms.",
+			yield = true,
+			hideClose = true
+		}
+
+		t.titleOverride = if v8 then ("Use %*?"):format(v8.DisplayName) else "Use Pet Lure?"
+		t.options = MessagePrompt.Choices.YesNo
+
+		if not MessagePrompt.Prompt(t) then
+			return
+		end
+
+		if not v3 then
+			local ok, result = pcall(function() --[[ Line: 29 ]]
+				return require(script.Parent:WaitForChild("NotificationController"))
+			end)
+
+			if ok then
+				v3 = result
+			end
+		end
+
+		local v11 = v3
+
+		if v11 then
+			v11:CreateNotification("You\'ve entered the hunt queue! Hang tight for a match.")
+		end
+
+		local v12, v13 = Networking.PetHunt.JoinQueue:Fire(v1)
+
+		if v12 or (not v13 or type(v13) ~= "string") then
+			return
+		end
+
+		if v13 == "" then
+			return
+		end
+
+		if not v3 then
+			local ok, result = pcall(function() --[[ Line: 29 ]]
+				return require(script.Parent:WaitForChild("NotificationController"))
+			end)
+
+			if ok then
+				v3 = result
+			end
+		end
+
+		local v14 = v3
+
+		if not v14 then
+			return
+		end
+
+		v14:CreateNotification(v13)
+	end
+end
+
+local function tryConnect(p1) --[[ tryConnect | Line: 112 | Upvalues: v1 (copy), onActivated (copy) ]]
+	if not p1:IsA("Tool") then
+		return
+	end
+
+	if p1:GetAttribute("PetLure") == nil then
+		return
+	end
+
+	if not v1[p1] then
+		v1[p1] = true
+		p1.Activated:Connect(function() --[[ Line: 124 | Upvalues: onActivated (ref), p1 (copy) ]]
+			task.spawn(onActivated, p1)
+		end)
+	end
+end
+
+local function watch(p1) --[[ watch | Line: 129 | Upvalues: tryConnect (copy) ]]
+	for v1, v2 in p1:GetChildren() do
+		tryConnect(v2)
+	end
+
+	p1.ChildAdded:Connect(tryConnect)
+end
+
+function t.Init(p1) --[[ Init | Line: 136 ]] end
+function t.Start(p1) --[[ Start | Line: 138 | Upvalues: LocalPlayer (copy), tryConnect (copy) ]]
+	local v1 = LocalPlayer:FindFirstChildOfClass("Backpack") or LocalPlayer:WaitForChild("Backpack", 10)
+
+	if v1 then
+		for v2, v3 in v1:GetChildren() do
+			tryConnect(v3)
+		end
+
+		v1.ChildAdded:Connect(tryConnect)
+	end
+
+	if LocalPlayer.Character then
+		local Character = LocalPlayer.Character
+
+		for v4, v5 in Character:GetChildren() do
+			tryConnect(v5)
+		end
+
+		Character.ChildAdded:Connect(tryConnect)
+	end
+
+	LocalPlayer.CharacterAdded:Connect(function(p1) --[[ Line: 146 | Upvalues: tryConnect (ref), LocalPlayer (ref) ]]
+		for v1, v2 in p1:GetChildren() do
+			tryConnect(v2)
+		end
+
+		p1.ChildAdded:Connect(tryConnect)
+
+		local v3 = LocalPlayer:FindFirstChildOfClass("Backpack") or LocalPlayer:WaitForChild("Backpack", 10)
+
+		if not v3 then
+			return
+		end
+
+		for v4, v5 in v3:GetChildren() do
+			tryConnect(v5)
+		end
+
+		v3.ChildAdded:Connect(tryConnect)
+	end)
+end
+
+return t

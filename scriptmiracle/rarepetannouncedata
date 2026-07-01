@@ -1,0 +1,145 @@
+-- https://lua.expert/
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local PetSizes = require(ReplicatedStorage.SharedData.PetSizes)
+local PetTypes = require(ReplicatedStorage.SharedData.PetTypes)
+local t = {
+	Bear = {
+		Big = 57,
+		Rainbow = 1,
+		Huge = 1,
+		BigRainbow = 0,
+		HugeRainbow = 0
+	},
+	Unicorn = {
+		Rainbow = 31,
+		Huge = 6,
+		HugeRainbow = 1,
+		BigRainbow = 15
+	},
+	Monkey = {
+		Big = 26,
+		Rainbow = 6,
+		BigRainbow = 0,
+		Huge = 0,
+		HugeRainbow = 0
+	},
+	GoldenDragonfly = {
+		Big = 141,
+		Rainbow = 66,
+		BigRainbow = 30,
+		Huge = 15,
+		HugeRainbow = 0
+	},
+	Raccoon = {
+		Big = 48,
+		Rainbow = 27,
+		Huge = 3,
+		BigRainbow = 8,
+		HugeRainbow = 0
+	},
+	Bee = {
+		BigRainbow = 25,
+		HugeRainbow = 1,
+		Huge = 2
+	},
+	Robin = {
+		BigRainbow = 22,
+		HugeRainbow = 1,
+		Huge = 2
+	},
+	Deer = {
+		BigRainbow = 106,
+		HugeRainbow = 10,
+		Huge = 40
+	},
+	Turtle = {
+		HugeRainbow = 0,
+		Huge = 0,
+		BigRainbow = 0
+	},
+	Owl = {
+		BigRainbow = 9,
+		Huge = 0,
+		HugeRainbow = 0
+	},
+	Frog = {
+		HugeRainbow = 6,
+		Huge = 36
+	},
+	Bunny = {
+		HugeRainbow = 9,
+		Huge = 54
+	}
+}
+
+return table.freeze({
+	GetVariantClass = function(p1, p2) --[[ GetVariantClass | Line: 116 | Upvalues: PetSizes (copy), PetTypes (copy) ]]
+		local v1 = PetSizes.Normalize(p1)
+		local isRainbow = p2 == PetTypes.Rainbow
+
+		if v1 == "Huge" then
+			if isRainbow then
+				return "HugeRainbow"
+			end
+
+			return "Huge"
+		end
+
+		if v1 == "Big" then
+			if isRainbow then
+				return "BigRainbow"
+			end
+
+			return "Big"
+		end
+
+		if isRainbow then
+			return "Rainbow"
+		end
+
+		return "Normal"
+	end,
+	VariantKey = function(p1, p2, p3) --[[ VariantKey | Line: 130 | Upvalues: PetSizes (copy), PetTypes (copy) ]]
+		local v2 = PetSizes.Normalize(p2)
+		local isRainbow = p3 == PetTypes.Rainbow
+		local v3, v4
+
+		if v2 == "Huge" then
+			if isRainbow then
+				v3 = p1
+				v4 = "HugeRainbow"
+			else
+				v3 = p1
+				v4 = "Huge"
+			end
+		elseif v2 == "Big" then
+			if isRainbow then
+				v3 = p1
+				v4 = "BigRainbow"
+			else
+				v3 = p1
+				v4 = "Big"
+			end
+		elseif isRainbow then
+			v3 = p1
+			v4 = "Rainbow"
+		else
+			v3 = p1
+			v4 = "Normal"
+		end
+
+		return ("%*|%*"):format(v3, v4)
+	end,
+	GetExistCount = function(p1, p2, p3) --[[ GetExistCount | Line: 136 | Upvalues: t (copy), PetSizes (copy), PetTypes (copy) ]]
+		local v1 = t[p1]
+
+		if not v1 then
+			return nil
+		end
+
+		local v2 = PetSizes.Normalize(p2)
+		local isRainbow = p3 == PetTypes.Rainbow
+
+		return v1[if v2 == "Huge" then if isRainbow then "HugeRainbow" else "Huge" elseif v2 == "Big" then if isRainbow then "BigRainbow" else "Big" elseif isRainbow then "Rainbow" else "Normal"]
+	end
+})

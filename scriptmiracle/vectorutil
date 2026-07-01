@@ -1,0 +1,20 @@
+-- https://lua.expert/
+local t = {
+	ClampMagnitude = function(p1, p2) --[[ ClampMagnitude | Line: 46 ]]
+		return p2 < p1.Magnitude and p1.Unit * p2 or p1
+	end,
+	AngleBetween = function(p1, p2) --[[ AngleBetween | Line: 51 ]]
+		return math.acos((math.clamp(p1.Unit:Dot(p2.Unit), -1, 1)))
+	end
+}
+
+function t.AngleBetweenSigned(p1, p2, p3) --[[ AngleBetweenSigned | Line: 56 | Upvalues: t (copy) ]]
+	local v1 = t.AngleBetween(p1, p2)
+
+	return v1 * math.sign((p3:Dot(p1:Cross(p2))))
+end
+function t.SquaredMagnitude(p1) --[[ SquaredMagnitude | Line: 61 ]]
+	return p1.X ^ 2 + p1.Y ^ 2 + p1.Z ^ 2
+end
+
+return t

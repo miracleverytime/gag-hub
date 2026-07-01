@@ -1,0 +1,324 @@
+-- https://lua.expert/
+local t = {}
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local t2 = {}
+local v1 = nil
+
+local function getCharacterPosition() --[[ getCharacterPosition | Line: 11 | Upvalues: LocalPlayer (copy) ]]
+	local Character = LocalPlayer.Character
+
+	if not Character then
+		return nil
+	end
+
+	local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
+
+	if HumanoidRootPart then
+		return HumanoidRootPart.Position
+	end
+
+	return nil
+end
+
+local function getClosestPointOnPart(p1, p2) --[[ getClosestPointOnPart | Line: 25 ]]
+	local v1 = p1.CFrame:PointToObjectSpace(p2)
+	local v2 = p1.Size * 0.5
+
+	return p1.CFrame:PointToWorldSpace((Vector3.new(math.clamp(v1.X, -v2.X, v2.X), math.clamp(v1.Y, -v2.Y, v2.Y), (math.clamp(v1.Z, -v2.Z, v2.Z)))))
+end
+
+local function getBestPromptPosition(p1, p2, p3) --[[ getBestPromptPosition | Line: 38 | Upvalues: getClosestPointOnPart (copy) ]]
+	local v1 = (1 / 0)
+	local v2 = nil
+
+	for v3, v4 in p1 do
+		if v4.Parent then
+			local v5 = getClosestPointOnPart(v4, p2)
+			local Magnitude = (p2 - v5).Magnitude
+
+			if Magnitude < v1 then
+				v1 = Magnitude
+				v2 = v5
+			end
+		end
+	end
+
+	if not v2 then
+		return nil
+	end
+
+	local v6 = p2 - v2
+
+	return v2 + (if v6.Magnitude < 0.0001 then Vector3.new(0, 1, 0) else v6.Unit) * p3
+end
+
+local function rebuildPartCache(p1, p2) --[[ rebuildPartCache | Line: 66 ]]
+	local t = {}
+
+	for v1, v2 in p1:GetDescendants() do
+		if v2:IsA("BasePart") and v2 ~= p2 then
+			table.insert(t, v2)
+		end
+	end
+
+	return t
+end
+
+local function getOrCreateAnchorPart(p1, p2) --[[ getOrCreateAnchorPart | Line: 76 ]]
+	local v1 = p1:FindFirstChild(p2)
+
+	if v1 and v1:IsA("BasePart") then
+		return v1
+	end
+
+	local v2 = p1.PrimaryPart or p1:FindFirstChildWhichIsA("BasePart")
+
+	if v2 then
+		local Part = Instance.new("Part")
+
+		Part.Name = p2
+		Part.Size = Vector3.new(1, 1, 1)
+		Part.Transparency = 1
+		Part.Anchored = true
+		Part.CanCollide = false
+		Part.CanTouch = false
+		Part.CanQuery = false
+		Part.CFrame = v2.CFrame
+		Part.Parent = p1
+
+		return Part
+	end
+
+	return nil
+end
+
+local function ensureHeartbeat() --[[ ensureHeartbeat | Line: 101 | Upvalues: v1 (ref), RunService (copy), t2 (copy), LocalPlayer (copy), getBestPromptPosition (copy) ]]
+	if not v1 then
+		v1 = RunService.Heartbeat:Connect(function(p13) --[[ Line: 106 | Upvalues: t2 (ref), v1 (ref), LocalPlayer (ref), getBestPromptPosition (ref) ]]
+			if next(t2) == nil then
+				if not v1 then
+					return
+				end
+
+				v1:Disconnect()
+				v1 = nil
+			else
+				local Character = LocalPlayer.Character
+				local v12
+
+				if Character then
+					local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
+
+					v12 = if HumanoidRootPart then HumanoidRootPart.Position else nil
+				else
+					v12 = nil
+				end
+
+				if not v12 then
+					return
+				end
+
+				for v2, v3 in t2 do
+					if v2.Parent then
+						local model = v3.model
+						local part = v3.part
+
+						if model and (model.Parent and (part and part.Parent)) then
+							if not (v3.trackDistance < (model:GetPivot().Position - v12).Magnitude) then
+								local v4 = getBestPromptPosition(v3.parts, v12, v3.surfaceOffset)
+
+								if v4 then
+									part.CFrame = CFrame.new(part.Position:Lerp(v4, (math.clamp(p13 * v3.followSpeed, 0, 1))))
+								end
+							end
+
+							continue
+						end
+
+						if v3.partsConn then
+							v3.partsConn:Disconnect()
+						end
+
+						if v3.partsRemovedConn then
+							v3.partsRemovedConn:Disconnect()
+						end
+
+						t2[v2] = nil
+
+						continue
+					end
+
+					if v3.partsConn then
+						v3.partsConn:Disconnect()
+					end
+
+					if v3.partsRemovedConn then
+						v3.partsRemovedConn:Disconnect()
+					end
+
+					t2[v2] = nil
+				end
+			end
+		end)
+	end
+end
+
+function t.AttachToModel(p1, p2, p3) --[[ AttachToModel | Line: 153 | Upvalues: getOrCreateAnchorPart (copy), rebuildPartCache (copy), t2 (copy), v1 (ref), RunService (copy), LocalPlayer (copy), getBestPromptPosition (copy) ]]
+	local v12 = if p3 then p3 else {}
+
+	if not (p1 and p2) then
+		return function() --[[ Line: 156 ]] end
+	end
+
+	local v3 = tonumber(v12.SurfaceOffset) or 0.75
+	local v4 = tonumber(v12.FollowSpeed) or 18
+	local v5 = tonumber(v12.TrackDistance) or 24
+	local v6 = tonumber(v12.MaxActivationDistance)
+	local v7 = getOrCreateAnchorPart(p2, v12.PartName or "SmartPromptPart")
+
+	if not v7 then
+		return function() --[[ Line: 167 ]] end
+	end
+
+	if v6 then
+		p1.MaxActivationDistance = v6
+	end
+
+	p1.RequiresLineOfSight = false
+	p1.Parent = v7
+
+	local t = {
+		model = p2,
+		part = v7,
+		surfaceOffset = v3,
+		followSpeed = v4
+	}
+
+	t.trackDistance = math.max(v5, p1.MaxActivationDistance + 8)
+	t.parts = rebuildPartCache(p2, v7)
+
+	local function refreshParts(p1) --[[ refreshParts | Line: 189 | Upvalues: t (copy), rebuildPartCache (ref), p2 (copy), v7 (copy) ]]
+		if not p1 or p1:IsA("BasePart") then
+			t.parts = rebuildPartCache(p2, v7)
+		end
+	end
+
+	t.partsConn = p2.DescendantAdded:Connect(refreshParts)
+	t.partsRemovedConn = p2.DescendantRemoving:Connect(refreshParts)
+	t2[p1] = t
+
+	local v9
+
+	if v1 then
+		v9 = function() --[[ cleanup | Line: 201 | Upvalues: t2 (ref), p1 (copy) ]]
+			local v1 = t2[p1]
+
+			if v1 then
+				if v1.partsConn then
+					v1.partsConn:Disconnect()
+				end
+
+				if v1.partsRemovedConn then
+					v1.partsRemovedConn:Disconnect()
+				end
+			end
+
+			t2[p1] = nil
+		end
+		p1.Destroying:Once(v9)
+		p2.Destroying:Once(v9)
+
+		return v9
+	end
+
+	v1 = RunService.Heartbeat:Connect(function(p13) --[[ Line: 106 | Upvalues: t2 (ref), v1 (ref), LocalPlayer (ref), getBestPromptPosition (ref) ]]
+		if next(t2) == nil then
+			if not v1 then
+				return
+			end
+
+			v1:Disconnect()
+			v1 = nil
+		else
+			local Character = LocalPlayer.Character
+			local v12
+
+			if Character then
+				local HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart")
+
+				v12 = if HumanoidRootPart then HumanoidRootPart.Position else nil
+			else
+				v12 = nil
+			end
+
+			if not v12 then
+				return
+			end
+
+			for v2, v3 in t2 do
+				if v2.Parent then
+					local model = v3.model
+					local part = v3.part
+
+					if model and (model.Parent and (part and part.Parent)) then
+						if not (v3.trackDistance < (model:GetPivot().Position - v12).Magnitude) then
+							local v4 = getBestPromptPosition(v3.parts, v12, v3.surfaceOffset)
+
+							if v4 then
+								part.CFrame = CFrame.new(part.Position:Lerp(v4, (math.clamp(p13 * v3.followSpeed, 0, 1))))
+							end
+						end
+
+						continue
+					end
+
+					if v3.partsConn then
+						v3.partsConn:Disconnect()
+					end
+
+					if v3.partsRemovedConn then
+						v3.partsRemovedConn:Disconnect()
+					end
+
+					t2[v2] = nil
+
+					continue
+				end
+
+				if v3.partsConn then
+					v3.partsConn:Disconnect()
+				end
+
+				if v3.partsRemovedConn then
+					v3.partsRemovedConn:Disconnect()
+				end
+
+				t2[v2] = nil
+			end
+		end
+	end)
+	v9 = function() --[[ cleanup | Line: 201 | Upvalues: t2 (ref), p1 (copy) ]]
+		local v1 = t2[p1]
+
+		if v1 then
+			if v1.partsConn then
+				v1.partsConn:Disconnect()
+			end
+
+			if v1.partsRemovedConn then
+				v1.partsRemovedConn:Disconnect()
+			end
+		end
+
+		t2[p1] = nil
+	end
+	p1.Destroying:Once(v9)
+	p2.Destroying:Once(v9)
+
+	return v9
+end
+
+return t
+

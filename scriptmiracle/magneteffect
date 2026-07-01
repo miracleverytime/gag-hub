@@ -1,0 +1,329 @@
+-- https://lua.expert/
+local t = {}
+local t2 = {}
+local Animation = Instance.new("Animation")
+
+Animation.AnimationId = "rbxassetid://102073079493908"
+
+local Reticule = script.Reticule
+
+local function PlaySound(p1, p2, p3) --[[ PlaySound | Line: 23 ]]
+	if not p1 then
+		return
+	end
+
+	local Sound = Instance.new("Sound")
+
+	Sound.SoundId = p2
+	Sound.Volume = 1
+	Sound.RollOffMaxDistance = 300
+	Sound.Looped = p3 or false
+	Sound.Parent = p1
+	Sound:Play()
+
+	if not p3 then
+		Sound.Ended:Once(function() --[[ Line: 35 | Upvalues: Sound (copy) ]]
+			Sound:Destroy()
+		end)
+	end
+
+	return Sound
+end
+
+function t.Setup(p1) --[[ Setup | Line: 43 | Upvalues: t2 (copy) ]]
+	t2[p1] = {
+		Effects = {}
+	}
+
+	local v1 = game.MaterialService.ToolMaterials.GlowWeldTemplate:Clone()
+
+	v1.EmissiveTint = Color3.fromRGB(49, 255, 255)
+	v1.EmissiveStrength = 0
+	v1.Parent = game.MaterialService.ToolMaterials
+	v1.Name = "Magnet-" .. tostring(os.time())
+	t2[p1].Material = v1
+	p1.Handle.MaterialVariant = v1.Name
+	p1.Destroying:Connect(function() --[[ Line: 57 | Upvalues: t2 (ref), p1 (copy) ]]
+		t2[p1].Material:Destroy()
+		t2[p1].Active = false
+
+		if t2[p1].PullingSound then
+			t2[p1].PullingSound:Destroy()
+			t2[p1].PullingSound = nil
+		end
+
+		for v1, v2 in t2[p1].Effects do
+			v2:Destroy()
+		end
+
+		t2[p1] = nil
+	end)
+end
+
+local v1 = RaycastParams.new()
+
+v1.FilterDescendantsInstances = {}
+
+local function castGroundRay(p1, p2) --[[ castGroundRay | Line: 81 | Upvalues: v1 (copy) ]]
+	local v12 = game.Workspace:Raycast(p1, p2, v1)
+
+	if not v12 then
+		return v12, 0
+	end
+
+	if not v12.Instance then
+		return v12, 0
+	end
+
+	if v12.Instance.Transparency < 1 then
+		return v12, 0
+	end
+
+	local v2 = RaycastParams.new()
+
+	v2.FilterType = v1.FilterType
+	v2.IgnoreWater = v1.IgnoreWater
+	v2.RespectCanCollide = v1.RespectCanCollide
+	v2.FilterDescendantsInstances = v1.FilterDescendantsInstances
+	v2:AddToFilter(v12.Instance)
+
+	for i = 1, 8 do
+		local v3 = game.Workspace:Raycast(p1, p2, v2)
+
+		if not v3 then
+			return v3, i
+		end
+
+		if not v3.Instance then
+			return v3, i
+		end
+
+		if v3.Instance.Transparency < 1 then
+			return v3, i
+		end
+
+		v2:AddToFilter(v3.Instance)
+	end
+
+	return nil, 8
+end
+
+function t.Enable(p1, p2, p3) --[[ Enable | Line: 115 | Upvalues: PlaySound (copy), Animation (copy), t2 (copy), Reticule (copy), v1 (copy), castGroundRay (copy) ]]
+	local v12 = p2 or p1:FindFirstChildOfClass("Tool")
+	local v2 = p1:FindFirstChild("HumanoidRootPart") or p1.PrimaryPart
+
+	PlaySound(v2, "rbxassetid://139786085754154")
+
+	local v3 = v12.Handle.Start:GetChildren()
+	local v4 = p1.Humanoid.Animator:LoadAnimation(Animation)
+	local v5 = false
+
+	v4:GetMarkerReachedSignal("Activate"):Once(function() --[[ Line: 138 | Upvalues: v5 (ref) ]]
+		v5 = true
+	end)
+	v4:Play(0.05, 10, 1)
+	game.TweenService:Create(t2[v12].Material, TweenInfo.new(0.4), {
+		EmissiveStrength = 5
+	}):Play()
+
+	for v6, v7 in v3 do
+		task.delay(v7:GetAttribute("EmitDelay") or 0, function() --[[ Line: 151 | Upvalues: v7 (copy) ]]
+			v7:Emit(v7:GetAttribute("EmitCount") or 1)
+			v7.Enabled = true
+		end)
+	end
+
+	task.wait(0.4)
+
+	if not v5 then
+		repeat
+			task.wait()
+		until v5
+	end
+
+	v4:AdjustSpeed(0)
+	PlaySound(v2, "rbxassetid://114743198643478")
+
+	local v8 = t2[v12]
+	local v9
+
+	if v2 then
+		local Sound = Instance.new("Sound")
+
+		Sound.SoundId = "rbxassetid://72523912557145"
+		Sound.Volume = 1
+		Sound.RollOffMaxDistance = 300
+		Sound.Looped = true
+		Sound.Parent = v2
+		Sound:Play()
+		v9 = Sound
+	else
+		v9 = nil
+	end
+
+	v8.PullingSound = v9
+
+	local v10 = script.Highlight:Clone()
+
+	v10.Parent = v12
+	v10.Enabled = true
+	game.TweenService:Create(v10, TweenInfo.new(0.3), {
+		OutlineTransparency = 0
+	}):Play()
+	game.TweenService:Create(t2[v12].Material, TweenInfo.new(0.2), {
+		EmissiveStrength = 15
+	}):Play()
+	task.delay(0.5, function() --[[ Line: 183 | Upvalues: t2 (ref), v12 (copy), v10 (copy) ]]
+		game.TweenService:Create(t2[v12].Material, TweenInfo.new(0.4), {
+			EmissiveStrength = 5
+		}):Play()
+		game.TweenService:Create(v10, TweenInfo.new(0.4), {
+			OutlineTransparency = 0.8
+		}):Play()
+		v12.Handle.Glow:Emit(15)
+		v12.Handle.Glow.Enabled = true
+	end)
+	t2[v12].Active = true
+
+	local v11 = Reticule:Clone()
+	local v122 = not p3 and v11.Size or Vector3.new(0.1, p3, p3)
+
+	v11.Size = Vector3.new(0.1, 0.1, 0.1)
+	game.TweenService:Create(v11, TweenInfo.new(0.5), {
+		Size = v122
+	}):Play()
+	v11.Parent = workspace.Temporary
+
+	for v13, v14 in v11.Activate:GetChildren() do
+		v14:Emit(v14:GetAttribute("EmitCount"))
+	end
+
+	local function updatePosition() --[[ updatePosition | Line: 206 | Upvalues: v1 (ref), castGroundRay (ref), p1 (copy), v11 (copy) ]]
+		v1.FilterDescendantsInstances = game.CollectionService:GetTagged("Character")
+
+		local v12 = castGroundRay(p1.PrimaryPart.Position, Vector3.new(-0, -30, -0))
+
+		v11:PivotTo(if v12 then CFrame.new(v12.Position + Vector3.new(0, 0.05, 0)) else CFrame.new(p1.PrimaryPart.Position - Vector3.new(0, 2.95, 0)))
+	end
+
+	updatePosition()
+
+	local v15 = p1.Torso:WaitForChild("Left Shoulder")
+	local v16 = p1.Torso:WaitForChild("Right Shoulder")
+	local C0 = v15.C0
+	local C02 = v16.C0
+
+	task.spawn(function() --[[ Line: 229 | Upvalues: v12 (copy), p1 (copy), t2 (ref), v16 (copy), C02 (copy), v15 (copy), C0 (copy) ]]
+		local sum = 0
+
+		while v12:IsDescendantOf(p1) and t2[v12].Active do
+			sum = sum + task.wait(0)
+
+			local v1 = CFrame.Angles((math.sin(sum * 35) * 0.6 + math.sin(sum * 47) * 0.4) * 0.05235987755982989, (math.sin(sum * 41) * 0.5 + math.sin(sum * 53) * 0.5) * 0.05235987755982989, (math.sin(sum * 38) * 0.6 + math.sin(sum * 49) * 0.4) * 0.05235987755982989)
+
+			v16.C0 = C02 * v1
+			v15.C0 = C0 * v1
+		end
+
+		v15.C0 = C0
+		v16.C0 = C02
+	end)
+	task.spawn(function() --[[ Line: 252 | Upvalues: v12 (copy), p1 (copy), t2 (ref), updatePosition (copy), PlaySound (ref), v2 (copy), v11 (copy), v4 (copy), v3 (copy), v10 (copy) ]]
+		while v12:IsDescendantOf(p1) and t2[v12].Active do
+			task.wait(0)
+			updatePosition()
+		end
+
+		if t2[v12] and t2[v12].PullingSound then
+			t2[v12].PullingSound:Stop()
+			t2[v12].PullingSound:Destroy()
+			t2[v12].PullingSound = nil
+		end
+
+		PlaySound(v2, "rbxassetid://114743198643478")
+
+		for v1, v22 in v11.Activate:GetChildren() do
+			v22:Emit(v22:GetAttribute("EmitCount"))
+		end
+
+		for v32, v42 in v11:GetDescendants() do
+			if v42:IsA("ParticleEmitter") then
+				v42.Enabled = false
+			end
+		end
+
+		game.TweenService:Create(v11, TweenInfo.new(0.5), {
+			Size = Vector3.new(0.1, 0.1, 0.1)
+		}):Play()
+		game.TweenService:Create(v11.SurfaceGui.Frame, TweenInfo.new(0.5), {
+			BackgroundTransparency = 1
+		}):Play()
+		game.TweenService:Create(v11.SurfaceGui.Frame.UIStroke, TweenInfo.new(0.5), {
+			Transparency = 1
+		}):Play()
+		game.Debris:AddItem(v11, 3)
+		v4:AdjustSpeed(-2)
+		game.TweenService:Create(t2[v12].Material, TweenInfo.new(0.4), {
+			EmissiveStrength = 0
+		}):Play()
+
+		for v5, v6 in v3 do
+			v6:Emit(v6:GetAttribute("EmitCount") or 1)
+			v6.Enabled = false
+		end
+
+		v12.Handle.Glow.Enabled = false
+		game.TweenService:Create(v10, TweenInfo.new(0.3), {
+			OutlineTransparency = 1
+		}):Play()
+		game.Debris:AddItem(v10, 0.3)
+	end)
+end
+function t.AddTarget(p1, p2) --[[ AddTarget | Line: 304 | Upvalues: t2 (copy) ]]
+	if not (t2[p1] and t2[p1].Active) then
+		return false
+	end
+
+	if t2[p1].Effects[p2] then
+		t2[p1].Effects[p2]:Destroy()
+	end
+
+	local v1 = script.Attachment:Clone()
+	local v2 = p1.Handle.Beams:Clone()
+
+	v2.Parent = v1
+
+	for v3, v4 in v2:GetChildren() do
+		v4.Attachment1 = v1
+		v4.Enabled = true
+	end
+
+	if p2:IsA("BasePart") then
+		v1.Parent = p2
+	elseif p2:IsA("Model") then
+		v1.Parent = p2.PrimaryPart
+	end
+
+	t2[p1].Effects[p2] = v1
+
+	return true
+end
+function t.RemoveTarget(p1, p2) --[[ RemoveTarget | Line: 338 | Upvalues: t2 (copy) ]]
+	if not t2[p1].Effects[p2] then
+		return
+	end
+
+	t2[p1].Effects[p2]:Destroy()
+end
+function t.Disable(p1, p2) --[[ Disable | Line: 345 | Upvalues: t2 (copy) ]]
+	local v1 = if p2 then p2 else p1:FindFirstChildOfClass("Tool")
+
+	t2[v1].Active = false
+
+	for v2, v3 in t2[v1].Effects do
+		v3:Destroy()
+		t2[v1].Effects[v2] = nil
+	end
+end
+
+return t

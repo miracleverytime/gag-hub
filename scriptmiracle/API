@@ -1,0 +1,416 @@
+-- https://lua.expert/
+require(script.Parent.Types)
+
+return function(p1) --[[ Line: 3 ]]
+	local function wrapper(p12) --[[ wrapper | Line: 5 | Upvalues: p1 (copy) ]]
+		return function(p12, p23) --[[ Line: 6 | Upvalues: p1 (ref), p12 (copy) ]]
+			return p1.Internal._Insert(p12, p12, p23)
+		end
+	end
+
+	local v1 = "Window"
+
+	function p1.Window(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v1 (copy) ]]
+		return p1.Internal._Insert(v1, p12, p23)
+	end
+	p1.SetFocusedWindow = p1.Internal.SetFocusedWindow
+
+	local v2 = "Tooltip"
+
+	function p1.Tooltip(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v2 (copy) ]]
+		return p1.Internal._Insert(v2, p12, p23)
+	end
+
+	local v3 = "MenuBar"
+
+	function p1.MenuBar(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v3 (copy) ]]
+		return p1.Internal._Insert(v3, p12, p23)
+	end
+
+	local v4 = "Menu"
+
+	function p1.Menu(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v4 (copy) ]]
+		return p1.Internal._Insert(v4, p12, p23)
+	end
+
+	local v5 = "MenuItem"
+
+	function p1.MenuItem(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v5 (copy) ]]
+		return p1.Internal._Insert(v5, p12, p23)
+	end
+
+	local v6 = "MenuToggle"
+
+	function p1.MenuToggle(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v6 (copy) ]]
+		return p1.Internal._Insert(v6, p12, p23)
+	end
+
+	local v7 = "Separator"
+
+	function p1.Separator(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v7 (copy) ]]
+		return p1.Internal._Insert(v7, p12, p23)
+	end
+
+	local v8 = "Indent"
+
+	function p1.Indent(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v8 (copy) ]]
+		return p1.Internal._Insert(v8, p12, p23)
+	end
+
+	local v9 = "SameLine"
+
+	function p1.SameLine(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v9 (copy) ]]
+		return p1.Internal._Insert(v9, p12, p23)
+	end
+
+	local v10 = "Group"
+
+	function p1.Group(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v10 (copy) ]]
+		return p1.Internal._Insert(v10, p12, p23)
+	end
+
+	local v11 = "Text"
+
+	function p1.Text(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v11 (copy) ]]
+		return p1.Internal._Insert(v11, p12, p23)
+	end
+	function p1.TextWrapped(p12) --[[ Line: 440 | Upvalues: p1 (copy) ]]
+		p12[2] = true
+
+		return p1.Internal._Insert("Text", p12)
+	end
+	function p1.TextColored(p12) --[[ Line: 465 | Upvalues: p1 (copy) ]]
+		p12[3] = p12[2]
+		p12[2] = nil
+
+		return p1.Internal._Insert("Text", p12)
+	end
+
+	local v12 = "SeparatorText"
+
+	function p1.SeparatorText(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v12 (copy) ]]
+		return p1.Internal._Insert(v12, p12, p23)
+	end
+
+	local v13 = "InputText"
+
+	function p1.InputText(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v13 (copy) ]]
+		return p1.Internal._Insert(v13, p12, p23)
+	end
+
+	local v14 = "Button"
+
+	function p1.Button(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v14 (copy) ]]
+		return p1.Internal._Insert(v14, p12, p23)
+	end
+
+	local v15 = "SmallButton"
+
+	function p1.SmallButton(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v15 (copy) ]]
+		return p1.Internal._Insert(v15, p12, p23)
+	end
+
+	local v16 = "Checkbox"
+
+	function p1.Checkbox(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v16 (copy) ]]
+		return p1.Internal._Insert(v16, p12, p23)
+	end
+
+	local v17 = "RadioButton"
+
+	function p1.RadioButton(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v17 (copy) ]]
+		return p1.Internal._Insert(v17, p12, p23)
+	end
+
+	local v18 = "Image"
+
+	function p1.Image(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v18 (copy) ]]
+		return p1.Internal._Insert(v18, p12, p23)
+	end
+
+	local v19 = "ImageButton"
+
+	function p1.ImageButton(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v19 (copy) ]]
+		return p1.Internal._Insert(v19, p12, p23)
+	end
+
+	local v20 = "Tree"
+
+	function p1.Tree(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v20 (copy) ]]
+		return p1.Internal._Insert(v20, p12, p23)
+	end
+
+	local v21 = "CollapsingHeader"
+
+	function p1.CollapsingHeader(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v21 (copy) ]]
+		return p1.Internal._Insert(v21, p12, p23)
+	end
+
+	local v22 = "TabBar"
+
+	function p1.TabBar(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v22 (copy) ]]
+		return p1.Internal._Insert(v22, p12, p23)
+	end
+
+	local v23 = "Tab"
+
+	function p1.Tab(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v23 (copy) ]]
+		return p1.Internal._Insert(v23, p12, p23)
+	end
+
+	local v24 = "InputNum"
+
+	function p1.InputNum(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v24 (copy) ]]
+		return p1.Internal._Insert(v24, p12, p23)
+	end
+
+	local v25 = "InputVector2"
+
+	function p1.InputVector2(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v25 (copy) ]]
+		return p1.Internal._Insert(v25, p12, p23)
+	end
+
+	local v26 = "InputVector3"
+
+	function p1.InputVector3(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v26 (copy) ]]
+		return p1.Internal._Insert(v26, p12, p23)
+	end
+
+	local v27 = "InputUDim"
+
+	function p1.InputUDim(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v27 (copy) ]]
+		return p1.Internal._Insert(v27, p12, p23)
+	end
+
+	local v28 = "InputUDim2"
+
+	function p1.InputUDim2(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v28 (copy) ]]
+		return p1.Internal._Insert(v28, p12, p23)
+	end
+
+	local v29 = "InputRect"
+
+	function p1.InputRect(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v29 (copy) ]]
+		return p1.Internal._Insert(v29, p12, p23)
+	end
+
+	local v30 = "DragNum"
+
+	function p1.DragNum(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v30 (copy) ]]
+		return p1.Internal._Insert(v30, p12, p23)
+	end
+
+	local v31 = "DragVector2"
+
+	function p1.DragVector2(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v31 (copy) ]]
+		return p1.Internal._Insert(v31, p12, p23)
+	end
+
+	local v32 = "DragVector3"
+
+	function p1.DragVector3(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v32 (copy) ]]
+		return p1.Internal._Insert(v32, p12, p23)
+	end
+
+	local v33 = "DragUDim"
+
+	function p1.DragUDim(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v33 (copy) ]]
+		return p1.Internal._Insert(v33, p12, p23)
+	end
+
+	local v34 = "DragUDim2"
+
+	function p1.DragUDim2(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v34 (copy) ]]
+		return p1.Internal._Insert(v34, p12, p23)
+	end
+
+	local v35 = "DragRect"
+
+	function p1.DragRect(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v35 (copy) ]]
+		return p1.Internal._Insert(v35, p12, p23)
+	end
+
+	local v36 = "InputColor3"
+
+	function p1.InputColor3(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v36 (copy) ]]
+		return p1.Internal._Insert(v36, p12, p23)
+	end
+
+	local v37 = "InputColor4"
+
+	function p1.InputColor4(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v37 (copy) ]]
+		return p1.Internal._Insert(v37, p12, p23)
+	end
+
+	local v38 = "SliderNum"
+
+	function p1.SliderNum(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v38 (copy) ]]
+		return p1.Internal._Insert(v38, p12, p23)
+	end
+
+	local v39 = "SliderVector2"
+
+	function p1.SliderVector2(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v39 (copy) ]]
+		return p1.Internal._Insert(v39, p12, p23)
+	end
+
+	local v40 = "SliderVector3"
+
+	function p1.SliderVector3(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v40 (copy) ]]
+		return p1.Internal._Insert(v40, p12, p23)
+	end
+
+	local v41 = "SliderUDim"
+
+	function p1.SliderUDim(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v41 (copy) ]]
+		return p1.Internal._Insert(v41, p12, p23)
+	end
+
+	local v42 = "SliderUDim2"
+
+	function p1.SliderUDim2(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v42 (copy) ]]
+		return p1.Internal._Insert(v42, p12, p23)
+	end
+
+	local v43 = "SliderRect"
+
+	function p1.SliderRect(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v43 (copy) ]]
+		return p1.Internal._Insert(v43, p12, p23)
+	end
+
+	local v44 = "Selectable"
+
+	function p1.Selectable(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v44 (copy) ]]
+		return p1.Internal._Insert(v44, p12, p23)
+	end
+
+	local v45 = "Combo"
+
+	function p1.Combo(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v45 (copy) ]]
+		return p1.Internal._Insert(v45, p12, p23)
+	end
+	function p1.ComboArray(p12, p2, p3) --[[ Line: 1667 | Upvalues: p1 (copy) ]]
+		local v3 = p1.Internal._Insert("Combo", p12, if p2 == nil then p1.State(p3[1]) else p2)
+		local index = v3.state.index
+
+		for v4, v5 in p3 do
+			p1.Internal._Insert("Selectable", { v5, v5 }, {
+				index = index
+			})
+		end
+
+		p1.End()
+
+		return v3
+	end
+	function p1.ComboEnum(p12, p2, p3) --[[ Line: 1716 | Upvalues: p1 (copy) ]]
+		local v3 = p1.Internal._Insert("Combo", p12, if p2 == nil then p1.State(p3:GetEnumItems()[1]) else p2)
+		local index = v3.state.index
+
+		for v4, v5 in p3:GetEnumItems() do
+			p1.Internal._Insert("Selectable", { v5.Name, v5 }, {
+				index = index
+			})
+		end
+
+		p1.End()
+
+		return v3
+	end
+	p1.InputEnum = p1.ComboEnum
+
+	local v46 = "ProgressBar"
+
+	function p1.ProgressBar(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v46 (copy) ]]
+		return p1.Internal._Insert(v46, p12, p23)
+	end
+
+	local v47 = "PlotLines"
+
+	function p1.PlotLines(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v47 (copy) ]]
+		return p1.Internal._Insert(v47, p12, p23)
+	end
+
+	local v48 = "PlotHistogram"
+
+	function p1.PlotHistogram(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v48 (copy) ]]
+		return p1.Internal._Insert(v48, p12, p23)
+	end
+
+	local v49 = "Table"
+
+	function p1.Table(p12, p23) --[[ Line: 6 | Upvalues: p1 (copy), v49 (copy) ]]
+		return p1.Internal._Insert(v49, p12, p23)
+	end
+	function p1.NextColumn() --[[ Line: 1973 | Upvalues: p1 (copy) ]]
+		local v1 = p1.Internal._GetParentWidget()
+
+		assert(v1 ~= nil, "Iris.NextColumn() can only called when directly within a table.")
+
+		if v1._columnIndex == v1.arguments.NumColumns then
+			v1._columnIndex = 1
+			v1._rowIndex = v1._rowIndex + 1
+		else
+			v1._columnIndex = v1._columnIndex + 1
+		end
+
+		return v1._columnIndex
+	end
+	function p1.NextRow() --[[ Line: 1993 | Upvalues: p1 (copy) ]]
+		local v1 = p1.Internal._GetParentWidget()
+
+		assert(v1 ~= nil, "Iris.NextRow() can only called when directly within a table.")
+		v1._columnIndex = 1
+		v1._rowIndex = v1._rowIndex + 1
+
+		return v1._rowIndex
+	end
+	function p1.SetColumnIndex(p12) --[[ Line: 2010 | Upvalues: p1 (copy) ]]
+		local v1 = p1.Internal._GetParentWidget()
+
+		assert(if v1 == nil then false else true, "Iris.SetColumnIndex() can only called when directly within a table.")
+
+		local v3 = if p12 >= 1 then if p12 <= v1.arguments.NumColumns then true else false else false
+
+		assert(v3, (("The index must be between 1 and %*, inclusive."):format(v1.arguments.NumColumns)))
+		v1._columnIndex = p12
+	end
+	function p1.SetRowIndex(p12) --[[ Line: 2024 | Upvalues: p1 (copy) ]]
+		local v1 = p1.Internal._GetParentWidget()
+
+		assert(if v1 == nil then false else true, "Iris.SetRowIndex() can only called when directly within a table.")
+		assert(if p12 >= 1 then true else false, "The index must be greater or equal to 1.")
+		v1._rowIndex = p12
+	end
+	function p1.NextHeaderColumn() --[[ Line: 2038 | Upvalues: p1 (copy) ]]
+		local v1 = p1.Internal._GetParentWidget()
+
+		assert(v1 ~= nil, "Iris.NextHeaderColumn() can only called when directly within a table.")
+		v1._rowIndex = 0
+		v1._columnIndex = v1._columnIndex % v1.arguments.NumColumns + 1
+
+		return v1._columnIndex
+	end
+	function p1.SetHeaderColumnIndex(p12) --[[ Line: 2057 | Upvalues: p1 (copy) ]]
+		local v1 = p1.Internal._GetParentWidget()
+
+		assert(if v1 == nil then false else true, "Iris.SetHeaderColumnIndex() can only called when directly within a table.")
+
+		local v3 = if p12 >= 1 then if p12 <= v1.arguments.NumColumns then true else false else false
+
+		assert(v3, (("The index must be between 1 and %*, inclusive."):format(v1.arguments.NumColumns)))
+		v1._rowIndex = 0
+		v1._columnIndex = p12
+	end
+	function p1.SetColumnWidth(p12, p2) --[[ Line: 2078 | Upvalues: p1 (copy) ]]
+		local v1 = p1.Internal._GetParentWidget()
+
+		assert(if v1 == nil then false else true, "Iris.SetColumnWidth() can only called when directly within a table.")
+		assert(if p12 >= 1 then if p12 <= v1.arguments.NumColumns then true else false else false, (("The index must be between 1 and %*, inclusive."):format(v1.arguments.NumColumns)))
+
+		local v5 = v1.state.widths.value[p12]
+
+		v1.state.widths.value[p12] = p2
+		v1.state.widths:set(v1.state.widths.value, p2 ~= v5)
+	end
+end

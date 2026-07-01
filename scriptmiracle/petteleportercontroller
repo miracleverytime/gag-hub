@@ -1,0 +1,276 @@
+-- https://lua.expert/
+local t = {}
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Networking = require(ReplicatedStorage.SharedModules.Networking)
+local MessagePrompt = require(ReplicatedStorage.ClientModules.MessagePrompt)
+local PetTeleporterData = require(ReplicatedStorage.SharedModules.PetTeleporterData)
+local TutorialUtils = require(script.Parent.TutorialController.TutorialUtils)
+local LocalPlayer = Players.LocalPlayer
+local v1 = setmetatable({}, {
+	__mode = "k"
+})
+local v2 = false
+local v3 = 0
+local v4 = nil
+
+local function getNotificationController() --[[ getNotificationController | Line: 40 | Upvalues: v4 (ref) ]]
+	if v4 then
+		return v4
+	end
+
+	local ok, result = pcall(function() --[[ Line: 42 ]]
+		return require(script.Parent:WaitForChild("NotificationController"))
+	end)
+
+	if not ok then
+		return v4
+	end
+
+	v4 = result
+
+	return result
+end
+
+local function onActivated(p1) --[[ onActivated | Line: 52 | Upvalues: v2 (ref), v3 (ref), v4 (ref), PetTeleporterData (copy), MessagePrompt (copy), Networking (copy) ]]
+	local v1 = p1:GetAttribute("PetTeleporter")
+
+	if type(v1) ~= "string" then
+		return
+	end
+
+	if v2 then
+		return
+	end
+
+	local v22 = v3 - workspace:GetServerTimeNow()
+
+	if v22 > 0 then
+		if not v4 then
+			local ok, result = pcall(function() --[[ Line: 42 ]]
+				return require(script.Parent:WaitForChild("NotificationController"))
+			end)
+
+			if ok then
+				v4 = result
+			end
+		end
+
+		local v32 = v4
+
+		if not v32 then
+			return
+		end
+
+		v32:CreateNotification((("Please wait %*s before using another Pet Teleporter."):format((math.ceil(v22)))))
+	else
+		local v42 = PetTeleporterData.Get(v1)
+
+		v2 = true
+
+		local t = {
+			message = "Use this Pet Teleporter? It\'s only consumed if the pet is still there when you arrive.",
+			yield = true,
+			hideClose = true
+		}
+
+		t.titleOverride = if v42 then ("Use %*?"):format(v42.DisplayName) else "Use Pet Teleporter?"
+		t.options = MessagePrompt.Choices.YesNo
+		v2 = false
+
+		if not MessagePrompt.Prompt(t) then
+			return
+		end
+
+		Networking.PetTeleporter.Use:Fire(v1)
+	end
+end
+
+local function tryConnect(p1) --[[ tryConnect | Line: 84 | Upvalues: v1 (copy), onActivated (copy) ]]
+	if not p1:IsA("Tool") then
+		return
+	end
+
+	if p1:GetAttribute("PetTeleporter") == nil then
+		return
+	end
+
+	if not v1[p1] then
+		v1[p1] = true
+		p1.Activated:Connect(function() --[[ Line: 96 | Upvalues: onActivated (ref), p1 (copy) ]]
+			task.spawn(onActivated, p1)
+		end)
+	end
+end
+
+local function watch(p1) --[[ watch | Line: 101 | Upvalues: tryConnect (copy) ]]
+	for v1, v2 in p1:GetChildren() do
+		tryConnect(v2)
+	end
+
+	p1.ChildAdded:Connect(tryConnect)
+end
+
+local function findNearestWildPet(p1, p2) --[[ findNearestWildPet | Line: 111 ]]
+	local Map = workspace:FindFirstChild("Map")
+	local v1 = if Map then Map:FindFirstChild("WildPetRef") else Map
+
+	if not v1 then
+		return nil
+	end
+
+	local v2 = (1 / 0)
+	local v3 = nil
+
+	for v4, v5 in v1:GetChildren() do
+		if v5:IsA("BasePart") and (v5:GetAttribute("Rarity") == p1 and (tonumber(v5:GetAttribute("OwnerUserId")) or 0) == 0) then
+			local Magnitude = (v5.Position - p2).Magnitude
+
+			if Magnitude < v2 then
+				v2 = Magnitude
+				v3 = v5
+			end
+		end
+	end
+
+	return v3
+end
+
+local function beginArrivalBeam() --[[ beginArrivalBeam | Line: 142 | Upvalues: LocalPlayer (copy), findNearestWildPet (copy), TutorialUtils (copy), RunService (copy) ]]
+	local v1 = LocalPlayer:GetJoinData()
+	local v2 = if v1 then v1.TeleportData else v1
+
+	if type(v2) ~= "table" or v2.Source ~= "PetTeleporter" then
+		return
+	end
+
+	local Rarity = v2.Rarity
+
+	if type(Rarity) ~= "string" or Rarity == "" then
+		return
+	end
+
+	local v3 = os.clock() + 10
+	local v4 = nil
+
+	while os.clock() < v3 do
+		local Character = LocalPlayer.Character
+		local v5 = Character and Character:FindFirstChild("HumanoidRootPart")
+
+		if v5 and v5:IsA("BasePart") then
+			local v6 = findNearestWildPet(Rarity, v5.Position)
+
+			v4 = v6
+
+			if v6 then
+				break
+			end
+		end
+
+		task.wait(0.2)
+	end
+
+	if v4 then
+		local v7 = v4
+
+		local function targetCFrame() --[[ targetCFrame | Line: 174 | Upvalues: v7 (copy) ]]
+			return CFrame.new(v7.Position + Vector3.new(0, 3, 0))
+		end
+
+		local v8 = TutorialUtils.createArrow(LocalPlayer, CFrame.new(v7.Position + Vector3.new(0, 3, 0)), 3)
+		local v9 = os.clock() + 30
+		local v10 = nil
+
+		v10 = RunService.Heartbeat:Connect(function() --[[ Line: 181 | Upvalues: v7 (copy), v9 (copy), v10 (ref), v8 (copy), targetCFrame (copy) ]]
+			local v1 = not v7.Parent
+
+			if not v1 then
+				v1 = (tonumber(v7:GetAttribute("OwnerUserId")) or 0) ~= 0
+			end
+
+			if not (v1 or v9 < os.clock()) then
+				v8.move(targetCFrame())
+
+				return
+			end
+
+			if v10 then
+				v10:Disconnect()
+			end
+
+			v8.destroy()
+		end)
+	end
+end
+
+function t.Init(p1) --[[ Init | Line: 194 ]] end
+function t.Start(p1) --[[ Start | Line: 196 | Upvalues: beginArrivalBeam (copy), Networking (copy), v3 (ref), LocalPlayer (copy), tryConnect (copy) ]]
+	task.spawn(beginArrivalBeam)
+	Networking.PetTeleporter.Cooldown.OnClientEvent:Connect(function(p1) --[[ Line: 203 | Upvalues: v3 (ref) ]]
+		v3 = tonumber(p1) or 0
+	end)
+
+	local v1 = LocalPlayer:FindFirstChildOfClass("Backpack") or LocalPlayer:WaitForChild("Backpack", 10)
+
+	if v1 then
+		for v2, v32 in v1:GetChildren() do
+			tryConnect(v32)
+		end
+
+		v1.ChildAdded:Connect(tryConnect)
+	end
+
+	if not LocalPlayer.Character then
+		LocalPlayer.CharacterAdded:Connect(function(p13) --[[ Line: 214 | Upvalues: tryConnect (ref), LocalPlayer (ref) ]]
+			for v1, v2 in p13:GetChildren() do
+				tryConnect(v2)
+			end
+
+			p13.ChildAdded:Connect(tryConnect)
+
+			local v3 = LocalPlayer:FindFirstChildOfClass("Backpack") or LocalPlayer:WaitForChild("Backpack", 10)
+
+			if not v3 then
+				return
+			end
+
+			for v4, v5 in v3:GetChildren() do
+				tryConnect(v5)
+			end
+
+			v3.ChildAdded:Connect(tryConnect)
+		end)
+
+		return
+	end
+
+	local Character = LocalPlayer.Character
+
+	for v4, v5 in Character:GetChildren() do
+		tryConnect(v5)
+	end
+
+	Character.ChildAdded:Connect(tryConnect)
+	LocalPlayer.CharacterAdded:Connect(function(p13) --[[ Line: 214 | Upvalues: tryConnect (ref), LocalPlayer (ref) ]]
+		for v1, v2 in p13:GetChildren() do
+			tryConnect(v2)
+		end
+
+		p13.ChildAdded:Connect(tryConnect)
+
+		local v3 = LocalPlayer:FindFirstChildOfClass("Backpack") or LocalPlayer:WaitForChild("Backpack", 10)
+
+		if not v3 then
+			return
+		end
+
+		for v4, v5 in v3:GetChildren() do
+			tryConnect(v5)
+		end
+
+		v3.ChildAdded:Connect(tryConnect)
+	end)
+end
+
+return t

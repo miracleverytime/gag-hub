@@ -1,0 +1,76 @@
+-- https://lua.expert/
+local GearImages = script.Parent.GearImages
+
+local function getGearImage(p1) --[[ getGearImage | Line: 2 | Upvalues: GearImages (copy) ]]
+	local v1 = GearImages:FindFirstChild(p1)
+
+	return if v1 then v1.Value or "" else ""
+end
+
+local t = {}
+local t2 = {
+	SprinklerName = "Common Sprinkler",
+	SizeLuckBonus = 7,
+	GrowSpeedBonus = 1.5,
+	Lifetime = 120,
+	Radius = 20,
+	ReviveRate = 0.01
+}
+local v1 = GearImages:FindFirstChild("Common Sprinkler")
+
+t2.Image = if v1 then v1.Value or "" else ""
+
+local t3 = {
+	SprinklerName = "Uncommon Sprinkler",
+	SizeLuckBonus = 21,
+	GrowSpeedBonus = 2,
+	Lifetime = 120,
+	Radius = 25,
+	ReviveRate = 0.014285714285714285
+}
+local v3 = GearImages:FindFirstChild("Uncommon Sprinkler")
+
+t3.Image = v3 and v3.Value or ""
+
+local t4 = {
+	SprinklerName = "Rare Sprinkler",
+	SizeLuckBonus = 40,
+	GrowSpeedBonus = 3,
+	Lifetime = 120,
+	Radius = 30,
+	ReviveRate = 0.025
+}
+local v5 = GearImages:FindFirstChild("Rare Sprinkler")
+
+t4.Image = v5 and v5.Value or ""
+
+local t5 = {
+	SprinklerName = "Legendary Sprinkler",
+	SizeLuckBonus = 65,
+	GrowSpeedBonus = 4,
+	Lifetime = 120,
+	Radius = 40,
+	ReviveRate = 0.05
+}
+local v7 = GearImages:FindFirstChild("Legendary Sprinkler")
+
+t5.Image = v7 and v7.Value or ""
+
+local t6 = {
+	SprinklerName = "Super Sprinkler",
+	SizeLuckBonus = 100,
+	GrowSpeedBonus = 5,
+	Lifetime = 120,
+	Radius = 55,
+	ReviveRate = 0.1
+}
+local v9 = GearImages:FindFirstChild("Super Sprinkler")
+
+t6.Image = v9 and v9.Value or ""
+t[1] = t2
+t[2] = t3
+t[3] = t4
+t[4] = t5
+t[5] = t6
+
+return t

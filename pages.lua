@@ -7,7 +7,12 @@
 --   MY_PLOT_ID, MAX_FRUIT_CAP, MAX_EQUIPPED_PETS, GetActivePage, SESSION
 -- ======================================================================
 
-return function(ctx)
+                            if part and part.Parent and IsWildPetFree(part) then
+                                if Logic.WaitForWildPetApproach then
+                                    Logic.WaitForWildPetApproach(part, 1.2, 10)
+                                end
+                                BuyWildPet(part)
+                            end
     local Colors            = ctx.Colors
     local States            = ctx.States
     local Data              = ctx.Data
@@ -378,8 +383,8 @@ return function(ctx)
         CreateMultiSelect(waterContent, "\240\159\140\191 Pilih Sprinkler", SPRINKLER_LIST, "sprinklerTargets")
 
         CreateActionButton(waterContent, "\240\159\140\191 Place Sprinkler Now", function()
-            if not Networking then
-                Notify("Sprinkler", "\226\157\140 Networking module tidak ditemukan!", Colors.Error)
+            if not Networking and not ctx.PacketRemote then
+                Notify("Sprinkler", "\226\157\140 Networking module dan PacketRemote tidak ditemukan!", Colors.Error)
                 return
             end
             local selectedTargets = States.sprinklerTargets or {}
@@ -1053,7 +1058,12 @@ return function(ctx)
                     Notify("Pet Finder", "Moving \226\134\146 " .. petName .. " (" .. rarity .. ")", col, 3)
                     task.spawn(function()
                         SmartMoveToPet(part.Position, function()
-                            if part and part.Parent and IsWildPetFree(part) then BuyWildPet(part) end
+                            if part and part.Parent and IsWildPetFree(part) then
+                                if Logic.WaitForWildPetApproach then
+                                    Logic.WaitForWildPetApproach(part, 1.2, 10)
+                                end
+                                BuyWildPet(part)
+                            end
                         end)
                     end)
                 end)
@@ -1082,7 +1092,12 @@ return function(ctx)
             Notify("Pet Finder", "Moving -> " .. pName .. " (" .. nearest.rarity .. ")", RarityColor[nearest.rarity] or Colors.Warning, 4)
             task.spawn(function()
                 SmartMoveToPet(nearest.part.Position, function()
-                    if nearest.part and nearest.part.Parent and IsWildPetFree(nearest.part) then BuyWildPet(nearest.part) end
+                    if nearest.part and nearest.part.Parent and IsWildPetFree(nearest.part) then
+                        if Logic.WaitForWildPetApproach then
+                            Logic.WaitForWildPetApproach(nearest.part, 1.2, 10)
+                        end
+                        BuyWildPet(nearest.part)
+                    end
                 end)
             end)
         end, Colors.Warning)
@@ -1452,6 +1467,72 @@ return function(ctx)
                 game:GetService("TeleportService"):Teleport(game.PlaceId, player)
             end
         end)
+
+        local scanCard, scanContent = CreateSectionCard("\240\159\169\160 Mythic Pet Server Scanner", 3, Colors.Rainbow)
+        CreateInfoText(scanContent, "Server hop", "Cek server saat ini untuk wild pet target, lalu hop ke public server berikutnya sampai ketemu.")
+        CreateDropdown(scanContent, "Target Rarity", {"Mythic", "Super", "Legendary", "Epic", "Rare", "Uncommon", "Common"}, "serverScannerRarity")
+        CreateSlider(scanContent, "Hop Delay", 5, 60, "serverScannerDelay", "s")
+        CreateToggle(scanContent, "Auto Hop Until Found", "autoServerScanner", "Terus hop server publik sampai pet target ditemukan", function(newVal, revert)
+            if not newVal then return end
+            local targetRarity = States.serverScannerRarity or "Mythic"
+            Notify("Server Scanner", "Mulai cari server dengan pet " .. targetRarity .. ".", Colors.Warning, 4)
+            task.spawn(function()
+                local ok, result = Logic.HopUntilWildPetRarityFound and Logic.HopUntilWildPetRarityFound(targetRarity)
+                if ok and type(result) == "table" and result.found then
+                    Notify("Server Scanner", targetRarity .. " pet sudah ada di server ini.", Colors.Success, 4)
+                elseif ok then
+                    Notify("Server Scanner", "Hopping ke server publik berikutnya...", Colors.Warning, 3)
+                else
+                    if revert then revert() end
+                    Notify("Server Scanner", "Gagal memulai server hunt.", Colors.Error)
+                end
+            end)
+        end)
+        CreateActionButton(scanContent, "Run Hunt Once", function()
+            local targetRarity = States.serverScannerRarity or "Mythic"
+            local ok, result = Logic.HopUntilWildPetRarityFound and Logic.HopUntilWildPetRarityFound(targetRarity)
+            if ok and type(result) == "table" and result.found then
+                Notify("Server Scanner", targetRarity .. " pet sudah ada di server ini.", Colors.Success, 4)
+            elseif ok then
+                Notify("Server Scanner", "Teleport ke server publik berikutnya dimulai.", Colors.Warning, 3)
+            else
+                Notify("Server Scanner", "Gagal menjalankan hunt.", Colors.Error)
+            end
+        end, Colors.Rainbow)
+        CreateActionButton(scanContent, "Scan Current Server", function()
+            local targetRarity = States.serverScannerRarity or "Mythic"
+            local pets = Logic.ScanWildPets and Logic.ScanWildPets(targetRarity) or {}
+            if #pets == 0 then
+                Notify("Server Scanner", "Tidak ada wild pet " .. targetRarity .. " di server ini.", Colors.TextMuted, 4)
+                return
+            end
+
+            local preview = {}
+            for i = 1, math.min(#pets, 5) do
+                local entry = pets[i]
+                table.insert(preview, entry.name .. " (" .. entry.rarity .. ")")
+            end
+            NotifyStok(preview, Colors.Success, 8, "Target ditemukan di server ini: " .. targetRarity)
+        end, Colors.Success)
+        CreateActionButton(scanContent, "Hop To Next Public Server", function()
+            local targetRarity = States.serverScannerRarity or "Mythic"
+            local server = Logic.FindNextPublicServer and Logic.FindNextPublicServer(game.JobId, 8)
+            if not server then
+                Notify("Server Scanner", "Tidak ada public server kandidat yang tersedia.", Colors.Error)
+                return
+            end
+
+            local jobId = server.id or server.jobId
+            if not jobId then
+                Notify("Server Scanner", "Job ID server tidak valid.", Colors.Error)
+                return
+            end
+
+            local ok = Logic.HopToServer and Logic.HopToServer(jobId, targetRarity)
+            if not ok then
+                Notify("Server Scanner", "Gagal teleport ke server target.", Colors.Error)
+            end
+        end, Colors.Rainbow)
     end)
 
     -- ====================== SETTINGS PAGE ======================
@@ -1485,6 +1566,9 @@ return function(ctx)
             States.fullBright = false
             States.noFog = false
             States.noShadows = false
+            States.autoServerScanner = false
+            States.serverScannerRarity = "Mythic"
+            States.serverScannerDelay = 8
             Logic.ClearESP()
             Logic.ClearSfxMuteConn()
             pcall(function()

@@ -1,0 +1,199 @@
+-- https://lua.expert/
+local Players = game:GetService("Players")
+local v1 = require("@game/ReplicatedStorage/SharedModules/Networking")
+local LocalPlayer = Players.LocalPlayer
+local Gifting = LocalPlayer.PlayerGui:WaitForChild("Gifting")
+local Notification = Gifting:WaitForChild("Notification")
+local t = {
+	Crate = "Crates",
+	Gnome = "Gnomes",
+	Mushroom = "Mushrooms",
+	Sprinkler = "Sprinklers",
+	WateringCan = "WateringCans",
+	HarvestedFruit = "HarvestedFruits",
+	SeedTool = "Seeds"
+}
+local t2 = {}
+local v2 = nil
+local t3 = {}
+local v3 = nil
+local t4 = {}
+
+function t2._createPrompt(p1, p2, p3) --[[ _createPrompt | Line: 33 | Upvalues: v2 (ref), v1 (copy), t3 (copy) ]]
+	local HumanoidRootPart = p3:WaitForChild("HumanoidRootPart", 10)
+
+	if not HumanoidRootPart then
+		return
+	end
+
+	local Gift = Instance.new("ProximityPrompt")
+
+	Gift.ClickablePrompt = true
+	Gift.Name = "Gift"
+	Gift.HoldDuration = 0.5
+	Gift.MaxActivationDistance = 10
+	Gift.RequiresLineOfSight = false
+	Gift.Style = Enum.ProximityPromptStyle.Custom
+	Gift.KeyboardKeyCode = Enum.KeyCode.G
+	Gift.ActionText = "Gift"
+	Gift.Enabled = if v2 == nil then false else true
+	Gift.Triggered:Connect(function() --[[ Line: 50 | Upvalues: v2 (ref), v1 (ref), p2 (copy) ]]
+		if v2 then
+			v1.Gifting.Send:Fire(p2.UserId, v2.type, v2.uuid)
+		end
+	end)
+	Gift.Destroying:Connect(function() --[[ Line: 58 | Upvalues: t3 (ref), Gift (copy) ]]
+		local v1 = table.find(t3, Gift)
+
+		if not v1 then
+			return
+		end
+
+		table.remove(t3, v1)
+	end)
+	Gift.Parent = HumanoidRootPart
+
+	local v22 = t3
+
+	table.insert(v22, Gift)
+end
+function t2._updateEquippedTool(p1, p2) --[[ _updateEquippedTool | Line: 70 | Upvalues: t (copy), v2 (ref), t3 (copy) ]]
+	local v1 = p2:FindFirstChildWhichIsA("Tool")
+	local v22 = nil
+
+	if v1 then
+		for v3, v4 in t do
+			local v5 = v1:GetAttribute(v3)
+
+			if v5 then
+				local v6 = v1:GetAttribute("Id")
+
+				v22 = {
+					type = v4,
+					uuid = if type(v6) == "string" then v6 elseif type(v5) == "string" then v5 else v1.Name
+				}
+
+				break
+			end
+		end
+	end
+
+	v2 = v22
+
+	for v8, v9 in t3 do
+		v9.Enabled = v22 ~= nil
+	end
+end
+function t2._watchPlayer(p1, p2) --[[ _watchPlayer | Line: 100 | Upvalues: LocalPlayer (copy) ]]
+	if p2 == LocalPlayer then
+		return
+	end
+
+	p2.CharacterAdded:Connect(function(p12) --[[ Line: 105 | Upvalues: p1 (copy), p2 (copy) ]]
+		p1:_createPrompt(p2, p12)
+	end)
+
+	if not p2.Character then
+		return
+	end
+
+	p1:_createPrompt(p2, p2.Character)
+end
+function t2._watchLocalPlayer(p1, p2) --[[ _watchLocalPlayer | Line: 114 ]]
+	p1:_updateEquippedTool(p2)
+	p2.ChildAdded:Connect(function() --[[ Line: 117 | Upvalues: p1 (copy), p2 (copy) ]]
+		p1:_updateEquippedTool(p2)
+	end)
+	p2.ChildRemoved:Connect(function() --[[ Line: 121 | Upvalues: p1 (copy), p2 (copy) ]]
+		p1:_updateEquippedTool(p2)
+	end)
+end
+function t2._dismissGift(p1, p2) --[[ _dismissGift | Line: 126 | Upvalues: v3 (ref), v1 (copy), t4 (copy), Gifting (copy) ]]
+	if not v3 then
+		return
+	end
+
+	if p2 then
+		v1.Gifting.Response:Fire(v3.player, false)
+	end
+
+	v3 = nil
+
+	if next(t4) then
+		p1:_showNextGift()
+	else
+		Gifting.Enabled = false
+	end
+end
+function t2._showNextGift(p1) --[[ _showNextGift | Line: 144 | Upvalues: v3 (ref), t4 (copy), Players (copy), Notification (copy), Gifting (copy) ]]
+	if v3 then
+		return
+	end
+
+	local v1 = table.remove(t4, 1)
+
+	if not v1 then
+		return
+	end
+
+	if v1.player and v1.player:IsDescendantOf(Players) then
+		v3 = v1
+		task.delay(30, function() --[[ Line: 163 | Upvalues: v3 (ref), v1 (copy), p1 (copy) ]]
+			if v3 ~= v1 then
+				return
+			end
+
+			p1:_dismissGift(true)
+		end)
+		Notification.TextLabel.Text = ("@%* gifted:"):format(v1.player.Name)
+		Notification.Reward.Text = v1.itemName
+		Notification.Reward.TextLabel.Text = v1.itemName
+		Gifting.Enabled = true
+
+		return
+	end
+
+	p1:_showNextGift()
+end
+function t2.Init(p1) --[[ Init | Line: 176 | Upvalues: v1 (copy), t4 (copy), v3 (ref) ]]
+	v1.Gifting.Prompted.OnClientEvent:Connect(function(p12, p2) --[[ Line: 177 | Upvalues: t4 (ref), v3 (ref), p1 (copy) ]]
+		table.insert(t4, {
+			player = p12,
+			itemName = p2
+		})
+
+		if v3 then
+			return
+		end
+
+		p1:_showNextGift()
+	end)
+end
+function t2.Start(p1) --[[ Start | Line: 186 | Upvalues: LocalPlayer (copy), Players (copy), Notification (copy), v3 (ref), v1 (copy) ]]
+	if LocalPlayer.Character then
+		p1:_watchLocalPlayer(LocalPlayer.Character)
+	end
+
+	LocalPlayer.CharacterAdded:Connect(function(p12) --[[ Line: 191 | Upvalues: p1 (copy) ]]
+		p1:_watchLocalPlayer(p12)
+	end)
+
+	for v12, v2 in Players:GetPlayers() do
+		p1:_watchPlayer(v2)
+	end
+
+	Players.PlayerAdded:Connect(function(p12) --[[ Line: 199 | Upvalues: p1 (copy) ]]
+		p1:_watchPlayer(p12)
+	end)
+	Notification.Buttons.AcceptButton.Activated:Connect(function() --[[ Line: 203 | Upvalues: v3 (ref), v1 (ref), p1 (copy) ]]
+		if v3 then
+			v1.Gifting.Response:Fire(v3.player, true)
+			p1:_dismissGift(false)
+		end
+	end)
+	Notification.Buttons.DeclineButton.Activated:Connect(function() --[[ Line: 212 | Upvalues: p1 (copy) ]]
+		p1:_dismissGift(true)
+	end)
+end
+
+return t2

@@ -1,0 +1,103 @@
+-- https://lua.expert/
+local t = {}
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ReplicaClient = require(ReplicatedStorage.ClientModules.ReplicaClient)
+local LocalPlayer = Players.LocalPlayer
+local v1 = nil
+local t2 = {}
+local v2 = false
+
+local function flushReady() --[[ flushReady | Line: 14 | Upvalues: v1 (ref), t2 (copy) ]]
+	if not v1 then
+		return
+	end
+
+	for i, v in ipairs(t2) do
+		task.spawn(v, v1)
+	end
+
+	table.clear(t2)
+end
+
+local function ensureStarted() --[[ ensureStarted | Line: 24 | Upvalues: v2 (ref), ReplicaClient (copy), LocalPlayer (copy), v1 (ref), flushReady (copy) ]]
+	if not v2 then
+		v2 = true
+		ReplicaClient.OnNew("PlayerState", function(p13) --[[ Line: 30 | Upvalues: LocalPlayer (ref), v1 (ref), flushReady (ref) ]]
+			if not p13.Tags or p13.Tags.UserId ~= LocalPlayer.UserId then
+				return
+			end
+
+			v1 = p13
+			flushReady()
+		end)
+		ReplicaClient.RequestData()
+	end
+end
+
+function t.GetLocalReplica(p1) --[[ GetLocalReplica | Line: 40 | Upvalues: v2 (ref), ReplicaClient (copy), LocalPlayer (copy), v1 (ref), flushReady (copy) ]]
+	if v2 then
+		return v1
+	end
+
+	v2 = true
+	ReplicaClient.OnNew("PlayerState", function(p13) --[[ Line: 30 | Upvalues: LocalPlayer (ref), v1 (ref), flushReady (ref) ]]
+		if not p13.Tags or p13.Tags.UserId ~= LocalPlayer.UserId then
+			return
+		end
+
+		v1 = p13
+		flushReady()
+	end)
+	ReplicaClient.RequestData()
+
+	return v1
+end
+function t.OnLocalReplica(p1, p2) --[[ OnLocalReplica | Line: 45 | Upvalues: v2 (ref), ReplicaClient (copy), LocalPlayer (copy), v1 (ref), flushReady (copy), t2 (copy) ]]
+	if not v2 then
+		v2 = true
+		ReplicaClient.OnNew("PlayerState", function(p13) --[[ Line: 30 | Upvalues: LocalPlayer (ref), v1 (ref), flushReady (ref) ]]
+			if not p13.Tags or p13.Tags.UserId ~= LocalPlayer.UserId then
+				return
+			end
+
+			v1 = p13
+			flushReady()
+		end)
+		ReplicaClient.RequestData()
+	end
+
+	if v1 then
+		task.spawn(p2, v1)
+	else
+		table.insert(t2, p2)
+	end
+end
+function t.WaitForLocalReplica(p1, p2) --[[ WaitForLocalReplica | Line: 54 | Upvalues: v2 (ref), ReplicaClient (copy), LocalPlayer (copy), v1 (ref), flushReady (copy) ]]
+	if not v2 then
+		v2 = true
+		ReplicaClient.OnNew("PlayerState", function(p13) --[[ Line: 30 | Upvalues: LocalPlayer (ref), v1 (ref), flushReady (ref) ]]
+			if not p13.Tags or p13.Tags.UserId ~= LocalPlayer.UserId then
+				return
+			end
+
+			v1 = p13
+			flushReady()
+		end)
+		ReplicaClient.RequestData()
+	end
+
+	if v1 then
+		return v1
+	end
+
+	local v12 = os.clock()
+
+	while not v1 and os.clock() - v12 < (p2 or 30) do
+		task.wait()
+	end
+
+	return v1
+end
+
+return t

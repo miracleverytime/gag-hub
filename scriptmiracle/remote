@@ -1,0 +1,166 @@
+-- https://lua.expert/
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+RunService:IsStudio()
+
+local v1 = RunService:IsServer()
+local t = {}
+local v2 = nil
+local RemoteEvents
+
+if v1 == true then
+	RemoteEvents = ReplicatedStorage:FindFirstChild("RemoteEvents")
+
+	if RemoteEvents == nil then
+		RemoteEvents = Instance.new("Folder")
+		RemoteEvents.Name = "RemoteEvents"
+		RemoteEvents.Parent = ReplicatedStorage
+	end
+else
+	RemoteEvents = ReplicatedStorage:FindFirstChild("RemoteEvents")
+
+	if RemoteEvents == nil then
+		v2 = Instance.new("BindableEvent")
+		task.spawn(function() --[[ Line: 49 | Upvalues: RemoteEvents (ref), ReplicatedStorage (copy), v2 (ref) ]]
+			repeat
+				if not task.wait() then
+					return
+				end
+
+				RemoteEvents = ReplicatedStorage:FindFirstChild("RemoteEvents")
+			until RemoteEvents ~= nil
+
+			v2:Fire()
+		end)
+	end
+end
+
+local t2 = {}
+
+t2.__index = t2
+function t2.New(p1) --[[ New | Line: 70 | Upvalues: t2 (copy) ]]
+	return setmetatable({
+		is_disconnected = false,
+		real_connection = nil,
+		fn = p1
+	}, t2)
+end
+function t2.Disconnect(p1) --[[ Disconnect | Line: 78 ]]
+	p1.is_disconnected = true
+
+	if p1.real_connection == nil then
+		return
+	end
+
+	p1.real_connection:Disconnect()
+end
+
+local t3 = {}
+
+t3.__index = t3
+function t3.New(p1, p2) --[[ New | Line: 88 | Upvalues: v1 (copy), t (copy), RemoteEvents (ref), t2 (copy), t3 (copy), v2 (ref) ]]
+	if type(p1) ~= "string" then
+		error((("[%*]: name must be a string"):format(script.Name)))
+	end
+
+	if v1 == true then
+		if t[p1] ~= nil then
+			error((("[%*]: RemoteEvent %* was already defined"):format(script.Name, p1)))
+		end
+
+		t[p1] = true
+
+		local v3 = Instance.new(if p2 == true then "UnreliableRemoteEvent" else "RemoteEvent")
+
+		v3.Name = p1
+		v3.Parent = RemoteEvents
+
+		return v3
+	end
+
+	local v4 = RemoteEvents and RemoteEvents:FindFirstChild(p1)
+
+	if v4 ~= nil then
+		return v4
+	end
+
+	local t4 = {}
+	local t5 = {
+		RemoteEvent = nil,
+		OnClientEvent = {
+			Connect = function(p1, p2) --[[ Connect | Line: 120 | Upvalues: v4 (ref), t2 (ref), t4 (ref) ]]
+				if v4 == nil then
+					local v1 = t2.New(p2)
+
+					table.insert(t4, v1)
+
+					return v1
+				end
+
+				return v4.OnClientEvent:Connect(p2)
+			end
+		},
+		OnServerEvent = {
+			Connect = function() --[[ Connect | Line: 133 ]]
+				error((("[%*]: Can\'t connect to \"OnServerEvent\" client-side"):format(script.Name)))
+			end
+		}
+	}
+	local v6 = setmetatable(t5, t3)
+
+	local function on_container_ready() --[[ on_container_ready | Line: 140 | Upvalues: v4 (ref), RemoteEvents (ref), p1 (copy), t4 (ref), v6 (copy) ]]
+		local v1 = os.clock()
+
+		while true do
+			v4 = RemoteEvents:FindFirstChild(p1)
+
+			if v4 ~= nil then
+				break
+			end
+
+			if v1 ~= nil and os.clock() - v1 > 20 then
+				v1 = nil
+			end
+
+			task.wait()
+		end
+
+		for i, v in ipairs(t4) do
+			if v.is_disconnected == false then
+				v.real_connection = v4.OnClientEvent:Connect(v.fn)
+			end
+		end
+
+		v6.RemoteEvent = v4
+		t4 = nil
+	end
+
+	if RemoteEvents == nil then
+		local v7 = nil
+
+		v7 = v2.Event:Connect(function() --[[ Line: 171 | Upvalues: v7 (ref), on_container_ready (copy) ]]
+			v7:Disconnect()
+			on_container_ready()
+		end)
+	else
+		task.spawn(on_container_ready)
+	end
+
+	return v6
+end
+function t3.FireServer(p1, ...) --[[ FireServer | Line: 183 ]]
+	if p1.RemoteEvent == nil then
+		return
+	end
+
+	p1.RemoteEvent:FireServer(...)
+end
+function t3.FireClient(p1) --[[ FireClient | Line: 189 ]]
+	error((("[%*]: Can\'t use \"FireClient\" client-side"):format(script.Name)))
+end
+function t3.FireAllClients(p1) --[[ FireAllClients | Line: 193 ]]
+	error((("[%*]: Can\'t use \"FireAllClients\" client-side"):format(script.Name)))
+end
+
+return t3

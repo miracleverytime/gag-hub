@@ -1,0 +1,696 @@
+-- https://lua.expert/
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local LocalPlayer = Players.LocalPlayer
+local MagnetEffect = require(ReplicatedStorage.ClientModules.MagnetEffect)
+local MagnetData = require(ReplicatedStorage.SharedModules.MagnetData)
+local Networking = require(ReplicatedStorage.SharedModules.Networking)
+local t = {}
+local t2 = {}
+
+for v1, v2 in require(ReplicatedStorage.SharedModules.SeedData) do
+	if v2.SeedName then
+		t[v2.SeedName] = if v2.IsSingleHarvest == true then true else false
+	end
+end
+
+local function getFruitMagnetRange() --[[ getFruitMagnetRange | Line: 40 | Upvalues: MagnetData (copy) ]]
+	for v1, v2 in MagnetData.Data do
+		if v2.Name == "Fruit Magnet" then
+			return v2.Range or 63
+		end
+	end
+
+	return 63
+end
+
+local v4
+
+do
+	local __inline_returned = false
+
+	for v5, v6 in MagnetData.Data do
+		if v6.Name == "Fruit Magnet" then
+			v4 = v6.Range or 63
+			__inline_returned = true
+
+			break
+		end
+	end
+
+	if not __inline_returned then
+		v4 = 63
+	end
+end
+
+local t3 = {}
+local t4 = {}
+local t5 = {}
+local v7 = false
+
+local function isFruitMagnet(p1) --[[ isFruitMagnet | Line: 66 ]]
+	return p1:IsA("Tool") and p1:GetAttribute("FruitMagnet") ~= nil
+end
+
+local function getModelPosition(p1) --[[ getModelPosition | Line: 73 ]]
+	if p1:IsA("BasePart") then
+		return p1.Position
+	end
+
+	if not p1:IsA("Model") then
+		return nil
+	end
+
+	local PrimaryPart = p1.PrimaryPart
+
+	if PrimaryPart then
+		return PrimaryPart.Position
+	end
+
+	local ok, result = pcall(function() --[[ Line: 82 | Upvalues: p1 (copy) ]]
+		return p1:GetPivot()
+	end)
+
+	if ok then
+		return result.Position
+	end
+
+	return nil
+end
+
+local function isRipe(p1) --[[ isRipe | Line: 95 ]]
+	local v1 = p1:GetAttribute("Age")
+	local v2 = p1:GetAttribute("MaxAge")
+
+	if typeof(v1) ~= "number" or typeof(v2) ~= "number" then
+		return true
+	end
+
+	return v2 <= v1
+end
+
+local function considerCandidate(p1, p2, p3, p4, p5, p6, p7) --[[ considerCandidate | Line: 106 | Upvalues: getModelPosition (copy) ]]
+	local v1 = p2:GetAttribute("Age")
+	local v2 = p2:GetAttribute("MaxAge")
+
+	if not (if typeof(v1) == "number" and typeof(v2) == "number" then v2 <= v1 else true) then
+		return
+	end
+
+	local v4 = getModelPosition(p2)
+
+	if not v4 then
+		return
+	end
+
+	if not (p4 < (v4 - p3).Magnitude) then
+		table.insert(p1, {
+			ownerUserId = p5,
+			plantId = p6,
+			fruitId = p7
+		})
+	end
+end
+
+local function scanFruitInRange(p1, p2) --[[ scanFruitInRange | Line: 137 | Upvalues: t (copy), considerCandidate (copy) ]]
+	local t2 = {}
+	local Gardens = workspace:FindFirstChild("Gardens")
+
+	if not Gardens then
+		return t2
+	end
+
+	for v1, v2 in Gardens:GetChildren() do
+		local Plants = v2:FindFirstChild("Plants")
+
+		if Plants then
+			for v3, v4 in Plants:GetChildren() do
+				local v5 = tonumber(v4:GetAttribute("UserId"))
+				local v6 = v4:GetAttribute("PlantId")
+
+				if v5 and typeof(v6) == "string" then
+					local v7 = v4:GetAttribute("SeedName")
+
+					if if typeof(v7) == "string" then t[v7] == true else false then
+						considerCandidate(t2, v4, p1, p2, v5, v6, "")
+
+						continue
+					end
+
+					local Fruits = v4:FindFirstChild("Fruits")
+
+					if Fruits then
+						for v9, v10 in Fruits:GetChildren() do
+							local v11 = v10:GetAttribute("FruitId")
+
+							if typeof(v11) == "string" then
+								considerCandidate(t2, v10, p1, p2, v5, v6, v11)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return t2
+end
+
+local t6 = {}
+local v8 = nil
+local v9 = Color3.fromRGB(0, 255, 0)
+local v10 = Color3.fromRGB(255, 40, 40)
+local v11 = Color3.fromRGB(255, 200, 0)
+local v12 = Color3.fromRGB(255, 255, 255)
+local v13 = Color3.fromRGB(90, 90, 90)
+
+local function setDebugHighlight(p1, p2) --[[ setDebugHighlight | Line: 202 | Upvalues: t6 (copy) ]]
+	local v1 = t6[p1]
+
+	if not v1 or v1.Parent ~= p1 then
+		local FruitMagnetDebug = Instance.new("Highlight")
+
+		FruitMagnetDebug.Name = "FruitMagnetDebug"
+		FruitMagnetDebug.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+		FruitMagnetDebug.FillTransparency = 0.4
+		FruitMagnetDebug.OutlineTransparency = 0
+		FruitMagnetDebug.Adornee = p1
+		FruitMagnetDebug.Parent = p1
+		t6[p1] = FruitMagnetDebug
+		v1 = FruitMagnetDebug
+	end
+
+	v1.FillColor = p2
+	v1.OutlineColor = p2
+end
+
+local function updateDebugSphere(p1, p2) --[[ updateDebugSphere | Line: 218 | Upvalues: v8 (ref) ]]
+	if not (v8 and v8.Parent) then
+		local FruitMagnetRangeDebug = Instance.new("Part")
+
+		FruitMagnetRangeDebug.Name = "FruitMagnetRangeDebug"
+		FruitMagnetRangeDebug.Shape = Enum.PartType.Ball
+		FruitMagnetRangeDebug.Anchored = true
+		FruitMagnetRangeDebug.CanCollide = false
+		FruitMagnetRangeDebug.CanQuery = false
+		FruitMagnetRangeDebug.CanTouch = false
+		FruitMagnetRangeDebug.Material = Enum.Material.ForceField
+		FruitMagnetRangeDebug.Color = Color3.fromRGB(0, 170, 255)
+		FruitMagnetRangeDebug.Transparency = 0.6
+		FruitMagnetRangeDebug.Parent = workspace
+		v8 = FruitMagnetRangeDebug
+	end
+
+	v8.Size = Vector3.new(p2 * 2, p2 * 2, p2 * 2)
+	v8.CFrame = CFrame.new(p1)
+end
+
+local function clearDebugVisuals() --[[ clearDebugVisuals | Line: 237 | Upvalues: t6 (copy), v8 (ref) ]]
+	for v1, v2 in t6 do
+		v2:Destroy()
+	end
+
+	table.clear(t6)
+
+	if not v8 then
+		return
+	end
+
+	v8:Destroy()
+	v8 = nil
+end
+
+local function debugVisualizeScan(p1, p2) --[[ debugVisualizeScan | Line: 253 | Upvalues: updateDebugSphere (copy), t (copy), getModelPosition (copy), v12 (copy), v13 (copy), v11 (copy), LocalPlayer (copy), v9 (copy), v10 (copy), t6 (copy) ]]
+	updateDebugSphere(p1, p2)
+
+	local v1 = p2 * 1.5
+	local t2 = {}
+	local t3 = {
+		total = 0,
+		inRange = 0,
+		collect = 0,
+		steal = 0,
+		unripeInRange = 0
+	}
+	local Gardens = workspace:FindFirstChild("Gardens")
+
+	if Gardens then
+		for v2, v3 in Gardens:GetChildren() do
+			local Plants = v3:FindFirstChild("Plants")
+
+			if Plants then
+				for v4, v5 in Plants:GetChildren() do
+					local v6 = tonumber(v5:GetAttribute("UserId"))
+
+					if v6 and typeof((v5:GetAttribute("PlantId"))) == "string" then
+						local v8 = v5:GetAttribute("SeedName")
+						local v92 = if typeof(v8) == "string" then t[v8] == true else false
+
+						local function markModel(p12) --[[ markModel | Line: 276 | Upvalues: getModelPosition (ref), p1 (copy), v1 (copy), t2 (copy), t3 (copy), p2 (copy), v12 (ref), v13 (ref), v11 (ref), v6 (copy), LocalPlayer (ref), v9 (ref), v10 (ref), t6 (ref) ]]
+							local v14 = getModelPosition(p12)
+
+							if not v14 then
+								return
+							end
+
+							local Magnitude = (v14 - p1).Magnitude
+
+							if v1 < Magnitude then
+								return
+							end
+
+							t2[p12] = true
+
+							local v2 = t3
+
+							v2.total = v2.total + 1
+
+							local v3 = Magnitude <= p2
+							local v4 = p12:GetAttribute("Age")
+							local v5 = p12:GetAttribute("MaxAge")
+							local v62 = if typeof(v4) == "number" and typeof(v5) == "number" then v5 <= v4 else true
+
+							if v3 then
+								local v7 = t3
+
+								v7.inRange = v7.inRange + 1
+							end
+
+							local v8
+
+							if v3 then
+								if v62 then
+									if v6 == LocalPlayer.UserId then
+										local v92 = t3
+
+										v92.collect = v92.collect + 1
+										v8 = v9
+									else
+										local v102 = t3
+
+										v102.steal = v102.steal + 1
+										v8 = v10
+									end
+								else
+									local v112 = t3
+
+									v112.unripeInRange = v112.unripeInRange + 1
+									v8 = v11
+								end
+							else
+								v8 = v62 and v12 or v13
+							end
+
+							local v132 = t6[p12]
+							local v142
+
+							if v132 and v132.Parent == p12 then
+								v142 = v8
+							else
+								local FruitMagnetDebug = Instance.new("Highlight")
+
+								FruitMagnetDebug.Name = "FruitMagnetDebug"
+								FruitMagnetDebug.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+								FruitMagnetDebug.FillTransparency = 0.4
+								FruitMagnetDebug.OutlineTransparency = 0
+								FruitMagnetDebug.Adornee = p12
+								FruitMagnetDebug.Parent = p12
+								t6[p12] = FruitMagnetDebug
+								v132 = FruitMagnetDebug
+								v142 = v8
+							end
+
+							v132.FillColor = v142
+							v132.OutlineColor = v142
+						end
+
+						if v92 then
+							markModel(v5)
+
+							continue
+						end
+
+						local Fruits = v5:FindFirstChild("Fruits")
+
+						if Fruits then
+							for v102, v112 in Fruits:GetChildren() do
+								markModel(v112)
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	local t4 = {}
+
+	for v122 in t6 do
+		if not t2[v122] then
+			table.insert(t4, v122)
+		end
+	end
+
+	for v132, v14 in t4 do
+		local v15 = t6[v14]
+
+		if v15 then
+			v15:Destroy()
+		end
+
+		t6[v14] = nil
+	end
+
+	return t3
+end
+
+local function isOnCooldown(p1) --[[ isOnCooldown | Line: 342 ]]
+	local v1 = p1:GetAttribute("CooldownEnd")
+
+	return if typeof(v1) == "number" then os.clock() < v1 else false
+end
+
+local function resolveRig(p1) --[[ resolveRig | Line: 350 ]]
+	local Handle = p1:FindFirstChild("Handle")
+
+	if Handle and (Handle:IsA("BasePart") and Handle:FindFirstChild("Start")) then
+		return Handle
+	end
+
+	local Start = p1:FindFirstChild("Start", true)
+
+	if Start and (Start.Parent and Start.Parent:IsA("BasePart")) then
+		return Start.Parent
+	end
+
+	return nil
+end
+
+local function ensureSetup(p1) --[[ ensureSetup | Line: 364 | Upvalues: t3 (copy), resolveRig (copy), MagnetEffect (copy) ]]
+	if t3[p1] then
+		return true
+	end
+
+	local v1 = resolveRig(p1)
+
+	if not v1 then
+		for i = 1, 20 do
+			task.wait(0.1)
+
+			if not p1:IsDescendantOf(game) then
+				return false
+			end
+
+			local v2 = resolveRig(p1)
+
+			v1 = v2
+
+			if v2 then
+				break
+			end
+		end
+	end
+
+	if v1 then
+		for v3, v4 in { "Glow", "Beams" } do
+			if not v1:FindFirstChild(v4) then
+				warn((("[FruitMagnet] tool \"%*\" rig part \"%*\" is missing \"%*\" -- MagnetEffect may error."):format(p1.Name, v1.Name, v4)))
+			end
+		end
+
+		local ok, result = pcall(MagnetEffect.Setup, p1)
+
+		if ok then
+			t3[p1] = true
+
+			return true
+		end
+
+		warn((("[FruitMagnet] MagnetEffect.Setup failed for \"%*\": %*"):format(p1.Name, result)))
+		t3[p1] = false
+
+		return false
+	end
+
+	if not p1:IsDescendantOf(game) then
+		return false
+	end
+
+	warn((("[FruitMagnet] tool \"%*\" has no rig part containing \"Start\" (looked at Handle + child parts). MagnetEffect cannot play -- the tool model needs a part with Start/Glow/Beams."):format(p1.Name)))
+
+	return false
+end
+
+local function runVacuumSession(p1, p2) --[[ runVacuumSession | Line: 421 | Upvalues: v7 (ref), LocalPlayer (copy), debugVisualizeScan (copy), scanFruitInRange (copy), Networking (copy), t6 (copy), v8 (ref) ]]
+	if v7 then
+		return
+	end
+
+	v7 = true
+
+	local v1 = os.clock()
+	local v2 = 0
+	local t = {}
+
+	while os.clock() - v1 < p2 do
+		local Character = LocalPlayer.Character
+		local v3 = if Character then Character.PrimaryPart else Character
+
+		if not v3 then
+			break
+		end
+
+		local v4 = debugVisualizeScan(v3.Position, p1)
+
+		if os.clock() - v2 >= 1 then
+			local v5 = os.clock()
+
+			print(string.format("[FruitMagnet][debug] range=%.0f | nearby=%d inRange=%d -> collect=%d steal=%d unripe=%d", p1, v4.total, v4.inRange, v4.collect, v4.steal, v4.unripeInRange))
+			v2 = v5
+		end
+
+		local v6 = scanFruitInRange(v3.Position, p1)
+		local v72 = os.clock()
+		local v82 = false
+
+		for v9, v10 in v6 do
+			local v11 = string.format("%d_%s_%s", v10.ownerUserId, v10.plantId, v10.fruitId)
+			local v12 = t[v11]
+
+			if not (v12 and v72 - v12 < 1.5) then
+				if v10.ownerUserId == LocalPlayer.UserId then
+					t[v11] = v72
+					Networking.Garden.CollectFruit:Fire(v10.plantId, v10.fruitId)
+
+					continue
+				end
+
+				if not v82 then
+					t[v11] = v72
+					Networking.Steal.BeginSteal:Fire(v10.ownerUserId, v10.plantId, v10.fruitId)
+					Networking.Steal.CompleteSteal:Fire()
+					v82 = true
+				end
+			end
+		end
+
+		task.wait(0.1)
+	end
+
+	for v13, v14 in t6 do
+		v14:Destroy()
+	end
+
+	table.clear(t6)
+
+	if not v8 then
+		v7 = false
+
+		return
+	end
+
+	v8:Destroy()
+	v8 = nil
+	v7 = false
+end
+
+local function playEffect(p1, p2, p3, p4) --[[ playEffect | Line: 500 | Upvalues: t5 (copy), ensureSetup (copy), MagnetEffect (copy), Players (copy) ]]
+	if t5[p1] then
+		return
+	end
+
+	if not ensureSetup(p1) then
+		return
+	end
+
+	t5[p1] = true
+
+	local v1 = p3 * 2
+
+	task.spawn(function() --[[ Line: 520 | Upvalues: MagnetEffect (ref), p2 (copy), p1 (copy), v1 (copy) ]]
+		local ok, result = pcall(MagnetEffect.Enable, p2, p1, v1)
+
+		if ok then
+			return
+		end
+
+		warn((("[FruitMagnet] MagnetEffect.Enable errored: %*"):format(result)))
+	end)
+
+	local v2 = os.clock()
+	local t = {}
+
+	while os.clock() - v2 < p4 do
+		local PrimaryPart = p2.PrimaryPart
+
+		if not PrimaryPart then
+			break
+		end
+
+		local Position = PrimaryPart.Position
+		local t2 = {}
+
+		for v3, v4 in Players:GetPlayers() do
+			if v4.Character ~= p2 then
+				local Character = v4.Character
+				local v5 = if Character then Character.PrimaryPart else Character
+
+				if v5 and (v5.Position - Position).Magnitude <= p3 then
+					t2[Character] = true
+
+					if not t[Character] then
+						t[Character] = true
+
+						local ok, result = pcall(MagnetEffect.AddTarget, p1, Character)
+
+						if not ok then
+							warn((("[FruitMagnet] AddTarget failed for %*: %*"):format(v4.Name, result)))
+						end
+					end
+				end
+			end
+		end
+
+		for v6 in t do
+			if not t2[v6] then
+				t[v6] = nil
+				pcall(MagnetEffect.RemoveTarget, p1, v6)
+			end
+		end
+
+		task.wait(0.15)
+	end
+
+	local ok, result = pcall(MagnetEffect.Disable, p2, p1)
+
+	if ok then
+		t5[p1] = nil
+
+		return
+	end
+
+	warn((("[FruitMagnet] MagnetEffect.Disable errored: %*"):format(result)))
+	t5[p1] = nil
+end
+
+local function onActivateBroadcast(p1, p2, p3) --[[ onActivateBroadcast | Line: 581 | Upvalues: playEffect (copy), v4 (copy), LocalPlayer (copy), runVacuumSession (copy) ]]
+	if not (p1 and p1:IsA("Tool")) then
+		return
+	end
+
+	local v1 = p1.Parent
+
+	if not (v1 and (v1:IsA("Model") and v1:FindFirstChildOfClass("Humanoid"))) then
+		return
+	end
+
+	task.spawn(playEffect, p1, v1, if p2 then p2 else v4, p3 or 10)
+
+	if v1 ~= LocalPlayer.Character then
+		return
+	end
+
+	task.spawn(runVacuumSession, if p2 then p2 else v4, p3 or 10)
+end
+
+local function bindTool(p1) --[[ bindTool | Line: 604 | Upvalues: ensureSetup (copy), t4 (copy), t3 (copy), t5 (copy) ]]
+	if not (p1:IsA("Tool") and (if p1:GetAttribute("FruitMagnet") == nil then false else true)) then
+		return
+	end
+
+	task.spawn(ensureSetup, p1)
+
+	if not t4[p1] then
+		t4[p1] = p1.Activated:Connect(function() --[[ Line: 614 | Upvalues: p1 (copy) ]]
+			local v1 = p1:GetAttribute("CooldownEnd")
+
+			if not (if typeof(v1) == "number" then os.clock() < v1 else false) then
+				p1:SetAttribute("CooldownEnd", os.clock() + 60)
+			end
+		end)
+	end
+
+	p1.AncestryChanged:Connect(function() --[[ Line: 624 | Upvalues: p1 (copy), t4 (ref), t3 (ref), t5 (ref) ]]
+		if p1:IsDescendantOf(game) then
+			return
+		end
+
+		if t4[p1] then
+			t4[p1]:Disconnect()
+			t4[p1] = nil
+		end
+
+		t3[p1] = nil
+		t5[p1] = nil
+	end)
+end
+
+local function watchContainer(p1) --[[ watchContainer | Line: 636 | Upvalues: bindTool (copy) ]]
+	for v1, v2 in p1:GetChildren() do
+		bindTool(v2)
+	end
+
+	p1.ChildAdded:Connect(bindTool)
+end
+
+function t2.Init(p1) --[[ Init | Line: 643 ]] end
+function t2.Start(p1) --[[ Start | Line: 645 | Upvalues: Networking (copy), onActivateBroadcast (copy), LocalPlayer (copy), bindTool (copy) ]]
+	Networking.FruitMagnet.Activate.OnClientEvent:Connect(onActivateBroadcast)
+
+	local Backpack = LocalPlayer:WaitForChild("Backpack")
+
+	for v1, v2 in Backpack:GetChildren() do
+		bindTool(v2)
+	end
+
+	Backpack.ChildAdded:Connect(bindTool)
+
+	if not LocalPlayer.Character then
+		LocalPlayer.CharacterAdded:Connect(function(p13) --[[ Line: 654 | Upvalues: bindTool (ref) ]]
+			for v1, v2 in p13:GetChildren() do
+				bindTool(v2)
+			end
+
+			p13.ChildAdded:Connect(bindTool)
+		end)
+
+		return
+	end
+
+	local Character = LocalPlayer.Character
+
+	for v3, v4 in Character:GetChildren() do
+		bindTool(v4)
+	end
+
+	Character.ChildAdded:Connect(bindTool)
+	LocalPlayer.CharacterAdded:Connect(function(p13) --[[ Line: 654 | Upvalues: bindTool (ref) ]]
+		for v1, v2 in p13:GetChildren() do
+			bindTool(v2)
+		end
+
+		p13.ChildAdded:Connect(bindTool)
+	end)
+end
+
+return t2

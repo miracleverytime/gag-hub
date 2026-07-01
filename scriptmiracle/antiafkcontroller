@@ -1,0 +1,85 @@
+-- https://lua.expert/
+local t = {
+	StartOrder = 3
+}
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Networking = require(ReplicatedStorage.SharedModules.Networking)
+local AntiAfkFlags = require(ReplicatedStorage.SharedModules.Flags.AntiAfkFlags)
+local LocalPlayer = Players.LocalPlayer
+local v1 = os.clock()
+local v2 = false
+
+local function markActivity() --[[ markActivity | Line: 27 | Upvalues: v1 (ref), v2 (ref) ]]
+	v1 = os.clock()
+	v2 = false
+end
+
+local function getThreshold() --[[ getThreshold | Line: 32 | Upvalues: LocalPlayer (copy), AntiAfkFlags (copy) ]]
+	local v1 = LocalPlayer:GetAttribute("AntiAfkIdleOverride")
+
+	if type(v1) == "number" and v1 > 0 then
+		return v1
+	end
+
+	return AntiAfkFlags.IdleSeconds:Get()
+end
+
+function t.Init(p1) --[[ Init | Line: 40 ]] end
+function t.Start(p1) --[[ Start | Line: 43 | Upvalues: UserInputService (copy), v1 (ref), v2 (ref), markActivity (copy), RunService (copy), AntiAfkFlags (copy), LocalPlayer (copy), Networking (copy) ]]
+	UserInputService.InputBegan:Connect(function(p1) --[[ Line: 47 | Upvalues: v1 (ref), v2 (ref) ]]
+		local UserInputType = p1.UserInputType
+
+		if UserInputType ~= Enum.UserInputType.Keyboard and (UserInputType ~= Enum.UserInputType.MouseButton1 and (UserInputType ~= Enum.UserInputType.MouseButton2 and (UserInputType ~= Enum.UserInputType.MouseButton3 and UserInputType ~= Enum.UserInputType.Gamepad1))) then
+			return
+		end
+
+		v1 = os.clock()
+		v2 = false
+	end)
+	UserInputService.InputChanged:Connect(function(p1) --[[ Line: 59 | Upvalues: UserInputService (ref), v1 (ref), v2 (ref) ]]
+		if p1.UserInputType == Enum.UserInputType.MouseMovement then
+			if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+				return
+			end
+		else
+			if p1.KeyCode ~= Enum.KeyCode.Thumbstick1 and p1.KeyCode ~= Enum.KeyCode.Thumbstick2 then
+				return
+			end
+
+			if not (p1.Position.Magnitude > 0.15) then
+				return
+			end
+		end
+
+		v1 = os.clock()
+		v2 = false
+	end)
+	UserInputService.TouchStarted:Connect(markActivity)
+	UserInputService.TouchMoved:Connect(markActivity)
+	task.spawn(function() --[[ Line: 82 | Upvalues: RunService (ref), AntiAfkFlags (ref), v2 (ref), v1 (ref), LocalPlayer (ref), Networking (ref) ]]
+		while task.wait(1) do
+			local v12
+
+			if RunService:IsStudio() or (not AntiAfkFlags.Enabled:Get() or v2) then
+				continue
+			end
+
+			local v22 = os.clock() - v1
+			local v3 = LocalPlayer:GetAttribute("AntiAfkIdleOverride")
+
+			v12 = if type(v3) == "number" and v3 > 0 then v3 else AntiAfkFlags.IdleSeconds:Get()
+
+			if not (v12 <= v22) then
+				continue
+			end
+
+			v2 = true
+			Networking.AntiAfk.RequestHop:Fire()
+		end
+	end)
+end
+
+return t

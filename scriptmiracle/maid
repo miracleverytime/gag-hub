@@ -1,0 +1,113 @@
+-- https://lua.expert/
+local t = {
+	ClassName = "Maid"
+}
+local v1 = nil
+
+function t.new() --[[ new | Line: 38 | Upvalues: t (copy) ]]
+	return setmetatable({
+		_tasks = {}
+	}, t)
+end
+function t.__index(p1, p2) --[[ __index | Line: 48 | Upvalues: t (copy) ]]
+	if t[p2] then
+		return t[p2]
+	end
+
+	return p1._tasks[p2]
+end
+function t.__newindex(p1, p2, p3) --[[ __newindex | Line: 65 | Upvalues: t (copy) ]]
+	if t[p2] ~= nil then
+		error(("\'%s\' is reserved"):format((tostring(p2))), 2)
+	end
+
+	local _tasks = p1._tasks
+	local v1 = _tasks[p2]
+
+	_tasks[p2] = p3
+
+	if not v1 then
+		return
+	end
+
+	if type(v1) == "function" then
+		v1()
+
+		return
+	end
+
+	if typeof(v1) == "RBXScriptConnection" then
+		v1:Disconnect()
+
+		return
+	end
+
+	if not v1.Destroy then
+		return
+	end
+
+	v1:Destroy()
+end
+function t.GiveTask(p1, p2) --[[ GiveTask | Line: 89 ]]
+	assert(p2, "Task cannot be false or nil")
+
+	local v1 = #p1._tasks + 1
+
+	p1[v1] = p2
+
+	if type(p2) ~= "table" then
+		return v1
+	end
+
+	local Destroy = p2.Destroy
+
+	return v1
+end
+function t.GivePromise(p1, p2) --[[ GivePromise | Line: 102 | Upvalues: v1 (ref) ]]
+	if p2:GetStatus() == v1.Status.Started then
+		local v12 = v1.Resolve(p2)
+		local v2 = p1:GiveTask(v12)
+
+		v12:Finally(function() --[[ Line: 111 | Upvalues: p1 (copy), v2 (copy) ]]
+			p1[v2] = nil
+		end)
+
+		return v12
+	end
+
+	return p2
+end
+function t.DoCleaning(p1) --[[ DoCleaning | Line: 121 ]]
+	local _tasks = p1._tasks
+
+	for k, v in pairs(_tasks) do
+		if typeof(v) == "RBXScriptConnection" then
+			_tasks[k] = nil
+			v:Disconnect()
+		end
+	end
+
+	local v1, v2 = next(_tasks)
+
+	while v2 ~= nil do
+		_tasks[v1] = nil
+
+		if type(v2) == "function" then
+			v2()
+		elseif typeof(v2) == "RBXScriptConnection" then
+			v2:Disconnect()
+		elseif v2.Destroy then
+			v2:Destroy()
+		end
+
+		local v3, v4 = next(_tasks)
+
+		v2, v1 = v4, v3
+	end
+end
+function t.Init(p1) --[[ Init | Line: 148 | Upvalues: v1 (ref) ]]
+	v1 = p1.Shared.Promise
+end
+t.Destroy = t.DoCleaning
+
+return t

@@ -1,0 +1,1108 @@
+-- https://lua.expert/
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local NumberUtils = require(ReplicatedStorage.SharedModules.NumberUtils)
+local Networking = require(ReplicatedStorage.SharedModules.Networking)
+local PlayerStateClient = require(ReplicatedStorage.ClientModules.PlayerStateClient)
+local DevProductController = require(LocalPlayer.PlayerScripts.Controllers.DevProductController)
+local SfxController = require(LocalPlayer.PlayerScripts.Controllers.SfxController)
+local NotificationController = require(LocalPlayer.PlayerScripts.Controllers.NotificationController)
+local Gradients = ReplicatedStorage.SharedModules.RarityData.Gradients
+local GuiController = require(game.Players.LocalPlayer.PlayerScripts.Controllers.GuiController)
+local GreenbeanAvatarController = require(game.Players.LocalPlayer.PlayerScripts.Controllers.GreenbeanAvatarController)
+local GreenbeanCheck = require(ReplicatedStorage.SharedData.GreenbeanCheck)
+local WatchButtonHold = require(ReplicatedStorage.ClientModules.WatchButtonHold)
+local CrateName = PlayerGui:WaitForChild("Odds"):WaitForChild("Frame"):WaitForChild("CrateName")
+local PlayerSelector = PlayerGui:WaitForChild("PlayerSelector")
+local FX_UI = PlayerGui:WaitForChild("FX_UI")
+local v1 = PlayerStateClient:WaitForLocalReplica(30)
+local v2 = Color3.new(0.0784314, 0.188235, 0)
+local v3 = Color3.new(0.188235, 0, 0)
+local v4 = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local v5 = TweenInfo.new(0.2, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, 0, false, 0)
+local t = {
+	["1Button"] = 1,
+	["3Button"] = 3,
+	["10Button"] = 10,
+	GiftButton1 = 1,
+	GiftButton3 = 3,
+	GiftButton10 = 10
+}
+
+local function recipientOwnsGamepass(p1, p2) --[[ recipientOwnsGamepass | Line: 49 | Upvalues: Players (copy) ]]
+	local v1 = p2:match("^Gamepass:([^:]+)")
+
+	if not v1 then
+		return false
+	end
+
+	local v2 = p1.Player or Players:GetPlayerByUserId(p1.UserId)
+
+	if not v2 then
+		return false
+	end
+
+	local v3 = v2:GetAttribute("OwnedGamepasses")
+
+	if type(v3) ~= "string" or v3 == "" then
+		return false
+	end
+
+	for v4 in v3:gmatch("[^,]+") do
+		if v4 == v1 then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function handleGiftButton(p1) --[[ handleGiftButton | Line: 62 | Upvalues: PlayerSelector (copy), recipientOwnsGamepass (copy), ReplicatedStorage (copy), Networking (copy), DevProductController (copy) ]]
+	local v1 = nil
+
+	task.spawn(function() --[[ Line: 64 | Upvalues: PlayerSelector (ref), v1 (ref) ]]
+		local v12 = PlayerSelector.PlayerSelected.Event:Wait()
+
+		v1 = if v12 == nil then "cancelled" else v12
+	end)
+	PlayerSelector.Enabled = true
+
+	repeat
+		task.wait()
+	until v1 ~= nil
+
+	if v1 ~= "cancelled" and recipientOwnsGamepass(v1, p1) then
+		ReplicatedStorage:FindFirstChild("Notify"):Fire((("<font color=\"#5B9CF5\">@%*</font> already owns this gamepass!"):format(v1.Name)))
+	elseif v1 ~= "cancelled" then
+		local ok, result = pcall(function() --[[ Line: 87 | Upvalues: Networking (ref), v1 (ref) ]]
+			Networking.DevProducts.SetGiftTarget:Fire(v1.UserId)
+		end)
+
+		if not ok then
+			warn((("[RestockStoreController] SetGiftTarget fire failed (%*): %*"):format(p1, result)))
+		end
+
+		local ok2, result2 = pcall(function() --[[ Line: 93 | Upvalues: DevProductController (ref), p1 (copy) ]]
+			DevProductController:PromptPurchase((("%*:Gift"):format(p1)))
+		end)
+
+		if not ok2 then
+			warn((("[RestockStoreController] Gift purchase prompt failed (%*): %*"):format(p1, result2)))
+		end
+	end
+end
+
+local function SetStockAppearance(p1, p2) --[[ SetStockAppearance | Line: 101 | Upvalues: v2 (copy), v3 (copy) ]]
+	for v1, v22 in p1:GetChildren() do
+		if v22:IsA("UIGradient") or v22:IsA("UIStroke") then
+			if v22.Name == "NoStock" then
+				v22.Enabled = not p2
+
+				continue
+			end
+
+			if v22:IsA("UIStroke") then
+				v22.Enabled = true
+				v22.Color = if p2 then v2 else v3
+
+				continue
+			end
+
+			v22.Enabled = p2
+		end
+	end
+end
+
+local function PLAYEFFECT(p1) --[[ PLAYEFFECT | Line: 116 | Upvalues: FX_UI (copy), TweenService (copy), v5 (copy) ]]
+	local Frame = Instance.new("Frame")
+
+	Frame.Parent = FX_UI
+	Frame.BackgroundColor3 = Color3.new(255/255, 255/255, 255/255)
+	Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+	Frame.Size = UDim2.new(0, p1.AbsoluteSize.X, 0, p1.AbsoluteSize.Y * 1.5)
+	Frame.Position = UDim2.new(0, p1.AbsolutePosition.X + p1.AbsoluteSize.X / 2, 0, p1.AbsolutePosition.Y + p1.AbsoluteSize.Y / 2)
+
+	local v1 = TweenService:Create(Frame, v5, {
+		BackgroundTransparency = 1,
+		Size = Frame.Size + UDim2.new(0.1, 0, 0, 0)
+	})
+
+	v1:Play()
+	game.Debris:AddItem(Frame, v5.Time)
+	game.Debris:AddItem(v1, v5.Time)
+end
+
+return {
+	Init = function(p1) --[[ Init | Line: 131 | Upvalues: v1 (copy), t (copy), DevProductController (copy), NumberUtils (copy), SetStockAppearance (copy), GuiController (copy), CrateName (copy), Gradients (copy), LocalPlayer (copy), TweenService (copy), v4 (copy), NotificationController (copy), GreenbeanCheck (copy), GreenbeanAvatarController (copy), PLAYEFFECT (copy), SfxController (copy), WatchButtonHold (copy), handleGiftButton (copy) ]]
+		local scrollingFrame = p1.scrollingFrame
+		local ItemTemplate = scrollingFrame:WaitForChild("ItemTemplate")
+
+		ItemTemplate.Visible = false
+
+		local Sheckles_Shelf = scrollingFrame:WaitForChild("Sheckles_Shelf")
+		local Robux_Shelf = scrollingFrame:WaitForChild("Robux_Shelf")
+		local BuyButton = Sheckles_Shelf.Main_Frame.Buttons.BuyButton
+		local ToggleRobux = Sheckles_Shelf.Main_Frame.Buttons.ToggleRobux
+		local Buttons = Robux_Shelf.Main_Frame.Buttons
+		local t2 = {}
+		local t3 = {}
+		local t4 = {}
+		local v12 = nil
+
+		local function ResolveCost(p12, p2) --[[ ResolveCost | Line: 154 | Upvalues: p1 (copy) ]]
+			if not p1.priceOverrides then
+				return p2
+			end
+
+			local v1 = p1.priceOverrides:Get()[p12]
+
+			if type(v1) == "number" and v1 >= 0 then
+				return v1
+			end
+
+			return p2
+		end
+
+		local function CanAfford(p1) --[[ CanAfford | Line: 164 | Upvalues: t3 (copy), v1 (ref) ]]
+			local v12 = t3[p1]
+
+			if not v12 then
+				return false
+			end
+
+			if not v1 then
+				return false
+			end
+
+			return (v1.Data.Sheckles or 0) >= v12.price
+		end
+
+		local function ShowShecklesShelf() --[[ ShowShecklesShelf | Line: 171 | Upvalues: Sheckles_Shelf (copy), Robux_Shelf (copy) ]]
+			Sheckles_Shelf.Visible = true
+			Robux_Shelf.Visible = false
+		end
+
+		local function ShowRobuxShelf() --[[ ShowRobuxShelf | Line: 176 | Upvalues: Sheckles_Shelf (copy), Robux_Shelf (copy), v12 (ref), t3 (copy), t (ref), Buttons (copy), DevProductController (ref), p1 (copy), NumberUtils (ref) ]]
+			Sheckles_Shelf.Visible = false
+			Robux_Shelf.Visible = true
+
+			local v1
+
+			if v12 then
+				local v2 = t3[v12.Name]
+
+				v1 = if v2 then v2.isEquippable else v2
+			else
+				v1 = false
+			end
+
+			for k, v in pairs(t) do
+				local v4 = Buttons:FindFirstChild(k)
+
+				if v4 then
+					if k == "1Button" then
+						v4.Visible = true
+
+						if v1 and v12 then
+							local v5 = DevProductController:WaitForPreloadedProductInfo((("%*:%*:1"):format(p1.devProductPrefix, v12.Name)))
+
+							if v5 then
+								v4.TextDisplay.TextLabel.Text = ("\238\128\130%*"):format((NumberUtils.FormatWithCommas(v5.PriceInRobux)))
+								v4.TextDisplay.TextLabel.TextLabel.Text = v4.TextDisplay.TextLabel.Text
+							end
+
+							continue
+						end
+
+						v4.TextDisplay.TextLabel.Text = "x1"
+						v4.TextDisplay.TextLabel.TextLabel.Text = "x1"
+
+						continue
+					end
+
+					v4.Visible = not v1
+				end
+			end
+		end
+
+		local function UpdateShelf(p12) --[[ UpdateShelf | Line: 209 | Upvalues: t3 (copy), p1 (copy), BuyButton (copy), v1 (ref), SetStockAppearance (ref), ToggleRobux (copy) ]]
+			local Text = p12.Cost_Text.Text
+			local v12 = p12.Parent.Name
+			local v2 = t3[v12]
+
+			if v2 and v2.isEquippable then
+				local v3 = p1.ownsEquippableGear and p1.ownsEquippableGear(v12)
+				local v4 = p1.isGearEquipped and p1.isGearEquipped(v12)
+				local ImageLabel = BuyButton.TextDisplay:FindFirstChild("ImageLabel")
+
+				if v3 then
+					local v5 = if v4 then "Unequip" else "Equip"
+
+					BuyButton.TextDisplay.TextLabel.Text = v5
+					BuyButton.TextDisplay.TextLabel.TextLabel.Text = v5
+					SetStockAppearance(BuyButton, not v4)
+					SetStockAppearance(BuyButton.TextDisplay.TextLabel.TextLabel, not v4)
+
+					if ImageLabel then
+						ImageLabel.Visible = false
+					end
+
+					ToggleRobux.Visible = false
+				else
+					BuyButton.TextDisplay.TextLabel.Text = v2.costText
+					BuyButton.TextDisplay.TextLabel.TextLabel.Text = v2.costText
+
+					local v6 = t3[v12]
+					local v7 = if v6 and v1 then (v1.Data.Sheckles or 0) >= v6.price else false
+
+					SetStockAppearance(BuyButton, v7)
+					SetStockAppearance(BuyButton.TextDisplay.TextLabel.TextLabel, v7)
+
+					if ImageLabel then
+						ImageLabel.Visible = true
+					end
+
+					ToggleRobux.Visible = v2.devProductKey ~= nil
+				end
+			else
+				local v9 = if Text == "NO STOCK" then false else true
+				local v10 = if v2 then v2.devProductKey ~= nil else v2
+				local v11
+
+				if v9 then
+					local v122 = t3[v12]
+
+					v11 = if v122 and v1 then (v1.Data.Sheckles or 0) >= v122.price else false
+				else
+					v11 = v9
+				end
+
+				BuyButton.TextDisplay.TextLabel.Text = Text
+				BuyButton.TextDisplay.TextLabel.TextLabel.Text = Text
+				SetStockAppearance(BuyButton, v11)
+				SetStockAppearance(BuyButton.TextDisplay.TextLabel.TextLabel, v11)
+
+				local ImageLabel = BuyButton.TextDisplay:FindFirstChild("ImageLabel")
+
+				if ImageLabel then
+					ImageLabel.Visible = true
+				end
+
+				ToggleRobux.Visible = v10
+			end
+		end
+
+		local function GetRemainingStock(p12) --[[ GetRemainingStock | Line: 256 | Upvalues: t3 (copy), v1 (ref), p1 (copy), t2 (copy) ]]
+			local v12 = t3[p12]
+
+			if not v12 then
+				return 0
+			end
+
+			local v2 = if v1 and (v1.Data.PurchasedThisRestock and v1.Data.PurchasedThisRestock[p1.purchasedRestockKey]) then v1.Data.PurchasedThisRestock[p1.purchasedRestockKey][p12] or 0 else 0
+
+			return math.max((t2[p12] ~= nil and t2[p12] or v12.maxStock) - v2, 0)
+		end
+
+		local function RefreshStock(p12) --[[ RefreshStock | Line: 267 | Upvalues: t3 (copy), p1 (copy), SetStockAppearance (ref), v1 (ref), v12 (ref), UpdateShelf (copy), t2 (copy) ]]
+			local v13 = t3[p12]
+
+			if not v13 then
+				return
+			end
+
+			if v13.isEquippable then
+				local v2 = p1.ownsEquippableGear and p1.ownsEquippableGear(p12)
+				local v3 = p1.isGearEquipped and p1.isGearEquipped(p12)
+
+				if v2 then
+					v13.mainFrame.Cost_Text.Text = "OWNED"
+					v13.mainFrame.Cost_Text.TextLabel.Text = "OWNED"
+
+					local NoStock = v13.mainFrame.Cost_Text.TextLabel:FindFirstChild("NoStock")
+					local v4 = v13.mainFrame.Cost_Text.TextLabel:FindFirstChildWhichIsA("UIGradient")
+
+					if NoStock then
+						NoStock.Enabled = not v3
+					end
+
+					if v4 then
+						v4.Enabled = v3
+					end
+
+					v13.mainFrame.Stock_Text.Text = if v3 then "Equipped" else "Unequipped"
+					v13.mainFrame.Stock_Text.TextColor3 = if v3 then Color3.new(0, 0.7, 0) else Color3.new(0.7, 0, 0)
+				else
+					v13.mainFrame.Cost_Text.Text = v13.costText
+					v13.mainFrame.Cost_Text.TextLabel.Text = v13.costText
+					v13.mainFrame.Stock_Text.Text = "Not Owned"
+
+					local v8 = t3[p12]
+
+					SetStockAppearance(v13.mainFrame.Cost_Text.TextLabel, if v8 and v1 then (v1.Data.Sheckles or 0) >= v8.price else false)
+				end
+			else
+				local v10 = t3[p12]
+				local v11 = if v10 then math.max((t2[p12] ~= nil and t2[p12] or v10.maxStock) - (if v1 and (v1.Data.PurchasedThisRestock and v1.Data.PurchasedThisRestock[p1.purchasedRestockKey]) then v1.Data.PurchasedThisRestock[p1.purchasedRestockKey][p12] or 0 else 0), 0) else 0
+				local v15 = if v11 >= 1 then true else false
+
+				v13.mainFrame.Cost_Text.Text = if v15 then v13.costText else "NO STOCK"
+				v13.mainFrame.Cost_Text.TextLabel.Text = if v15 then v13.costText else "NO STOCK"
+				v13.mainFrame.Stock_Text.Text = "x" .. tostring(v11) .. " in Stock"
+				SetStockAppearance(v13.mainFrame.Cost_Text.TextLabel, v15)
+			end
+
+			if not v12 or v12.Name ~= p12 then
+				return
+			end
+
+			UpdateShelf(v13.mainFrame)
+		end
+
+		local t5 = {}
+
+		local function QueueRefresh(p1) --[[ QueueRefresh | Line: 315 | Upvalues: t5 (copy), RefreshStock (copy) ]]
+			if not t5[p1] then
+				t5[p1] = true
+				task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), p1 (copy), RefreshStock (ref) ]]
+					t5[p1] = nil
+					RefreshStock(p1)
+				end)
+			end
+		end
+
+		local v2 = false
+
+		for i, v in ipairs(p1.items) do
+			local v3, v42
+			local v5 = p1.getItemName(v)
+			local v6 = if p1.getDisplayName then p1.getDisplayName(v) else v5
+			local v7 = p1.getItemImage(v)
+			local v8 = p1.getItemCost(v)
+
+			if p1.priceOverrides then
+				local v9 = p1.priceOverrides:Get()[v5]
+
+				v3 = if type(v9) == "number" and v9 >= 0 then v9 else v8
+			else
+				v3 = v8
+			end
+
+			local v10 = if p1.getItemRarity then p1.getItemRarity(v) else nil
+
+			if not p1.requireRarity or v10 ~= nil then
+				local v11 = if p1.isItemEnabled then if p1.isItemEnabled(v) == true then true else false else true
+				local v122 = ItemTemplate:Clone()
+
+				v122.Name = v5
+				v122.LayoutOrder = i * 3
+				v122.Visible = v11
+				v122.Parent = scrollingFrame
+
+				local Odds = v122.Main_Frame:FindFirstChild("Odds")
+
+				if Odds then
+					Odds.ImageButton.MouseButton1Click:Connect(function() --[[ Line: 354 | Upvalues: GuiController (ref), CrateName (ref), v5 (copy) ]]
+						GuiController:Open("Odds", nil, { "HUD" })
+						CrateName.Value = v5
+					end)
+				end
+
+				local Main_Frame = v122.Main_Frame
+
+				Main_Frame.Seed_Text.Text = v6
+				Main_Frame.Seed_Text.TextLabel.Text = v6
+
+				if v7 then
+					Main_Frame.ImageDisplay.Vector.Image = v7
+				end
+
+				local Rarity = Main_Frame.Rarity
+
+				for v13, v14 in Rarity:GetChildren() do
+					if v14:IsA("UIGradient") then
+						v14:Destroy()
+					end
+				end
+
+				if v10 then
+					local v15 = Gradients:FindFirstChild(v10)
+
+					if v15 then
+						local v16 = v15:Clone()
+
+						v16.Parent = Rarity
+
+						if v15.Name == "Super" or v15.Name == "Secret" then
+							v16:AddTag("InfiniteGradient")
+						end
+					end
+
+					Rarity.Rarity_Text.Text = v10
+					Rarity.Rarity_Text.TextLabel.Text = v10
+				end
+
+				local v17 = NumberUtils.Abbreviate(v3) .. "\194\162"
+				local v18 = p1.stockItems:FindFirstChild(v5)
+				local v19 = if p1.getRequiredGroupId then p1.getRequiredGroupId(v) else nil
+				local t6 = {
+					frame = v122,
+					data = v,
+					mainFrame = Main_Frame,
+					costText = v17,
+					price = v3,
+					baseCost = v8
+				}
+
+				t6.maxStock = v18 and v18.Value or 0
+				t6.devProductKey = ("%*:%*:1"):format(p1.devProductPrefix, v5)
+				t6.isEquippable = if p1.isEquippableGear then p1.isEquippableGear(v) else false
+				t6.requiredGroupId = v19
+				t3[v5] = t6
+
+				local Like_Group = Main_Frame:FindFirstChild("Like_Group")
+
+				if Like_Group then
+					if v19 then
+						local ok, result = pcall(function() --[[ Line: 410 | Upvalues: LocalPlayer (ref), v19 (copy) ]]
+							return LocalPlayer:IsInGroup(v19)
+						end)
+
+						v42 = not (ok and result)
+					else
+						v42 = false
+					end
+
+					Like_Group.Visible = v42
+				end
+
+				RefreshStock(v5)
+				table.insert(t4, v122)
+			end
+		end
+
+		if p1.priceOverrides then
+			local function RefreshAllPrices() --[[ RefreshAllPrices | Line: 426 | Upvalues: t3 (copy), p1 (copy), NumberUtils (ref), t5 (copy), RefreshStock (copy) ]]
+				for k, v in pairs(t3) do
+					local v1
+					local baseCost = v.baseCost
+
+					if p1.priceOverrides then
+						local v2 = p1.priceOverrides:Get()[k]
+
+						v1 = if type(v2) == "number" and v2 >= 0 then v2 else baseCost
+					else
+						v1 = baseCost
+					end
+
+					v.price = v1
+					v.costText = NumberUtils.Abbreviate(v1) .. "\194\162"
+
+					if not t5[k] then
+						t5[k] = true
+						task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), k (copy), RefreshStock (ref) ]]
+							t5[k] = nil
+							RefreshStock(k)
+						end)
+					end
+				end
+			end
+
+			p1.priceOverrides.Changed:Connect(RefreshAllPrices)
+			p1.priceOverrides.Loaded:Connect(RefreshAllPrices)
+		end
+
+		if p1.enabledFlag and p1.isItemEnabled then
+			local function RefreshAllVisibility() --[[ RefreshAllVisibility | Line: 443 | Upvalues: t3 (copy), p1 (copy) ]]
+				for k, v in pairs(t3) do
+					v.frame.Visible = p1.isItemEnabled(v.data) == true
+				end
+			end
+
+			p1.enabledFlag.Changed:Connect(RefreshAllVisibility)
+			p1.enabledFlag.Loaded:Connect(RefreshAllVisibility)
+		end
+
+		if v1 then
+			v1:OnChange(function(p12, p2) --[[ Line: 454 | Upvalues: p1 (copy), t5 (copy), RefreshStock (copy), t3 (copy), v12 (ref), UpdateShelf (copy) ]]
+				if p2 and (p2[1] == "PurchasedThisRestock" and p2[2] == p1.purchasedRestockKey) then
+					if p2[3] == nil then
+						for k in pairs(t3) do
+							if not t5[k] then
+								t5[k] = true
+								task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), k (copy), RefreshStock (ref) ]]
+									t5[k] = nil
+									RefreshStock(k)
+								end)
+							end
+						end
+					else
+						local v2 = tostring(p2[3])
+
+						if not t5[v2] then
+							t5[v2] = true
+							task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), v2 (copy), RefreshStock (ref) ]]
+								t5[v2] = nil
+								RefreshStock(v2)
+							end)
+						end
+					end
+				else
+					if not p2 or (p2[1] ~= "Sheckles" or not v12) then
+						return
+					end
+
+					local v3 = t3[v12.Name]
+
+					if not v3 then
+						return
+					end
+
+					UpdateShelf(v3.mainFrame)
+				end
+			end)
+		end
+
+		local function WatchStockValue(p1) --[[ WatchStockValue | Line: 478 | Upvalues: t3 (copy), t5 (copy), RefreshStock (copy) ]]
+			p1:GetPropertyChangedSignal("Value"):Connect(function() --[[ Line: 479 | Upvalues: t3 (ref), p1 (copy), t5 (ref), RefreshStock (ref) ]]
+				local v1 = t3[p1.Name]
+
+				if not v1 then
+					return
+				end
+
+				v1.maxStock = p1.Value
+
+				local v2 = p1.Name
+
+				if t5[v2] then
+					return
+				end
+
+				t5[v2] = true
+				task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), v2 (copy), RefreshStock (ref) ]]
+					t5[v2] = nil
+					RefreshStock(v2)
+				end)
+			end)
+		end
+
+		for v22, v23 in p1.stockItems:GetChildren() do
+			local v24 = t3[v23.Name]
+
+			if v24 then
+				v24.maxStock = v23.Value
+				RefreshStock(v23.Name)
+			end
+
+			v23:GetPropertyChangedSignal("Value"):Connect(function() --[[ Line: 479 | Upvalues: t3 (copy), v23 (copy), t5 (copy), RefreshStock (copy) ]]
+				local v1 = t3[v23.Name]
+
+				if not v1 then
+					return
+				end
+
+				v1.maxStock = v23.Value
+
+				local v2 = v23.Name
+
+				if t5[v2] then
+					return
+				end
+
+				t5[v2] = true
+				task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), v2 (copy), RefreshStock (ref) ]]
+					t5[v2] = nil
+					RefreshStock(v2)
+				end)
+			end)
+		end
+
+		p1.stockItems.ChildAdded:Connect(function(p1) --[[ Line: 500 | Upvalues: t3 (copy), t5 (copy), RefreshStock (copy) ]]
+			local v1 = t3[p1.Name]
+
+			if v1 then
+				v1.maxStock = p1.Value
+
+				local v2 = p1.Name
+
+				if not t5[v2] then
+					t5[v2] = true
+					task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), v2 (copy), RefreshStock (ref) ]]
+						t5[v2] = nil
+						RefreshStock(v2)
+					end)
+				end
+			end
+
+			p1:GetPropertyChangedSignal("Value"):Connect(function() --[[ Line: 479 | Upvalues: t3 (ref), p1 (copy), t5 (ref), RefreshStock (ref) ]]
+				local v1 = t3[p1.Name]
+
+				if not v1 then
+					return
+				end
+
+				v1.maxStock = p1.Value
+
+				local v2 = p1.Name
+
+				if t5[v2] then
+					return
+				end
+
+				t5[v2] = true
+				task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), v2 (copy), RefreshStock (ref) ]]
+					t5[v2] = nil
+					RefreshStock(v2)
+				end)
+			end)
+		end)
+
+		if p1.personalRestockEvent then
+			p1.personalRestockEvent.OnClientEvent:Connect(function(p1) --[[ Line: 511 | Upvalues: t2 (copy), t3 (copy), t5 (copy), RefreshStock (copy) ]]
+				table.clear(t2)
+
+				for k, v in pairs(p1) do
+					t2[k] = v
+				end
+
+				for k in pairs(t3) do
+					if not t5[k] then
+						t5[k] = true
+						task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), k (copy), RefreshStock (ref) ]]
+							t5[k] = nil
+							RefreshStock(k)
+						end)
+					end
+				end
+			end)
+		end
+
+		local t6 = {}
+
+		for v25, v26 in t4 do
+			table.insert(t6, v26)
+		end
+
+		table.sort(t6, function(p1, p2) --[[ Line: 529 ]]
+			return p1.LayoutOrder < p2.LayoutOrder
+		end)
+
+		for v27, v28 in t4 do
+			v28.Main_Frame.TextButton.Activated:Connect(function() --[[ Line: 534 | Upvalues: v12 (ref), v28 (copy), Sheckles_Shelf (copy), Robux_Shelf (copy), UpdateShelf (copy), t6 (copy), TweenService (ref), scrollingFrame (copy), v4 (ref) ]]
+				if v12 == v28 then
+					Sheckles_Shelf.Visible = false
+					Robux_Shelf.Visible = false
+					v12 = nil
+
+					return
+				end
+
+				Sheckles_Shelf.Visible = true
+				Robux_Shelf.Visible = false
+				Sheckles_Shelf.LayoutOrder = v28.LayoutOrder + 1
+				Robux_Shelf.LayoutOrder = v28.LayoutOrder + 1
+				v12 = v28
+				UpdateShelf(v28.Main_Frame)
+
+				local count = 0
+
+				for i, v in ipairs(t6) do
+					if v.Visible then
+						count = count + 1
+					end
+
+					if v == v28 then
+						break
+					end
+				end
+
+				local v1 = TweenService:Create(scrollingFrame, v4, {
+					CanvasPosition = Vector2.new(0, v28.AbsoluteSize.Y * (count - 1))
+				})
+
+				v1:Play()
+				game.Debris:AddItem(v1, v4.Time)
+			end)
+		end
+
+		ToggleRobux.MouseButton1Click:Connect(function() --[[ Line: 569 | Upvalues: ShowRobuxShelf (copy) ]]
+			if not workspace:GetAttribute("InTutorial") then
+				ShowRobuxShelf()
+			end
+		end)
+		Robux_Shelf.Main_Frame.Buttons.ToggleSheckles.MouseButton1Click:Connect(function() --[[ Line: 574 | Upvalues: Sheckles_Shelf (copy), Robux_Shelf (copy) ]]
+			Sheckles_Shelf.Visible = true
+			Robux_Shelf.Visible = false
+		end)
+
+		local function PassesGroupGate(p1) --[[ PassesGroupGate | Line: 578 | Upvalues: t3 (copy), LocalPlayer (ref), NotificationController (ref) ]]
+			local v1 = t3[p1]
+
+			if not (v1 and v1.requiredGroupId) then
+				return true
+			end
+
+			local ok, result = pcall(function() --[[ Line: 581 | Upvalues: LocalPlayer (ref), v1 (copy) ]]
+				return LocalPlayer:IsInGroup(v1.requiredGroupId)
+			end)
+
+			if ok and result then
+				return true
+			end
+
+			NotificationController:CreateNotification("Join Group + Like\240\159\145\141")
+
+			return false
+		end
+
+		local function PassesGreenbeanGate(p1) --[[ PassesGreenbeanGate | Line: 590 | Upvalues: GreenbeanCheck (ref), LocalPlayer (ref), NotificationController (ref), GreenbeanAvatarController (ref) ]]
+			if p1 ~= "Green Bean" then
+				return true
+			end
+
+			if GreenbeanCheck.IsCharacterGreenbean(LocalPlayer.Character) then
+				return true
+			end
+
+			NotificationController:CreateNotification("Equip the Green Bean avatar to buy this seed!")
+			GreenbeanAvatarController:Prompt()
+
+			return false
+		end
+
+		local v29 = false
+
+		local function executeBuy() --[[ executeBuy | Line: 603 | Upvalues: v2 (ref), v12 (ref), t3 (copy), LocalPlayer (ref), NotificationController (ref), GreenbeanCheck (ref), GreenbeanAvatarController (ref), p1 (copy), v1 (ref), PLAYEFFECT (ref), BuyButton (copy), SfxController (ref), t2 (copy) ]]
+			if v2 then
+				return
+			end
+
+			if not v12 then
+				return
+			end
+
+			local v13 = v12.Name
+			local v22 = t3[v13]
+			local v3 = t3[v13]
+			local v4
+
+			if v3 and v3.requiredGroupId then
+				local ok, result = pcall(function() --[[ Line: 581 | Upvalues: LocalPlayer (ref), v3 (copy) ]]
+					return LocalPlayer:IsInGroup(v3.requiredGroupId)
+				end)
+
+				if ok and result then
+					v4 = true
+				else
+					NotificationController:CreateNotification("Join Group + Like\240\159\145\141")
+					v4 = false
+				end
+			else
+				v4 = true
+			end
+
+			if not v4 then
+				return
+			end
+
+			local v5
+
+			if v13 == "Green Bean" and not GreenbeanCheck.IsCharacterGreenbean(LocalPlayer.Character) then
+				NotificationController:CreateNotification("Equip the Green Bean avatar to buy this seed!")
+				GreenbeanAvatarController:Prompt()
+				v5 = false
+			else
+				v5 = true
+			end
+
+			if not v5 then
+				return
+			end
+
+			if v22 and v22.isEquippable then
+				local v6 = p1.ownsEquippableGear and p1.ownsEquippableGear(v13)
+
+				v2 = true
+
+				if v6 then
+					PLAYEFFECT(BuyButton)
+
+					local v7 = p1.isGearEquipped and p1.isGearEquipped(v13)
+
+					pcall(function() --[[ Line: 635 | Upvalues: v7 (copy), NotificationController (ref), v13 (copy), SfxController (ref) ]]
+						if v7 then
+							NotificationController:CreateNotification(v13 .. " Unequipped")
+							SfxController:PlaySFX("ItemUnequip")
+						else
+							NotificationController:CreateNotification(v13 .. " Equipped")
+							SfxController:PlaySFX("ItemEquip")
+						end
+					end)
+
+					local ok, result = pcall(function() --[[ Line: 645 | Upvalues: v7 (copy), p1 (ref), v13 (copy) ]]
+						if v7 then
+							p1.unequipGearEvent:Fire(v13)
+						else
+							p1.equipGearEvent:Fire(v13)
+						end
+					end)
+
+					if ok then
+						task.wait()
+						v2 = false
+
+						return
+					end
+
+					warn((("[RestockStoreController] Gear %* fire failed (%*): %*"):format(if v7 then "unequip" else "equip", v13, result)))
+				else
+					local v11 = t3[v13]
+
+					if not (if v11 and v1 then (v1.Data.Sheckles or 0) >= v11.price else false) then
+						return
+					end
+
+					PLAYEFFECT(BuyButton)
+
+					local ok, result = pcall(function() --[[ Line: 620 | Upvalues: p1 (ref), v13 (copy) ]]
+						p1.purchaseEvent:Fire(v13)
+					end)
+
+					if ok then
+						task.wait()
+						v2 = false
+
+						return
+					end
+
+					warn((("[RestockStoreController] Purchase fire failed (%*): %*"):format(v13, result)))
+				end
+			else
+				local v132 = t3[v13]
+				local v14 = if v132 then math.max((t2[v13] ~= nil and t2[v13] or v132.maxStock) - (if v1 and (v1.Data.PurchasedThisRestock and v1.Data.PurchasedThisRestock[p1.purchasedRestockKey]) then v1.Data.PurchasedThisRestock[p1.purchasedRestockKey][v13] or 0 else 0), 0) else 0
+
+				if v14 < 1 then
+					return
+				end
+
+				local v18 = t3[v13]
+
+				if not (if v18 and v1 then (v1.Data.Sheckles or 0) >= v18.price else false) then
+					return
+				end
+
+				PLAYEFFECT(BuyButton)
+				v2 = true
+
+				local ok, result = pcall(function() --[[ Line: 668 | Upvalues: p1 (ref), v13 (copy) ]]
+					p1.purchaseEvent:Fire(v13)
+				end)
+
+				if ok then
+					task.wait()
+					v2 = false
+
+					return
+				end
+
+				warn((("[RestockStoreController] Purchase fire failed (%*): %*"):format(v13, result)))
+			end
+
+			task.wait()
+			v2 = false
+		end
+
+		local v30 = false
+		local v31 = 0
+
+		WatchButtonHold(BuyButton, function(p1, p2) --[[ Line: 685 | Upvalues: v31 (ref), v30 (ref), v29 (ref), executeBuy (copy) ]]
+			if p2 then
+				v31 = 0
+
+				if not v30 then
+					return
+				end
+
+				v30 = false
+			else
+				if not v30 then
+					v30 = true
+				end
+
+				if os.clock() < v31 then
+					return
+				end
+
+				local v2 = math.max(((1 - math.exp(p1 * -0.3)) * 24 + 8) // 1, 1)
+
+				v31 = os.clock() + 0.125
+
+				for i = 1, v2 do
+					v29 = true
+					executeBuy()
+				end
+			end
+		end, {
+			minimumHoldTime = 1,
+			interval = 0.125
+		})
+		BuyButton.Activated:Connect(function() --[[ Line: 714 | Upvalues: v29 (ref), executeBuy (copy) ]]
+			if v29 then
+				v29 = false
+			else
+				executeBuy()
+			end
+		end)
+
+		for k, v in pairs(t) do
+			local v32 = Buttons:FindFirstChild(k)
+
+			if v32 then
+				local v33 = if string.find(k, "Gift") == nil then false else true
+
+				v32.Activated:Connect(function() --[[ Line: 731 | Upvalues: v2 (ref), v12 (ref), t3 (copy), p1 (copy), LocalPlayer (ref), NotificationController (ref), GreenbeanCheck (ref), GreenbeanAvatarController (ref), v (copy), v33 (copy), handleGiftButton (ref), DevProductController (ref) ]]
+					if workspace:GetAttribute("InTutorial") then
+						return
+					end
+
+					if v2 then
+						return
+					end
+
+					if not v12 then
+						return
+					end
+
+					local v1 = v12.Name
+					local v22 = t3[v1]
+
+					if v22 and v22.isEquippable and (p1.ownsEquippableGear and p1.ownsEquippableGear(v1)) then
+						return
+					end
+
+					local v4 = t3[v1]
+					local v5
+
+					if v4 and v4.requiredGroupId then
+						local ok, result = pcall(function() --[[ Line: 581 | Upvalues: LocalPlayer (ref), v4 (copy) ]]
+							return LocalPlayer:IsInGroup(v4.requiredGroupId)
+						end)
+
+						if ok and result then
+							v5 = true
+						else
+							NotificationController:CreateNotification("Join Group + Like\240\159\145\141")
+							v5 = false
+						end
+					else
+						v5 = true
+					end
+
+					if not v5 then
+						return
+					end
+
+					local v6
+
+					if v1 == "Green Bean" and not GreenbeanCheck.IsCharacterGreenbean(LocalPlayer.Character) then
+						NotificationController:CreateNotification("Equip the Green Bean avatar to buy this seed!")
+						GreenbeanAvatarController:Prompt()
+						v6 = false
+					else
+						v6 = true
+					end
+
+					if not v6 then
+						return
+					end
+
+					local v7 = ("%*:%*:%*"):format(p1.devProductPrefix, v1, v)
+
+					v2 = true
+
+					local ok, result = pcall(function() --[[ Line: 751 | Upvalues: v33 (ref), handleGiftButton (ref), v7 (copy), DevProductController (ref) ]]
+						if v33 then
+							handleGiftButton(v7)
+						else
+							DevProductController:PromptPurchase(v7)
+						end
+					end)
+
+					if not ok then
+						warn((("[RestockStoreController] Robux purchase flow failed (%*): %*"):format(v7, result)))
+					end
+
+					task.wait()
+					v2 = false
+				end)
+
+				if not v33 then
+					v32.MouseEnter:Connect(function() --[[ Line: 766 | Upvalues: v12 (ref), DevProductController (ref), p1 (copy), v (copy), v32 (copy), NumberUtils (ref) ]]
+						if not v12 then
+							return
+						end
+
+						local v1 = DevProductController:WaitForPreloadedProductInfo((("%*:%*:%*"):format(p1.devProductPrefix, v12.Name, v)))
+
+						if v1 then
+							v32.TextDisplay.TextLabel.Text = ("\238\128\130%*"):format((NumberUtils.FormatWithCommas(v1.PriceInRobux)))
+							v32.TextDisplay.TextLabel.TextLabel.Text = v32.TextDisplay.TextLabel.Text
+						end
+					end)
+					v32.MouseLeave:Connect(function() --[[ Line: 774 | Upvalues: k (copy), v12 (ref), t3 (copy), v32 (copy), v (copy) ]]
+						if k ~= "1Button" or not v12 then
+							v32.TextDisplay.TextLabel.Text = ("x%*"):format(v)
+							v32.TextDisplay.TextLabel.TextLabel.Text = v32.TextDisplay.TextLabel.Text
+
+							return
+						end
+
+						local v1 = t3[v12.Name]
+
+						if not (v1 and v1.isEquippable) then
+							v32.TextDisplay.TextLabel.Text = ("x%*"):format(v)
+							v32.TextDisplay.TextLabel.TextLabel.Text = v32.TextDisplay.TextLabel.Text
+						end
+					end)
+				end
+			end
+		end
+
+		if p1.gearEquipStateEvent then
+			p1.gearEquipStateEvent.OnClientEvent:Connect(function(p12, p2) --[[ Line: 789 | Upvalues: p1 (copy), Robux_Shelf (copy), Sheckles_Shelf (copy), t5 (copy), RefreshStock (copy), v12 (ref), t3 (copy), UpdateShelf (copy) ]]
+				if p1.onGearEquipStateChanged then
+					p1.onGearEquipStateChanged(p12, p2)
+				end
+
+				if p2 and Robux_Shelf.Visible then
+					Sheckles_Shelf.Visible = true
+					Robux_Shelf.Visible = false
+				end
+
+				if not t5[p12] then
+					t5[p12] = true
+					task.defer(function() --[[ Line: 318 | Upvalues: t5 (ref), p12 (copy), RefreshStock (ref) ]]
+						t5[p12] = nil
+						RefreshStock(p12)
+					end)
+				end
+
+				if not v12 or v12.Name ~= p12 then
+					return
+				end
+
+				local v1 = t3[p12]
+
+				if not v1 then
+					return
+				end
+
+				UpdateShelf(v1.mainFrame)
+			end)
+		end
+	end
+}

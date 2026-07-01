@@ -1,0 +1,347 @@
+-- https://lua.expert/
+local t = {
+	StartOrder = 5
+}
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
+local Seeds = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Seeds")
+local BackpackListener = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("BackpackListener"))
+local HeldHandleSelfHeal = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("HeldHandleSelfHeal"))
+local HandleScale = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("HandleScale"))
+local t2 = {}
+local LocalPlayer = Players.LocalPlayer
+local t3 = {}
+local t4 = {}
+local t5 = {}
+
+local function PlaySFX(p1, p2) --[[ PlaySFX | Line: 30 | Upvalues: SoundService (copy) ]]
+	local HumanoidRootPart = p1:FindFirstChild("HumanoidRootPart")
+
+	if HumanoidRootPart then
+		local Sound = Instance.new("Sound")
+
+		Sound.SoundId = p2
+		Sound.PlaybackSpeed = 1 + math.random(-15, 15) * 0.01
+		Sound.SoundGroup = SoundService:FindFirstChild("SFXGroup")
+		Sound.Parent = HumanoidRootPart
+		Sound:Play()
+		game.Debris:AddItem(Sound, Sound.TimeLength / math.max(Sound.PlaybackSpeed, 0.01) + 1)
+	end
+end
+
+local v1 = CFrame.new(0, -0.5, 0.25)
+local v2 = CFrame.new(0, -1.25, -0.5) * CFrame.Angles(-1.5707963267948966, 0, 0)
+
+function t.Init(p1) --[[ Init | Line: 46 ]] end
+function t.Start(p1) --[[ Start | Line: 49 | Upvalues: Players (copy), t3 (copy) ]]
+	for v1, v2 in Players:GetPlayers() do
+		p1:SetupPlayer(v2)
+	end
+
+	Players.PlayerAdded:Connect(function(p12) --[[ Line: 54 | Upvalues: p1 (copy) ]]
+		p1:SetupPlayer(p12)
+	end)
+	Players.PlayerRemoving:Connect(function(p12) --[[ Line: 58 | Upvalues: t3 (ref), Players (ref), p1 (copy) ]]
+		for v1 in t3 do
+			if (Players:GetPlayerFromCharacter(v1.Parent) or v1.Parent and (v1.Parent:IsA("Backpack") and Players:GetPlayerFromCharacter(v1.Parent.Parent))) == p12 then
+				p1:CleanupTool(v1)
+			end
+		end
+	end)
+end
+function t.PreparePartForTool(p1, p2) --[[ PreparePartForTool | Line: 69 ]]
+	p2.Anchored = false
+	p2.CanCollide = false
+	p2.CanQuery = false
+	p2.CanTouch = false
+end
+function t.ClearHandle(p1, p2) --[[ ClearHandle | Line: 76 ]]
+	for v1, v2 in p2:GetChildren() do
+		if v2.Name == "Handle" or (v2.Name == "Build" or v2:IsA("Model")) then
+			v2.Parent = nil
+			task.defer(function() --[[ Line: 80 | Upvalues: v2 (copy) ]]
+				if not v2 then
+					return
+				end
+
+				v2:Destroy()
+			end)
+		end
+	end
+end
+function t.HasHandle(p1, p2) --[[ HasHandle | Line: 89 ]]
+	for v1, v2 in p2:GetChildren() do
+		if v2.Name == "Handle" then
+			return true
+		end
+	end
+
+	return false
+end
+function t.SpawnHandle(p1, p2, p3, p4) --[[ SpawnHandle | Line: 98 | Upvalues: t5 (copy), t2 (copy), Seeds (copy), HandleScale (copy), LocalPlayer (copy), PlaySFX (copy), v1 (copy), v2 (copy), HeldHandleSelfHeal (copy), t4 (copy) ]]
+	if t5[p2] then
+		return
+	end
+
+	t5[p2] = true
+	p1:ClearHandle(p2)
+
+	local v12 = p2:GetAttribute("SeedTool")
+
+	if not v12 then
+		t5[p2] = nil
+
+		return
+	end
+
+	local v22 = Seeds:FindFirstChild(t2[v12] or v12)
+
+	if not v22 then
+		t5[p2] = nil
+
+		return
+	end
+
+	local v3 = p3:FindFirstChild("Right Arm") or p3:FindFirstChild("RightHand")
+
+	if not v3 then
+		t5[p2] = nil
+
+		return
+	end
+
+	local Build = v22:Clone()
+	local v4 = p3:GetScale()
+
+	HandleScale.ScaleClone(Build, v4)
+
+	local v5 = LocalPlayer and (if LocalPlayer.Character == p3 then true else false)
+
+	if not p4 then
+		PlaySFX(p3, "rbxassetid://85584987915775")
+	end
+
+	if Build:IsA("BasePart") then
+		p1:PreparePartForTool(Build)
+		Build.Name = "Handle"
+		Build.Parent = p2
+
+		if v5 then
+			p2.Grip = HandleScale.ScaleGripTranslation(v1, v4)
+		else
+			Build.CFrame = v3.CFrame * HandleScale.ScaleGripTranslation(v2, v4)
+
+			local WeldConstraint = Instance.new("WeldConstraint")
+
+			WeldConstraint.Part0 = Build
+			WeldConstraint.Part1 = v3
+			WeldConstraint.Parent = Build
+		end
+	elseif Build:IsA("Model") then
+		local Handle = Build.PrimaryPart
+
+		if not Handle then
+			Build:Destroy()
+			t5[p2] = nil
+
+			return
+		end
+
+		for v6, v7 in Build:GetDescendants() do
+			if v7:IsA("BasePart") then
+				p1:PreparePartForTool(v7)
+			end
+		end
+
+		for v8, v9 in Build:GetDescendants() do
+			if v9:IsA("BasePart") and v9 ~= Handle then
+				local WeldConstraint = Instance.new("WeldConstraint")
+
+				WeldConstraint.Part0 = Handle
+				WeldConstraint.Part1 = v9
+				WeldConstraint.Parent = v9
+			end
+		end
+
+		Build.Name = "Build"
+		Build.Parent = p2
+		Handle.Name = "Handle"
+		Handle.Parent = p2
+
+		if v5 then
+			p2.Grip = HandleScale.ScaleGripTranslation(v1, v4)
+		else
+			Handle.CFrame = v3.CFrame * HandleScale.ScaleGripTranslation(v2, v4)
+
+			local WeldConstraint = Instance.new("WeldConstraint")
+
+			WeldConstraint.Part0 = Handle
+			WeldConstraint.Part1 = v3
+			WeldConstraint.Parent = Handle
+		end
+	end
+
+	local Handle = p2:FindFirstChild("Handle")
+
+	if Handle then
+		HeldHandleSelfHeal.WatchHandle(p2, Handle, function() --[[ Line: 194 | Upvalues: t4 (ref), p2 (copy) ]]
+			return t4[p2]
+		end, function() --[[ Line: 195 | Upvalues: p1 (copy), p2 (copy) ]]
+			return p1:HasHandle(p2)
+		end, function() --[[ Line: 196 | Upvalues: t4 (ref), p2 (copy), p1 (copy) ]]
+			local v1 = t4[p2]
+
+			if not v1 then
+				return
+			end
+
+			p1:SpawnHandle(p2, v1, true)
+		end)
+	end
+
+	t5[p2] = nil
+end
+function t.UpdateToolState(p1, p2) --[[ UpdateToolState | Line: 205 | Upvalues: t5 (copy), t4 (copy), PlaySFX (copy) ]]
+	if t5[p2] then
+		return
+	end
+
+	local v1 = t4[p2]
+
+	if not v1 then
+		return
+	end
+
+	local v2 = if p2.Parent == v1 then true else false
+	local v3 = p1:HasHandle(p2)
+
+	if v2 and not v3 then
+		p1:SpawnHandle(p2, v1)
+
+		return
+	end
+
+	if v2 or not v3 then
+		return
+	end
+
+	PlaySFX(v1, "rbxassetid://80262894398376")
+	p1:ClearHandle(p2)
+end
+function t.DisconnectTool(p1, p2) --[[ DisconnectTool | Line: 222 | Upvalues: t3 (copy), t4 (copy), t5 (copy) ]]
+	local v1 = t3[p2]
+
+	if v1 then
+		for v2, v3 in v1 do
+			v3:Disconnect()
+		end
+
+		t3[p2] = nil
+	end
+
+	t4[p2] = nil
+	t5[p2] = nil
+end
+function t.CleanupTool(p1, p2) --[[ CleanupTool | Line: 234 ]]
+	p1:ClearHandle(p2)
+	p1:DisconnectTool(p2)
+end
+function t.IsTrackedTool(p1, p2) --[[ IsTrackedTool | Line: 239 ]]
+	return p2:GetAttribute("SeedTool") ~= nil
+end
+function t.SetupTool(p1, p2, p3) --[[ SetupTool | Line: 243 | Upvalues: t4 (copy), t3 (copy) ]]
+	p1:DisconnectTool(p2)
+
+	local t = {}
+
+	t4[p2] = p3
+
+	local function f2() --[[ Line: 249 | Upvalues: p2 (copy), t4 (ref), p1 (copy) ]]
+		task.defer(function() --[[ Line: 250 | Upvalues: p2 (ref), t4 (ref), p1 (ref) ]]
+			if not (p2 and t4[p2]) then
+				return
+			end
+
+			p1:UpdateToolState(p2)
+		end)
+	end
+
+	table.insert(t, p2:GetPropertyChangedSignal("Parent"):Connect(f2))
+	t3[p2] = t
+	task.defer(function() --[[ Line: 259 | Upvalues: p2 (copy), t4 (ref), p1 (copy) ]]
+		if not (p2 and t4[p2]) then
+			return
+		end
+
+		p1:UpdateToolState(p2)
+	end)
+end
+function t.SetupCharacter(p1, p2) --[[ SetupCharacter | Line: 266 | Upvalues: Players (copy), HandleScale (copy) ]]
+	task.defer(function() --[[ Line: 267 | Upvalues: p2 (copy), p1 (copy), Players (ref), HandleScale (ref) ]]
+		if not (p2 and p2.Parent) then
+			return
+		end
+
+		for v1, v2 in p2:GetChildren() do
+			if v2:IsA("Tool") and p1:IsTrackedTool(v2) then
+				p1:SetupTool(v2, p2)
+			end
+		end
+
+		local v3 = Players:GetPlayerFromCharacter(p2)
+
+		if v3 and v3.Backpack then
+			for v4, v5 in v3.Backpack:GetChildren() do
+				if v5:IsA("Tool") and p1:IsTrackedTool(v5) then
+					p1:SetupTool(v5, p2)
+				end
+			end
+		end
+
+		p2.ChildAdded:Connect(function(p12) --[[ Line: 286 | Upvalues: p1 (ref), p2 (ref) ]]
+			if not (p12:IsA("Tool") and p1:IsTrackedTool(p12)) then
+				return
+			end
+
+			task.defer(function() --[[ Line: 288 | Upvalues: p12 (copy), p2 (ref), p1 (ref) ]]
+				if not (p12 and (p12.Parent and (p2 and p2.Parent))) then
+					return
+				end
+
+				p1:SetupTool(p12, p2)
+			end)
+		end)
+		HandleScale.MonitorCharacterScale(p2, function(p12) --[[ Line: 297 | Upvalues: p1 (ref) ]]
+			return p1:IsTrackedTool(p12)
+		end, function(p12, p2) --[[ Line: 298 | Upvalues: p1 (ref) ]]
+			p1:SpawnHandle(p12, p2)
+		end)
+	end)
+end
+function t.SetupPlayer(p1, p2) --[[ SetupPlayer | Line: 302 | Upvalues: BackpackListener (copy) ]]
+	if p2.Character then
+		p1:SetupCharacter(p2.Character)
+	end
+
+	p2.CharacterAdded:Connect(function(p12) --[[ Line: 307 | Upvalues: p1 (copy) ]]
+		p1:SetupCharacter(p12)
+	end)
+	BackpackListener.bind(p2, function(p12) --[[ Line: 311 | Upvalues: p1 (copy), p2 (copy) ]]
+		if not (p12:IsA("Tool") and p1:IsTrackedTool(p12)) then
+			return
+		end
+
+		task.defer(function() --[[ Line: 313 | Upvalues: p2 (ref), p12 (copy), p1 (ref) ]]
+			local Character = p2.Character
+
+			if not (p12 and (p12.Parent and (Character and Character.Parent))) then
+				return
+			end
+
+			p1:SetupTool(p12, Character)
+		end)
+	end)
+end
+
+return t

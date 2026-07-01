@@ -1,0 +1,205 @@
+-- https://lua.expert/
+local t = {}
+local Players = game:GetService("Players")
+local Networking = require(game.ReplicatedStorage.SharedModules.Networking)
+local t2 = {
+	Neck = {
+		CF = { CFrame.new(0, 1, 0, 0, -1, 0, 1, 0, -0, 0, 0, 1), CFrame.new(0, -0.5, 0, 0, -1, 0, 1, 0, -0, 0, 0, 1) }
+	},
+	HumanoidRootPart = {
+		CF = { CFrame.new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), CFrame.new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) }
+	},
+	["Right Shoulder"] = {
+		CF = { CFrame.new(1.3, 0.75, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1), CFrame.new(-0.2, 0.75, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1) }
+	},
+	["Left Shoulder"] = {
+		CF = { CFrame.new(-1.3, 0.75, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1), CFrame.new(0.2, 0.75, 0, -1, 0, 0, 0, -1, 0, 0, 0, 1) }
+	},
+	["Right Hip"] = {
+		CF = { CFrame.new(0.5, -1, 0, 0, 1, -0, -1, 0, 0, 0, 0, 1), CFrame.new(0, 1, 0, 0, 1, -0, -1, 0, 0, 0, 0, 1) }
+	},
+	["Left Hip"] = {
+		CF = { CFrame.new(-0.5, -1, 0, 0, 1, -0, -1, 0, 0, 0, 0, 1), CFrame.new(0, 1, 0, 0, 1, -0, -1, 0, 0, 0, 0, 1) }
+	}
+}
+
+local function ToggleMotor6D(p1, p2) --[[ ToggleMotor6D | Line: 26 ]]
+	for k, v in pairs(p1.Torso:GetDescendants()) do
+		if v:IsA("Motor6D") then
+			v.Enabled = p2
+		end
+	end
+end
+
+local function ToggleCollisionParts(p1, p2) --[[ ToggleCollisionParts | Line: 34 ]]
+	if p2 then
+		for k, v in pairs(p1:GetChildren()) do
+			if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then
+				local Collider = v:Clone()
+
+				Collider.Size = v.Size * 0.75
+				Collider.CanCollide = true
+				Collider.Massless = true
+				Collider.Name = "Collider"
+				Collider.Transparency = 1
+				Collider.Parent = p1
+
+				local Weld = Instance.new("Weld")
+
+				Weld.Part0 = v
+				Weld.Part1 = Collider
+				Weld.Parent = Collider
+			end
+		end
+	else
+		for k, v in pairs(p1:GetChildren()) do
+			if v.Name == "Collider" then
+				v:Destroy()
+			end
+		end
+	end
+end
+
+local function BuildConstraints(p1, p2) --[[ BuildConstraints | Line: 61 | Upvalues: t2 (copy) ]]
+	local Torso = p1:FindFirstChild("Torso")
+
+	if p2 then
+		for k, v in pairs(p1.Torso:GetChildren()) do
+			if v:IsA("Motor6D") then
+				local RagdollAttachment = Instance.new("Attachment")
+				local RagdollAttachment2 = Instance.new("Attachment")
+				local RagdollConstraint = Instance.new("BallSocketConstraint")
+
+				RagdollAttachment.Name = "RagdollAttachment"
+				RagdollAttachment.CFrame = t2[v.Name].CF[2]
+				RagdollAttachment.Parent = v.Part1
+				RagdollAttachment2.Name = "RagdollAttachment"
+				RagdollAttachment2.CFrame = t2[v.Name].CF[1]
+				RagdollAttachment2.Parent = Torso
+				RagdollConstraint.Name = "RagdollConstraint"
+				RagdollConstraint.Attachment0 = RagdollAttachment
+				RagdollConstraint.Attachment1 = RagdollAttachment2
+				RagdollConstraint.LimitsEnabled = true
+				RagdollConstraint.UpperAngle = 180
+				RagdollConstraint.TwistLimitsEnabled = true
+				RagdollConstraint.TwistLowerAngle = -90
+				RagdollConstraint.TwistUpperAngle = 90
+				RagdollConstraint.Parent = Torso
+				v.Part1.CollisionGroup = "Ragdoll"
+			end
+		end
+	else
+		for k, v in pairs(Torso:GetChildren()) do
+			if v.Name == "RagdollConstraint" then
+				v.Attachment0:Destroy()
+				v.Attachment1:Destroy()
+				v:Destroy()
+
+				continue
+			end
+
+			if v:IsA("Motor6D") then
+				v.Part1.CollisionGroup = "Default"
+			end
+		end
+	end
+end
+
+function t.Unragdoll(p1, p2) --[[ Unragdoll | Line: 107 | Upvalues: Players (copy), ToggleMotor6D (copy), BuildConstraints (copy) ]]
+	local v1 = p2:FindFirstChildWhichIsA("Humanoid")
+
+	Players:GetPlayerFromCharacter(p2)
+
+	if v1:GetState() == Enum.HumanoidStateType.Dead then
+		return
+	end
+
+	if not v1.RootPart then
+		return
+	end
+
+	p2:SetAttribute("Ragdolled", nil)
+	ToggleMotor6D(p2, true)
+
+	for k, v in pairs(p2:GetChildren()) do
+		if v.Name == "Collider" then
+			v:Destroy()
+		end
+	end
+
+	BuildConstraints(p2, false)
+	v1.AutoRotate = true
+	v1.PlatformStand = false
+	v1:ChangeState(Enum.HumanoidStateType.GettingUp)
+end
+function t.Ragdoll(p1, p2, p3) --[[ Ragdoll | Line: 125 | Upvalues: Players (copy), ToggleMotor6D (copy), ToggleCollisionParts (copy), BuildConstraints (copy), t (copy) ]]
+	local v1 = p2:FindFirstChildWhichIsA("Humanoid")
+
+	Players:GetPlayerFromCharacter(p2)
+
+	if not (v1 and v1.RootPart) then
+		return
+	end
+
+	if v1:GetState() == Enum.HumanoidStateType.Dead then
+		return
+	end
+
+	if p2:GetAttribute("Ragdolled") then
+		return
+	end
+
+	p2:SetAttribute("Ragdolled", true)
+	ToggleMotor6D(p2, false)
+	ToggleCollisionParts(p2, true)
+	BuildConstraints(p2, true)
+	v1.AutoRotate = false
+	v1.PlatformStand = true
+	v1:ChangeState(Enum.HumanoidStateType.Physics)
+
+	if p3 then
+		task.delay(p3, function() --[[ Line: 152 | Upvalues: t (ref), p2 (copy) ]]
+			t:Unragdoll(p2)
+		end)
+	end
+end
+
+if game:GetService("RunService"):IsClient() then
+	Networking.Ragdoll.Enable.OnClientEvent:Connect(function(p1) --[[ Line: 159 | Upvalues: t (copy) ]]
+		t:Ragdoll(game.Players.LocalPlayer.Character, p1)
+	end)
+	Networking.Ragdoll.Disable.OnClientEvent:Connect(function(p1) --[[ Line: 164 | Upvalues: t (copy) ]]
+		t:Unragdoll(game.Players.LocalPlayer.Character)
+	end)
+	Networking.Ragdoll.EnableForRig.OnClientEvent:Connect(function(p1) --[[ Line: 169 | Upvalues: t (copy) ]]
+		if p1 and p1:IsDescendantOf(workspace) then
+			t:Ragdoll(p1)
+		end
+	end)
+	Networking.Ragdoll.DisableForRig.OnClientEvent:Connect(function(p1) --[[ Line: 174 | Upvalues: t (copy) ]]
+		if p1 then
+			t:Unragdoll(p1)
+		end
+	end)
+	Networking.Ragdoll.StartRagdoll.OnClientEvent:Connect(function(p1) --[[ Line: 180 | Upvalues: t (copy) ]]
+		if p1 and p1:IsDescendantOf(workspace) then
+			t:Ragdoll(p1)
+		end
+	end)
+	Networking.Ragdoll.StopRagdoll.OnClientEvent:Connect(function(p1) --[[ Line: 185 | Upvalues: t (copy) ]]
+		if p1 then
+			t:Unragdoll(p1)
+		end
+	end)
+	Networking.ShovelFX.RagdollRecover.OnClientEvent:Connect(function() --[[ Line: 193 | Upvalues: t (copy) ]]
+		local Character = game.Players.LocalPlayer.Character
+
+		if not Character then
+			return
+		end
+
+		t:Unragdoll(Character)
+	end)
+end
+
+return t

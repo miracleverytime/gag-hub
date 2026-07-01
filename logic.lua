@@ -18,6 +18,8 @@ return function(ctx)
     local RunService        = ctx.RunService
     local CollectionService = ctx.CollectionService
     local ReplicatedStorage = ctx.ReplicatedStorage
+    local TeleportService   = ctx.TeleportService
+    local HttpService       = ctx.HttpService
     local MY_PLOT_ID        = ctx.MY_PLOT_ID
     local MAX_FRUIT_CAP     = ctx.MAX_FRUIT_CAP
     local SESSION           = ctx.SESSION
@@ -762,14 +764,34 @@ return function(ctx)
     local function GetExistingSprinklers(myPlot)
         local sprinklers = {}
         if not myPlot then return sprinklers end
+        local function resolveWorldPosition(model)
+            if not model then return nil end
+            local primary = model.PrimaryPart
+            if primary then return primary.Position end
+
+            local okPivot, pivot = pcall(function()
+                return model:GetPivot()
+            end)
+            if okPivot and pivot then
+                return pivot.Position
+            end
+
+            for _, desc in ipairs(model:GetDescendants()) do
+                if desc:IsA("BasePart") then
+                    return desc.Position
+                end
+            end
+
+            return nil
+        end
         for _, obj in ipairs(myPlot:GetDescendants()) do
             if obj:IsA("Model") and obj:GetAttribute("Sprinkler") then
-                local pp = obj.PrimaryPart
-                if pp then
+                local pos = resolveWorldPosition(obj)
+                if pos then
                     local sName = obj:GetAttribute("Sprinkler") or obj.Name
                     local r = GetSprinklerRadius(sName)
                     table.insert(sprinklers, {
-                        pos    = Vector2.new(pp.Position.X, pp.Position.Z),
+                        pos    = Vector2.new(pos.X, pos.Z),
                         radius = r,
                         name   = sName,
                     })
@@ -779,6 +801,12 @@ return function(ctx)
         return sprinklers
     end
     Logic.GetExistingSprinklers = GetExistingSprinklers
+
+    local function CountPlotSprinklers(myPlot)
+        local sprinklers = GetExistingSprinklers(myPlot)
+        return #sprinklers
+    end
+    Logic.CountPlotSprinklers = CountPlotSprinklers
 
     -- Cek apakah suatu titik (Vector2) sudah ter-cover oleh salah satu sprinkler.
     local function IsPointCovered(point, sprinklers)
@@ -1045,6 +1073,9 @@ return function(ctx)
         local gap = 0.5 - (now - _lastSprinklerFire)
         if gap > 0 then task.wait(gap) end
 
+        local myPlot = GetMyPlot()
+        local countBeforePlot = myPlot and CountPlotSprinklers(myPlot) or 0
+
         -- Pastikan tool masih ada dan valid
         if not (tool and tool.Parent) then
             local t2, sn2 = AcquireSprinklerTool()
@@ -1064,6 +1095,8 @@ return function(ctx)
         -- Teleport player dekat target agar server raycast bisa hit
         TeleportNear(hitPos)
 
+        task.wait(0.15)
+
         -- Pastikan tool masih equipped setelah teleport
         if not IsToolEquipped(tool) then
             EquipTool(tool)
@@ -1077,38 +1110,51 @@ return function(ctx)
         local countBefore = CountSprinklerTools()
 
         -- Fire remote langsung (sesuai decompile StevenController.TryPlace)
-        local fired = false
-        if Networking then
-            local ok, err = pcall(function()
-                Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
-            end)
-            fired = ok
-            if not ok then
-                -- Fallback: coba via PacketRemote jika ada packet ID-nya
-                if PacketRemote then
-                    pcall(function()
-                        PacketRemote:FireServer(126, hitPos, sprinklerName, tool, plotId)
-                    end)
-                    fired = true
-                end
+        local attemptPoints = {
+            hitPos,
+            hitPos + Vector3.new(0.35, 0, 0),
+            hitPos + Vector3.new(-0.35, 0, 0),
+            hitPos + Vector3.new(0, 0, 0.35),
+            hitPos + Vector3.new(0, 0, -0.35),
+        }
+
+        local function fireOnce(point)
+            local fired = false
+            if Networking then
+                local ok = pcall(function()
+                    Networking.Place.PlaceSprinkler:Fire(point, sprinklerName, tool, plotId)
+                end)
+                fired = ok
             end
-        elseif PacketRemote then
-            pcall(function()
-                PacketRemote:FireServer(126, hitPos, sprinklerName, tool, plotId)
-            end)
-            fired = true
+            if not fired and PacketRemote then
+                local ok = pcall(function()
+                    PacketRemote:FireServer(126, point, sprinklerName, tool, plotId)
+                end)
+                fired = ok
+            end
+            return fired
         end
 
-        if not fired then return false end
+        local success = false
+        for _, point in ipairs(attemptPoints) do
+            if fireOnce(point) then
+                _lastSprinklerFire = os.clock()
+                task.wait(0.35)
 
-        _lastSprinklerFire = os.clock()
+                local countAfterPlot = myPlot and CountPlotSprinklers(myPlot) or 0
+                local countAfterInv = CountSprinklerTools()
+                if countAfterPlot > countBeforePlot or countAfterInv < countBefore then
+                    success = true
+                    break
+                end
+            end
+        end
 
-        -- Tunggu server response (placement butuh ~0.3s untuk diproses)
-        task.wait(0.4)
+        if not success then
+            _lastSprinklerFire = os.clock()
+        end
 
-        -- Verifikasi: jumlah sprinkler di inventory harus berkurang 1
-        local countAfter = CountSprinklerTools()
-        return countAfter < countBefore
+        return success
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
 
@@ -1706,10 +1752,139 @@ return function(ctx)
     end
     Logic.ScanWildPets = ScanWildPets
 
+    local function CurrentServerHasWildPetRarity(rarityFilter)
+        local pets = ScanWildPets(rarityFilter)
+        return #pets > 0, pets
+    end
+    Logic.CurrentServerHasWildPetRarity = CurrentServerHasWildPetRarity
+
+    local function GetPublicServerPage(cursor, limit)
+        local pageSize = math.clamp(tonumber(limit) or 100, 1, 100)
+        local url = ("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=%d"):format(game.PlaceId, pageSize)
+        if cursor and cursor ~= "" then
+            url = url .. "&cursor=" .. HttpService:UrlEncode(tostring(cursor))
+        end
+
+        local ok, raw = pcall(function()
+            return game:HttpGet(url, true)
+        end)
+        if not ok or type(raw) ~= "string" or raw == "" then
+            return nil, "http_failed"
+        end
+
+        local okDecode, data = pcall(function()
+            return HttpService:JSONDecode(raw)
+        end)
+        if not okDecode or type(data) ~= "table" then
+            return nil, "decode_failed"
+        end
+
+        return data
+    end
+    Logic.GetPublicServerPage = GetPublicServerPage
+
+    local function FindNextPublicServer(excludeJobId, maxPages)
+        local cursor = nil
+        local pages = math.max(tonumber(maxPages) or 5, 1)
+
+        for _ = 1, pages do
+            local data = GetPublicServerPage(cursor, 100)
+            if not data then return nil end
+
+            local list = type(data.data) == "table" and data.data or {}
+            for _, server in ipairs(list) do
+                local jobId = server.id or server.jobId
+                local playing = tonumber(server.playing) or 0
+                local maxPlayers = tonumber(server.maxPlayers) or 0
+                if jobId and jobId ~= excludeJobId and playing < maxPlayers then
+                    return server
+                end
+            end
+
+            cursor = data.nextPageCursor
+            if not cursor then break end
+        end
+
+        return nil
+    end
+    Logic.FindNextPublicServer = FindNextPublicServer
+
+    local function HopToServer(jobId, targetRarity)
+        if not jobId then return false end
+        if not TeleportService then return false end
+
+        local ok = pcall(function()
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, jobId, player, nil, {
+                Source = "ServerScanner",
+                TargetRarity = targetRarity or "Mythic",
+            })
+        end)
+        return ok
+    end
+    Logic.HopToServer = HopToServer
+
+    local function HopUntilWildPetRarityFound(targetRarity)
+        local found, pets = CurrentServerHasWildPetRarity(targetRarity)
+        if found then
+            return true, { found = true, pets = pets, currentServer = true }
+        end
+
+        local server = FindNextPublicServer(game.JobId, 8)
+        if not server then
+            return false, "no_public_server"
+        end
+
+        local jobId = server.id or server.jobId
+        local ok = HopToServer(jobId, targetRarity)
+        return ok, { found = false, server = server, jobId = jobId }
+    end
+    Logic.HopUntilWildPetRarityFound = HopUntilWildPetRarityFound
+
+    task.spawn(function()
+        while _G._MiracleHubSession == SESSION do
+            task.wait(math.max(States.serverScannerDelay or 8, 5))
+            if not States.autoServerScanner then continue end
+
+            pcall(function()
+                local targetRarity = States.serverScannerRarity or "Mythic"
+                local found, pets = CurrentServerHasWildPetRarity(targetRarity)
+                if found then
+                    local top = pets[1]
+                    if top then
+                        Notify("Server Scanner", targetRarity .. " pet found: " .. top.name .. " (" .. top.rarity .. ")", Colors.Success, 5)
+                    else
+                        Notify("Server Scanner", targetRarity .. " pet found in this server.", Colors.Success, 4)
+                    end
+                    States.autoServerScanner = false
+                    return
+                end
+
+                local server = FindNextPublicServer(game.JobId, 8)
+                if not server then
+                    Notify("Server Scanner", "No public server candidate found.", Colors.TextMuted, 4)
+                    return
+                end
+
+                local jobId = server.id or server.jobId
+                if jobId then
+                    Notify("Server Scanner", "Hopping to next public server...", Colors.Warning, 3)
+                    HopToServer(jobId, targetRarity)
+                end
+            end)
+        end
+    end)
+
     local function HumanizePetName(n)
         return (tostring(n):gsub("(%l)(%u)", "%1 %2"))
     end
     Logic.HumanizePetName = HumanizePetName
+
+    local function NormalizePetName(n)
+        return tostring(n)
+            :lower()
+            :gsub("[%s_%-%(%)]", "")
+    end
+    Logic.NormalizePetName = NormalizePetName
 
     local RarityColor = {
         Common    = Color3.fromRGB(180, 180, 180),
@@ -1735,25 +1910,112 @@ return function(ctx)
     }
     Logic.PET_RARITY_LOOKUP = PET_RARITY_LOOKUP
 
-    local function BuyWildPet(part)
+    local function FireWildPetPrompt(part)
+        if not part then return false end
+
+        local prompt = part:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if not prompt and part.Parent then
+            prompt = part.Parent:FindFirstChildWhichIsA("ProximityPrompt", true)
+        end
+        if prompt then
+            return SafeFirePrompt(prompt)
+        end
+
+        return false
+    end
+
+    local function FireWildPetNetwork(part)
+        if not part then return false end
+
         local petId = part.Name
+        local petName = part:GetAttribute("PetName") or part:GetAttribute("Pet") or part:GetAttribute("Species") or petId
+
         if Networking then
             local petsNS = rawget(Networking, "Pets")
             if petsNS then
                 local tame = rawget(petsNS, "WildPetTame")
                 if tame and tame.Fire then
-                    local ok = pcall(function() tame:Fire(petId) end)
-                    return ok
+                    local payloads = {petId, petName, part}
+                    for _, payload in ipairs(payloads) do
+                        local ok = pcall(function() tame:Fire(payload) end)
+                        if ok then return true end
+                    end
                 end
             end
         end
+
         if PacketRemote then
-            pcall(function() PacketRemote:FireServer(petId) end)
-            return true
+            local payloads = {petId, petName, part}
+            for _, payload in ipairs(payloads) do
+                local ok = pcall(function() PacketRemote:FireServer(payload) end)
+                if ok then return true end
+            end
         end
+
         return false
     end
+
+    local function IsWildPetClaimed(part)
+        if not part or not part.Parent then return true end
+        if (tonumber(part:GetAttribute("OwnerUserId")) or 0) ~= 0 then return true end
+        local state = part:GetAttribute("State") or ""
+        if state ~= "" and state ~= "free" and state ~= "idle" then return true end
+        return false
+    end
+
+    local function BuyWildPet(part)
+        if not part or not part.Parent then return false end
+
+        local function succeeded()
+            return IsWildPetClaimed(part)
+        end
+
+        if FireWildPetPrompt(part) then
+            task.wait(0.2)
+            if succeeded() then return true end
+        end
+
+        if FireWildPetNetwork(part) then
+            task.wait(0.25)
+            if succeeded() then return true end
+        end
+
+        task.wait(0.25)
+        if FireWildPetPrompt(part) then
+            task.wait(0.2)
+            if succeeded() then return true end
+        end
+
+        return succeeded()
+    end
     Logic.BuyWildPet = BuyWildPet
+
+    local function WaitForWildPetApproach(part, timeoutSeconds, desiredDistance)
+        if not part or not part.Parent then return false end
+
+        local timeout = os.clock() + math.max(timeoutSeconds or 1.0, 0.1)
+        local range = math.max(desiredDistance or 10, 1)
+
+        while os.clock() < timeout do
+            if not part or not part.Parent then
+                return false
+            end
+
+            local character = player.Character
+            local root = character and character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local dist = (root.Position - part.Position).Magnitude
+                if dist <= range then
+                    return true
+                end
+            end
+
+            task.wait(0.05)
+        end
+
+        return false
+    end
+    Logic.WaitForWildPetApproach = WaitForWildPetApproach
 
     local function IsWildPetFree(part)
         if not part or not part.Parent then return false end
@@ -1784,8 +2046,9 @@ return function(ctx)
                     or part.Name
                 if #sel > 0 then
                     local match = false
+                    local normalizedPetName = NormalizePetName(petName)
                     for _, target in ipairs(sel) do
-                        if target == petName or target == tostring(petName) then
+                        if NormalizePetName(target) == normalizedPetName then
                             match = true; break
                         end
                     end
@@ -1812,7 +2075,7 @@ return function(ctx)
                 local price   = entry.price
                 if not IsWildPetFree(part) then continue end
                 SmartMoveToPet(part.Position, nil)
-                task.wait(0.15)
+                WaitForWildPetApproach(part, 1.2, 10)
                 if not IsWildPetFree(part) then continue end
                 local ok = BuyWildPet(part)
                 if ok then

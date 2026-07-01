@@ -16,6 +16,8 @@ return function(ctx)
     local RunService           = game:GetService("RunService")
     local CollectionService    = game:GetService("CollectionService")
     local ReplicatedStorage    = game:GetService("ReplicatedStorage")
+    local TeleportService      = game:GetService("TeleportService")
+    local HttpService          = game:GetService("HttpService")
 
     ctx.Players           = Players
     ctx.TweenService      = TweenService
@@ -23,6 +25,8 @@ return function(ctx)
     ctx.RunService        = RunService
     ctx.CollectionService = CollectionService
     ctx.ReplicatedStorage = ReplicatedStorage
+    ctx.TeleportService   = TeleportService
+    ctx.HttpService       = HttpService
 
     -- ====================== PLAYER REFS ======================
     local player    = Players.LocalPlayer
@@ -281,6 +285,9 @@ return function(ctx)
         -- Server
         autoRejoin = false,
         rejoinCondition = "Server Full",
+        autoServerScanner = false,
+        serverScannerRarity = "Mythic",
+        serverScannerDelay = 8,
         -- Settings
         autoSaveConfig = true,
         minimizeToTray = false,

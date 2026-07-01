@@ -1,0 +1,285 @@
+-- https://lua.expert/
+local t = {
+	StartOrder = 5
+}
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Assets = ReplicatedStorage:WaitForChild("Assets")
+local BackpackListener = require(ReplicatedStorage:WaitForChild("ClientModules"):WaitForChild("BackpackListener"))
+local t2 = {}
+local t3 = {}
+local t4 = {}
+
+function t.Init(p1) --[[ Init | Line: 27 ]] end
+function t.Start(p1) --[[ Start | Line: 30 | Upvalues: Players (copy), t2 (copy) ]]
+	for v1, v2 in Players:GetPlayers() do
+		p1:SetupPlayer(v2)
+	end
+
+	Players.PlayerAdded:Connect(function(p12) --[[ Line: 35 | Upvalues: p1 (copy) ]]
+		p1:SetupPlayer(p12)
+	end)
+	Players.PlayerRemoving:Connect(function(p12) --[[ Line: 39 | Upvalues: t2 (ref), Players (ref), p1 (copy) ]]
+		for v1 in t2 do
+			if (Players:GetPlayerFromCharacter(v1.Parent) or v1.Parent and (v1.Parent:IsA("Backpack") and Players:GetPlayerFromCharacter(v1.Parent.Parent))) == p12 then
+				p1:CleanupTool(v1)
+			end
+		end
+	end)
+end
+function t.PreparePartForTool(p1, p2) --[[ PreparePartForTool | Line: 50 ]]
+	p2.Anchored = false
+	p2.CanCollide = false
+	p2.CanQuery = false
+	p2.CanTouch = false
+	p2.Massless = true
+end
+function t.ClearModel(p1, p2) --[[ ClearModel | Line: 58 ]]
+	for v1, v2 in p2:GetChildren() do
+		if v2:GetAttribute("ClientHandle") then
+			v2.Parent = nil
+			task.defer(function() --[[ Line: 64 | Upvalues: v2 (copy) ]]
+				if not v2 then
+					return
+				end
+
+				v2:Destroy()
+			end)
+		end
+	end
+end
+function t.HasModel(p1, p2) --[[ HasModel | Line: 72 ]]
+	for v1, v2 in p2:GetChildren() do
+		if v2:GetAttribute("ClientHandle") then
+			return true
+		end
+	end
+
+	return false
+end
+function t.WeldToHandle(p1, p2, p3) --[[ WeldToHandle | Line: 81 ]]
+	local WeldConstraint = Instance.new("WeldConstraint")
+
+	WeldConstraint.Part0 = p3
+	WeldConstraint.Part1 = p2
+	WeldConstraint.Parent = p2
+end
+function t.SpawnHandle(p1, p2, p3) --[[ SpawnHandle | Line: 88 | Upvalues: t4 (copy), Assets (copy) ]]
+	if t4[p2] then
+		return
+	end
+
+	t4[p2] = true
+	p1:ClearModel(p2)
+
+	local v1 = p2:GetAttribute("PetTeleporter")
+
+	if not v1 then
+		t4[p2] = nil
+
+		return
+	end
+
+	local PetTeleporters = Assets:FindFirstChild("PetTeleporters")
+
+	if not PetTeleporters then
+		warn("[PetTeleporterHandle] ReplicatedStorage.Assets.PetTeleporters not found (not replicated to the client?)")
+		t4[p2] = nil
+
+		return
+	end
+
+	local v2 = PetTeleporters:FindFirstChild(v1)
+
+	if not v2 then
+		warn((("[PetTeleporterHandle] no model named \"%*\" under Assets.PetTeleporters"):format(v1)))
+		t4[p2] = nil
+
+		return
+	end
+
+	local Handle = p2:FindFirstChild("Handle")
+
+	if not (Handle and Handle:IsA("BasePart")) then
+		warn((("[PetTeleporterHandle] tool \"%*\" has no Handle BasePart to attach to"):format(p2.Name)))
+		t4[p2] = nil
+
+		return
+	end
+
+	local v3 = v2:Clone()
+
+	if v3:IsA("BasePart") then
+		if v3.Name == "Handle" then
+			v3.Name = tostring(v1)
+		end
+
+		p1:PreparePartForTool(v3)
+		v3:SetAttribute("ClientHandle", true)
+		v3.CFrame = Handle.CFrame
+		v3.Parent = p2
+		p1:WeldToHandle(v3, Handle)
+	else
+		if not v3:IsA("Model") then
+			v3:Destroy()
+			t4[p2] = nil
+
+			return
+		end
+
+		for v4, v5 in v3:GetDescendants() do
+			if v5:IsA("BasePart") then
+				p1:PreparePartForTool(v5)
+			end
+		end
+
+		v3:PivotTo(Handle.CFrame)
+		v3:SetAttribute("ClientHandle", true)
+		v3.Parent = p2
+
+		for v6, v7 in v3:GetDescendants() do
+			if v7:IsA("BasePart") then
+				p1:WeldToHandle(v7, Handle)
+			end
+		end
+	end
+
+	t4[p2] = nil
+end
+function t.UpdateToolState(p1, p2) --[[ UpdateToolState | Line: 164 | Upvalues: t4 (copy), t3 (copy) ]]
+	if t4[p2] then
+		return
+	end
+
+	local v1 = t3[p2]
+
+	if not v1 then
+		return
+	end
+
+	local v2 = if p2.Parent == v1 then true else false
+	local v3 = p1:HasModel(p2)
+
+	if v2 and not v3 then
+		p1:SpawnHandle(p2, v1)
+
+		return
+	end
+
+	if v2 or not v3 then
+		return
+	end
+
+	p1:ClearModel(p2)
+end
+function t.DisconnectTool(p1, p2) --[[ DisconnectTool | Line: 180 | Upvalues: t2 (copy), t3 (copy), t4 (copy) ]]
+	local v1 = t2[p2]
+
+	if v1 then
+		for v2, v3 in v1 do
+			v3:Disconnect()
+		end
+
+		t2[p2] = nil
+	end
+
+	t3[p2] = nil
+	t4[p2] = nil
+end
+function t.CleanupTool(p1, p2) --[[ CleanupTool | Line: 192 ]]
+	p1:ClearModel(p2)
+	p1:DisconnectTool(p2)
+end
+function t.IsTrackedTool(p1, p2) --[[ IsTrackedTool | Line: 197 ]]
+	return p2:GetAttribute("PetTeleporter") ~= nil
+end
+function t.SetupTool(p1, p2, p3) --[[ SetupTool | Line: 201 | Upvalues: t3 (copy), t2 (copy) ]]
+	p1:DisconnectTool(p2)
+
+	local t = {}
+
+	t3[p2] = p3
+
+	local function f2() --[[ Line: 207 | Upvalues: p2 (copy), t3 (ref), p1 (copy) ]]
+		task.defer(function() --[[ Line: 208 | Upvalues: p2 (ref), t3 (ref), p1 (ref) ]]
+			if not (p2 and t3[p2]) then
+				return
+			end
+
+			p1:UpdateToolState(p2)
+		end)
+	end
+
+	table.insert(t, p2:GetPropertyChangedSignal("Parent"):Connect(f2))
+	t2[p2] = t
+	task.defer(function() --[[ Line: 217 | Upvalues: p2 (copy), t3 (ref), p1 (copy) ]]
+		if not (p2 and t3[p2]) then
+			return
+		end
+
+		p1:UpdateToolState(p2)
+	end)
+end
+function t.SetupCharacter(p1, p2) --[[ SetupCharacter | Line: 224 | Upvalues: Players (copy) ]]
+	task.defer(function() --[[ Line: 225 | Upvalues: p2 (copy), p1 (copy), Players (ref) ]]
+		if not (p2 and p2.Parent) then
+			return
+		end
+
+		for v1, v2 in p2:GetChildren() do
+			if v2:IsA("Tool") and p1:IsTrackedTool(v2) then
+				p1:SetupTool(v2, p2)
+			end
+		end
+
+		local v3 = Players:GetPlayerFromCharacter(p2)
+
+		if v3 and v3.Backpack then
+			for v4, v5 in v3.Backpack:GetChildren() do
+				if v5:IsA("Tool") and p1:IsTrackedTool(v5) then
+					p1:SetupTool(v5, p2)
+				end
+			end
+		end
+
+		p2.ChildAdded:Connect(function(p12) --[[ Line: 243 | Upvalues: p1 (ref), p2 (ref) ]]
+			if not (p12:IsA("Tool") and p1:IsTrackedTool(p12)) then
+				return
+			end
+
+			task.defer(function() --[[ Line: 245 | Upvalues: p12 (copy), p2 (ref), p1 (ref) ]]
+				if not (p12 and (p12.Parent and (p2 and p2.Parent))) then
+					return
+				end
+
+				p1:SetupTool(p12, p2)
+			end)
+		end)
+	end)
+end
+function t.SetupPlayer(p1, p2) --[[ SetupPlayer | Line: 255 | Upvalues: BackpackListener (copy) ]]
+	if p2.Character then
+		p1:SetupCharacter(p2.Character)
+	end
+
+	p2.CharacterAdded:Connect(function(p12) --[[ Line: 260 | Upvalues: p1 (copy) ]]
+		p1:SetupCharacter(p12)
+	end)
+	BackpackListener.bind(p2, function(p12) --[[ Line: 264 | Upvalues: p1 (copy), p2 (copy) ]]
+		if not (p12:IsA("Tool") and p1:IsTrackedTool(p12)) then
+			return
+		end
+
+		task.defer(function() --[[ Line: 266 | Upvalues: p2 (ref), p12 (copy), p1 (ref) ]]
+			local Character = p2.Character
+
+			if not (p12 and (p12.Parent and (Character and Character.Parent))) then
+				return
+			end
+
+			p1:SetupTool(p12, Character)
+		end)
+	end)
+end
+
+return t

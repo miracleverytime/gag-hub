@@ -1,0 +1,153 @@
+-- https://lua.expert/
+local ServerStorage = game:GetService("ServerStorage")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local FastFlags = require(ReplicatedStorage.UserGenerated.FastFlags)
+local Asserts = require(ReplicatedStorage.UserGenerated.Lang.Asserts)
+local t = {
+	Gold = require(script.Gold),
+	Rainbow = require(script.Rainbow),
+	Electric = require(script.Electric),
+	Frozen = require(script.Frozen),
+	Bloodlit = require(script.Bloodlit),
+	Chained = require(script.Chained),
+	Starstruck = require(script.Starstruck),
+	Aurora = require(script.Aurora),
+	Ignited = require(script.Ignited)
+}
+local t2 = {}
+local t3 = {}
+
+for v1, v2 in t do
+	t2[v1] = v2.PriceMultiplier or 1
+end
+
+local v3 = FastFlags.Replicated("Game.Mutations.PriceMultipliers", Asserts.Map(Asserts.String, Asserts.FinitePositive), t2)
+
+local function getChanceMultiplier(p1) --[[ getChanceMultiplier | Line: 41 | Upvalues: ServerStorage (copy) ]]
+	local MutationChanceMultipliers = ServerStorage:FindFirstChild("MutationChanceMultipliers")
+
+	if not MutationChanceMultipliers then
+		return 1
+	end
+
+	local v1 = MutationChanceMultipliers:FindFirstChild(p1)
+
+	if not (v1 and v1:IsA("NumberValue")) then
+		return 1
+	end
+
+	local v2 = v1.Value
+
+	if v2 <= 0 then
+		return 1
+	end
+
+	return v2
+end
+
+local function ComputeChanceWindow(p1, p2) --[[ ComputeChanceWindow | Line: 64 ]]
+	local v2 = 1 / math.max(math.floor(p1), 1)
+
+	if not (p2 <= 1 or v2 >= 0.3) then
+		return {
+			GlobalChance = v2,
+			EffectiveChance = math.min(v2 * p2, 0.3)
+		}
+	end
+
+	return {
+		GlobalChance = v2,
+		EffectiveChance = v2
+	}
+end
+
+function t3.GetMutation(p1) --[[ GetMutation | Line: 76 | Upvalues: t (copy) ]]
+	return t[p1]
+end
+function t3.ReturnPriceMultiplier(p1) --[[ ReturnPriceMultiplier | Line: 80 | Upvalues: v3 (copy), t (copy) ]]
+	local v1 = v3:Get()[p1]
+
+	if v1 then
+		return v1
+	end
+
+	local v2 = t[p1]
+
+	if v2 then
+		return v2.PriceMultiplier or 1
+	end
+
+	return 1
+end
+function t3.ReturnFruitMutation(p1, p2) --[[ ReturnFruitMutation | Line: 97 | Upvalues: t (copy), ServerStorage (copy), ComputeChanceWindow (copy) ]]
+	local v1 = Random.new(p1)
+
+	for v3, v4 in t do
+		local v2
+
+		if v4.FruitChance and v4.CanGetOnGrowth then
+			local MutationChanceMultipliers = ServerStorage:FindFirstChild("MutationChanceMultipliers")
+
+			if MutationChanceMultipliers then
+				local v5 = MutationChanceMultipliers:FindFirstChild(v3)
+
+				if v5 and v5:IsA("NumberValue") then
+					local v6 = v5.Value
+
+					v2 = if v6 <= 0 then 1 else v6
+				else
+					v2 = 1
+				end
+			else
+				v2 = 1
+			end
+
+			local v7 = p2 and p2[v3] or 1
+			local v8 = ComputeChanceWindow(v4.FruitChance / v2, v7)
+			local v9 = v1:NextNumber()
+
+			if v9 < v8.EffectiveChance then
+				return v3, if v7 > 1 then v8.GlobalChance <= v9 else false
+			end
+		end
+	end
+
+	return nil, false
+end
+function t3.ReturnPlantMutation(p1, p2) --[[ ReturnPlantMutation | Line: 115 | Upvalues: t (copy), ServerStorage (copy), ComputeChanceWindow (copy) ]]
+	local v1 = Random.new(p1)
+
+	for v3, v4 in t do
+		local v2
+
+		if v4.PlantChance and v4.CanGetOnGrowth then
+			local MutationChanceMultipliers = ServerStorage:FindFirstChild("MutationChanceMultipliers")
+
+			if MutationChanceMultipliers then
+				local v5 = MutationChanceMultipliers:FindFirstChild(v3)
+
+				if v5 and v5:IsA("NumberValue") then
+					local v6 = v5.Value
+
+					v2 = if v6 <= 0 then 1 else v6
+				else
+					v2 = 1
+				end
+			else
+				v2 = 1
+			end
+
+			local v7 = p2 and p2[v3] or 1
+			local v8 = ComputeChanceWindow(v4.PlantChance / v2, v7)
+			local v9 = v1:NextNumber()
+
+			if v9 < v8.EffectiveChance then
+				return v3, if v7 > 1 then v8.GlobalChance <= v9 else false
+			end
+		end
+	end
+
+	return nil, false
+end
+
+return t3
