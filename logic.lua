@@ -972,82 +972,149 @@ return function(ctx)
     Logic.GetSprinklerPlacePositions = GetSprinklerPlacePositions
 
     -- ====================== SPRINKLER PLACEMENT FIRE ======================
-    -- Server game memvalidasi placement sprinkler dengan raycast dari posisi player.
-    -- Tidak bisa fire remote arbitrary — server reject jika player tidak dekat.
-    -- Solusi: teleport player ke target, equip tool, simulate click via VirtualInputManager
-    -- sehingga StevenController (game controller) yang menjalankan TryPlace dan fire remote.
+    -- Dari decompile StevenController.TryPlace, server hanya butuh:
+    --   Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+    -- Server validasi: player harus dekat hitPos (raycast), tool harus di-equip,
+    -- hitPos harus di atas PlantArea yang ber-tag "PlantArea", tidak terlalu dekat
+    -- dengan sprinkler lain (< 1 stud), dan plotId harus Owner == player.
+    --
+    -- Pendekatan: equip tool -> teleport player tepat ke atas pos -> fire remote.
+    -- Tidak pakai VirtualInputManager sama sekali (brittle, tergantung kamera & layar).
 
-    local VirtualInputManager = game:GetService("VirtualInputManager")
+    -- Hitung Y surface dari PlantArea di posisi XZ tertentu
+    local function GetSurfaceY(px, pz)
+        -- Coba ambil Y dari PlantArea terdekat di plot
+        local plantAreas = GetMyPlantAreas()
+        local bestY = nil
+        local bestDist = math.huge
+        for _, area in ipairs(plantAreas) do
+            local cf = area.CFrame
+            local sz = area.Size
+            -- top surface Y dari BasePart
+            local topY = cf.Position.Y + sz.Y / 2
+            local dx = px - cf.Position.X
+            local dz = pz - cf.Position.Z
+            local d2 = dx*dx + dz*dz
+            if d2 < bestDist then
+                bestDist = d2
+                bestY = topY
+            end
+        end
+        return bestY or 142.602
+    end
+    Logic.GetSurfaceY = GetSurfaceY
 
-    local function TeleportTo(pos)
+    -- Snap pos ke atas PlantArea surface yang tepat
+    local function SnapPosToSurface(pos)
+        local surfY = GetSurfaceY(pos.X, pos.Z)
+        return Vector3.new(pos.X, surfY, pos.Z)
+    end
+
+    -- Hitung jumlah sprinkler tool di backpack + karakter
+    local function CountSprinklerTools()
+        local count = 0
+        local bp = player:FindFirstChildOfClass("Backpack")
+        if bp then
+            for _, t in ipairs(bp:GetChildren()) do
+                if t:IsA("Tool") and t:GetAttribute("Sprinkler") then count += 1 end
+            end
+        end
+        if player.Character then
+            local held = player.Character:FindFirstChildOfClass("Tool")
+            if held and held:GetAttribute("Sprinkler") then count += 1 end
+        end
+        return count
+    end
+
+    -- Teleport player ke atas posisi target agar server-side raycast valid
+    local function TeleportNear(pos)
         local c = player.Character
         if not c then return end
         local hrp = c:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        hrp.CFrame = CFrame.new(Vector3.new(pos.X, pos.Y + 3, pos.Z))
+        -- Teleport tepat di atas target, sedikit offset X agar tidak nge-block raycast
+        hrp.CFrame = CFrame.new(Vector3.new(pos.X + 0.5, pos.Y + 4, pos.Z + 0.5))
         task.wait(0.1)
     end
 
-    local function WorldToScreen(worldPos)
-        local camera = game:GetService("Workspace").CurrentCamera
-        local screenPos, onScreen = camera:WorldToViewportPoint(worldPos)
-        return Vector2.new(screenPos.X, screenPos.Y), onScreen
-    end
+    local _lastSprinklerFire = 0
 
     local function DoPlaceSprinklerAt(pos, tool, sprinklerName)
-        TeleportTo(pos)
+        -- Rate-limit: minimal 0.5s antar placement
+        local now = os.clock()
+        local gap = 0.5 - (now - _lastSprinklerFire)
+        if gap > 0 then task.wait(gap) end
 
-        if not IsToolEquipped(tool) then
+        -- Pastikan tool masih ada dan valid
+        if not (tool and tool.Parent) then
             local t2, sn2 = AcquireSprinklerTool()
             if not t2 then return false end
-            tool = t2
-            sprinklerName = sn2
+            tool, sprinklerName = t2, sn2
         end
 
-        local camera = game:GetService("Workspace").CurrentCamera
-        camera.CFrame = CFrame.new(Vector3.new(pos.X, pos.Y + 15, pos.Z), pos)
-        task.wait(0.08)
-
-        local screenPos, onScreen = WorldToScreen(pos)
-        if not onScreen then
-            return false
+        -- Equip tool ke karakter
+        if not IsToolEquipped(tool) then
+            local ok = EquipTool(tool)
+            if not ok then return false end
         end
 
-        local countBefore = 0
-        local bp = player:FindFirstChildOfClass("Backpack")
-        if bp then
-            for _, t in ipairs(bp:GetChildren()) do
-                if t:GetAttribute("Sprinkler") then countBefore += 1 end
+        -- Snap posisi ke surface PlantArea yang benar
+        local hitPos = SnapPosToSurface(pos)
+
+        -- Teleport player dekat target agar server raycast bisa hit
+        TeleportNear(hitPos)
+
+        -- Pastikan tool masih equipped setelah teleport
+        if not IsToolEquipped(tool) then
+            EquipTool(tool)
+            task.wait(0.1)
+        end
+
+        -- Ambil plotId player
+        local plotId = player:GetAttribute("PlotId") or MY_PLOT_ID
+
+        -- Hitung jumlah sprinkler sebelum fire (untuk verifikasi success)
+        local countBefore = CountSprinklerTools()
+
+        -- Fire remote langsung (sesuai decompile StevenController.TryPlace)
+        local fired = false
+        if Networking then
+            local ok, err = pcall(function()
+                Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+            end)
+            fired = ok
+            if not ok then
+                -- Fallback: coba via PacketRemote jika ada packet ID-nya
+                if PacketRemote then
+                    pcall(function()
+                        PacketRemote:FireServer(126, hitPos, sprinklerName, tool, plotId)
+                    end)
+                    fired = true
+                end
             end
-        end
-        if player.Character then
-            local held = player.Character:FindFirstChildOfClass("Tool")
-            if held and held:GetAttribute("Sprinkler") then countBefore += 1 end
-        end
-
-        pcall(function()
-            VirtualInputManager:SendMouseButtonEvent(screenPos.X, screenPos.Y, 0, true, game, 1)
-            task.wait(0.05)
-            VirtualInputManager:SendMouseButtonEvent(screenPos.X, screenPos.Y, 0, false, game, 1)
-        end)
-        task.wait(0.35)
-
-        local countAfter = 0
-        if bp then
-            for _, t in ipairs(bp:GetChildren()) do
-                if t:GetAttribute("Sprinkler") then countAfter += 1 end
-            end
-        end
-        if player.Character then
-            local held = player.Character:FindFirstChildOfClass("Tool")
-            if held and held:GetAttribute("Sprinkler") then countAfter += 1 end
+        elseif PacketRemote then
+            pcall(function()
+                PacketRemote:FireServer(126, hitPos, sprinklerName, tool, plotId)
+            end)
+            fired = true
         end
 
+        if not fired then return false end
+
+        _lastSprinklerFire = os.clock()
+
+        -- Tunggu server response (placement butuh ~0.3s untuk diproses)
+        task.wait(0.4)
+
+        -- Verifikasi: jumlah sprinkler di inventory harus berkurang 1
+        local countAfter = CountSprinklerTools()
         return countAfter < countBefore
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
 
     -- AUTO SPRINKLER LOOP
+    -- Loop interval lebih panjang (cooldown 15s) karena placement butuh waktu.
+    -- Loop akan berhenti otomatis jika semua tanaman sudah ter-cover atau sprinkler habis.
     local _sprinklerCooldown = 0
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
@@ -1055,28 +1122,61 @@ return function(ctx)
             if not States.autoSprinkler then continue end
             local now = os.clock()
             if now < _sprinklerCooldown then continue end
+
             pcall(function()
                 local tool, sprinklerName = AcquireSprinklerTool()
-                if not tool or not sprinklerName then return end
+                if not tool or not sprinklerName then
+                    Notify("Auto Sprinkler", "\226\154\160 Tidak ada sprinkler di backpack!", Colors.Warning, 3)
+                    _sprinklerCooldown = os.clock() + 5
+                    return
+                end
+
                 local positions = GetSprinklerPlacePositions(20, sprinklerName)
-                if #positions == 0 then return end
+                if #positions == 0 then
+                    -- Semua sudah ter-cover atau tidak ada tanaman
+                    _sprinklerCooldown = os.clock() + 15
+                    return
+                end
+
                 local placed = 0
+                local failed = 0
+
                 for _, pos in ipairs(positions) do
                     if not States.autoSprinkler then break end
-                    pcall(function()
-                        local success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
-                        if success then placed += 1 end
+
+                    -- Re-acquire tool setiap iterasi (bisa berubah setelah placement)
+                    local curTool, curName = AcquireSprinklerTool()
+                    if not curTool then
+                        Notify("Auto Sprinkler", "\226\154\160 Sprinkler habis di backpack!", Colors.Warning, 3)
+                        break
+                    end
+                    tool, sprinklerName = curTool, curName
+
+                    local success = false
+                    local ok = pcall(function()
+                        success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
                     end)
-                    local t2, sn2 = AcquireSprinklerTool()
-                    if not t2 then break end
-                    tool, sprinklerName = t2, sn2
-                    task.wait(0.5)
+
+                    if ok and success then
+                        placed += 1
+                    else
+                        failed += 1
+                        -- Jika gagal terus, beri jeda sebentar
+                        if failed >= 3 then
+                            task.wait(1)
+                            failed = 0
+                        end
+                    end
                 end
+
                 if placed > 0 then
-                    Notify("Auto Sprinkler \240\159\140\191", "Pasang " .. placed .. " sprinkler di Plot " .. MY_PLOT_ID, Colors.Success, 3)
+                    Notify("Auto Sprinkler \240\159\140\191",
+                        "Pasang " .. placed .. "/" .. #positions .. " sprinkler di Plot " .. MY_PLOT_ID,
+                        Colors.Success, 4)
                 end
             end)
-            _sprinklerCooldown = os.clock() + 10
+
+            _sprinklerCooldown = os.clock() + 15
         end
     end)
 
