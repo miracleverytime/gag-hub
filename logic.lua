@@ -701,36 +701,272 @@ return function(ctx)
         end
     end)
 
-    -- SPRINKLER PLACEMENT HELPERS
-    local function IsSprinklerNearby(pos, plot)
-        if not plot then return false end
-        for _, obj in ipairs(plot:GetDescendants()) do
+    -- ====================== SPRINKLER PLACEMENT HELPERS ======================
+
+    -- Radius coverage tiap jenis sprinkler (diameter / 2 dalam studs, XZ plane).
+    -- Nilai fallback = 8 jika nama tidak dikenali.
+    -- Radius diambil dari SprinklerData di ReplicatedStorage; tabel ini sebagai cache/fallback.
+    local SPRINKLER_RADIUS_FALLBACK = {
+        ["Common Sprinkler"]    = 10,
+        ["Uncommon Sprinkler"]  = 16,
+        ["Rare Sprinkler"]      = 22,
+        ["Legendary Sprinkler"] = 30,
+        ["Super Sprinkler"]     = 40,
+    }
+
+    -- Coba baca radius dari SprinklerData di ReplicatedStorage, fallback ke tabel di atas.
+    local function GetSprinklerRadius(sprinklerName)
+        local ok, radius = pcall(function()
+            local sd = require(ReplicatedStorage.SharedModules.SprinklerData)
+            for _, entry in ipairs(sd) do
+                if entry.SprinklerName == sprinklerName and entry.Radius then
+                    return entry.Radius
+                end
+            end
+            return nil
+        end)
+        if ok and radius then return radius end
+        return SPRINKLER_RADIUS_FALLBACK[sprinklerName] or 8
+    end
+    Logic.GetSprinklerRadius = GetSprinklerRadius
+
+    -- Ambil semua posisi tanaman yang ada di plot (XZ saja untuk coverage check).
+    local function GetPlantPositions()
+        local plantsFolder = GetPlantsFolder()
+        local positions = {}
+        if not plantsFolder then return positions end
+        for _, plant in ipairs(plantsFolder:GetChildren()) do
+            if not plant:IsA("Model") then continue end
+            local pos
+            local ok, cf = pcall(function() return plant:GetPivot() end)
+            if ok and cf then
+                pos = cf.Position
+            else
+                local pp = plant.PrimaryPart
+                if pp then pos = pp.Position
+                else
+                    for _, d in ipairs(plant:GetDescendants()) do
+                        if d:IsA("BasePart") then pos = d.Position break end
+                    end
+                end
+            end
+            if pos then
+                table.insert(positions, Vector2.new(pos.X, pos.Z))
+            end
+        end
+        return positions
+    end
+    Logic.GetPlantPositions = GetPlantPositions
+
+    -- Ambil semua sprinkler yang sudah terpasang di plot beserta posisi & radius-nya.
+    local function GetExistingSprinklers(myPlot)
+        local sprinklers = {}
+        if not myPlot then return sprinklers end
+        for _, obj in ipairs(myPlot:GetDescendants()) do
             if obj:IsA("Model") and obj:GetAttribute("Sprinkler") then
                 local pp = obj.PrimaryPart
-                if pp and (Vector3.new(pos.X, 0, pos.Z) - Vector3.new(pp.Position.X, 0, pp.Position.Z)).Magnitude < 1.5 then
-                    return true
+                if pp then
+                    local sName = obj:GetAttribute("Sprinkler") or obj.Name
+                    local r = GetSprinklerRadius(sName)
+                    table.insert(sprinklers, {
+                        pos    = Vector2.new(pp.Position.X, pp.Position.Z),
+                        radius = r,
+                        name   = sName,
+                    })
                 end
+            end
+        end
+        return sprinklers
+    end
+    Logic.GetExistingSprinklers = GetExistingSprinklers
+
+    -- Cek apakah suatu titik (Vector2) sudah ter-cover oleh salah satu sprinkler.
+    local function IsPointCovered(point, sprinklers)
+        for _, sp in ipairs(sprinklers) do
+            local dx = point.X - sp.pos.X
+            local dz = point.Y - sp.pos.Y
+            if dx*dx + dz*dz <= sp.radius * sp.radius then
+                return true
             end
         end
         return false
     end
 
-    local function GetSprinklerPlacePositions(maxCount)
+    -- Greedy set-cover: pilih posisi sprinkler optimal agar semua tanaman ter-cover
+    -- dengan jumlah sprinkler sesedikit mungkin.
+    --
+    -- candidatePositions = list Vector3 (posisi valid untuk meletakkan sprinkler)
+    -- plantPositions     = list Vector2 (posisi XZ tanaman yang perlu di-cover)
+    -- radius             = radius coverage sprinkler yang akan dipakai
+    -- existingSprinklers = list {pos=Vector2, radius=number} (sudah terpasang)
+    --
+    -- Returns: list Vector3 posisi sprinkler yang perlu dipasang
+    local function GreedySprinklerCover(candidatePositions, plantPositions, radius, existingSprinklers)
+        -- Filter tanaman yang belum ter-cover oleh sprinkler existing
+        local uncovered = {}
+        for _, p in ipairs(plantPositions) do
+            if not IsPointCovered(p, existingSprinklers) then
+                table.insert(uncovered, p)
+            end
+        end
+
+        if #uncovered == 0 then return {} end -- semua sudah ter-cover
+
+        local placed = {}        -- sprinkler baru yang akan dipasang (Vector3)
+        local placedSp = {}      -- sebagai sprinklers list untuk IsPointCovered
+
+        -- Salin existing sprinklers ke placedSp agar coverage check akumulatif
+        for _, sp in ipairs(existingSprinklers) do
+            table.insert(placedSp, sp)
+        end
+
+        local r2 = radius * radius
+
+        while #uncovered > 0 do
+            local bestPos   = nil
+            local bestCount = 0
+            local bestVec3  = nil
+
+            -- Untuk setiap kandidat posisi, hitung berapa uncovered plants yang bisa dicakup
+            for _, cand in ipairs(candidatePositions) do
+                -- Skip jika sudah ada sprinkler sangat dekat di titik ini
+                local tooClose = false
+                for _, sp in ipairs(placedSp) do
+                    local dx = cand.X - sp.pos.X
+                    local dz = cand.Z - sp.pos.Y
+                    if dx*dx + dz*dz < 4 then -- < 2 studs = terlalu dekat
+                        tooClose = true break
+                    end
+                end
+                if tooClose then continue end
+
+                local count = 0
+                for _, p in ipairs(uncovered) do
+                    local dx = cand.X - p.X
+                    local dz = cand.Z - p.Y
+                    if dx*dx + dz*dz <= r2 then
+                        count += 1
+                    end
+                end
+
+                if count > bestCount then
+                    bestCount = count
+                    bestVec3  = cand
+                    bestPos   = Vector2.new(cand.X, cand.Z)
+                end
+            end
+
+            if not bestVec3 or bestCount == 0 then
+                -- Tidak ada kandidat yang bisa cover tanaman tersisa:
+                -- pasang satu sprinkler tepat di atas tiap tanaman yang belum ter-cover
+                for _, p in ipairs(uncovered) do
+                    -- Cari Y dari candidatePositions terdekat
+                    local bestY = 142.602 -- fallback Y plot
+                    local minD  = math.huge
+                    for _, cand in ipairs(candidatePositions) do
+                        local d = (cand.X - p.X)^2 + (cand.Z - p.Y)^2
+                        if d < minD then minD = d bestY = cand.Y end
+                    end
+                    local v3 = Vector3.new(p.X, bestY, p.Y)
+                    table.insert(placed, v3)
+                    table.insert(placedSp, {pos = Vector2.new(p.X, p.Y), radius = radius})
+                end
+                break
+            end
+
+            -- Tandai semua tanaman yang ter-cover oleh sprinkler ini
+            local newUncovered = {}
+            for _, p in ipairs(uncovered) do
+                local dx = bestVec3.X - p.X
+                local dz = bestVec3.Z - p.Y
+                if dx*dx + dz*dz > r2 then
+                    table.insert(newUncovered, p)
+                end
+            end
+
+            table.insert(placed, bestVec3)
+            table.insert(placedSp, {pos = bestPos, radius = radius})
+            uncovered = newUncovered
+        end
+
+        return placed
+    end
+    Logic.GreedySprinklerCover = GreedySprinklerCover
+
+    -- Kandidat posisi untuk meletakkan sprinkler: titik-titik di dalam PlantArea
+    -- dengan grid step lebih besar (karena 1 sprinkler bisa cover banyak tanaman).
+    local function GetSprinklerCandidatePositions(radius)
         local myPlot = GetMyPlot()
         if not myPlot then return {} end
         local plantAreas = GetMyPlantAreas()
         if #plantAreas == 0 then return {} end
-        local positions = {}
+
+        -- Step grid = radius / 2 agar ada cukup kandidat tanpa terlalu banyak
+        local step = math.max(radius / 2, 2)
+        local candidates = {}
+
         for _, area in ipairs(plantAreas) do
-            if #positions >= (maxCount or 10) then break end
-            local cf  = area.CFrame
-            local sz  = area.Size
+            local cf     = area.CFrame
+            local sz     = area.Size
+            local halfX  = sz.X / 2
+            local halfZ  = sz.Z / 2
+            local margin = 0.5
             local centerY = cf.Position.Y + sz.Y / 2
-            local pos = Vector3.new(cf.Position.X, centerY, cf.Position.Z)
-            if not IsSprinklerNearby(pos, myPlot) then
-                table.insert(positions, pos)
+
+            local lx = -halfX + margin
+            while lx <= halfX - margin do
+                local lz = -halfZ + margin
+                while lz <= halfZ - margin do
+                    local worldPt = cf:PointToWorldSpace(Vector3.new(lx, sz.Y / 2, lz))
+                    table.insert(candidates, Vector3.new(worldPt.X, centerY, worldPt.Z))
+                    lz = lz + step
+                end
+                lx = lx + step
             end
         end
+
+        return candidates
+    end
+    Logic.GetSprinklerCandidatePositions = GetSprinklerCandidatePositions
+
+    -- Fungsi utama: kembalikan list posisi Vector3 tempat sprinkler harus dipasang,
+    -- berdasarkan posisi tanaman aktual + radius coverage sprinkler yang dipilih.
+    local function GetSprinklerPlacePositions(maxCount, sprinklerName)
+        local myPlot = GetMyPlot()
+        if not myPlot then return {} end
+
+        -- Dapatkan radius sprinkler yang akan dipakai
+        local radius = GetSprinklerRadius(sprinklerName or "Common Sprinkler")
+
+        -- Posisi semua tanaman di plot
+        local plantPositions = GetPlantPositions()
+        if #plantPositions == 0 then return {} end
+
+        -- Sprinkler yang sudah terpasang
+        local existingSprinklers = GetExistingSprinklers(myPlot)
+
+        -- Kandidat posisi untuk sprinkler baru
+        local candidates = GetSprinklerCandidatePositions(radius)
+        if #candidates == 0 then
+            -- Fallback: gunakan center tiap PlantArea
+            local plantAreas = GetMyPlantAreas()
+            for _, area in ipairs(plantAreas) do
+                local cf  = area.CFrame
+                local sz  = area.Size
+                table.insert(candidates, Vector3.new(cf.Position.X, cf.Position.Y + sz.Y/2, cf.Position.Z))
+            end
+        end
+
+        -- Greedy coverage
+        local positions = GreedySprinklerCover(candidates, plantPositions, radius, existingSprinklers)
+
+        -- Trim ke maxCount
+        if maxCount and #positions > maxCount then
+            local trimmed = {}
+            for i = 1, maxCount do trimmed[i] = positions[i] end
+            return trimmed
+        end
+
         return positions
     end
     Logic.GetSprinklerPlacePositions = GetSprinklerPlacePositions
@@ -750,7 +986,8 @@ return function(ctx)
             pcall(function()
                 local tool, sprinklerName = AcquireSprinklerTool()
                 if not tool or not sprinklerName then return end
-                local positions = GetSprinklerPlacePositions(5)
+                -- Gunakan sprinklerName agar radius-nya tepat
+                local positions = GetSprinklerPlacePositions(20, sprinklerName)
                 if #positions == 0 then return end
                 local placed = 0
                 for _, pos in ipairs(positions) do

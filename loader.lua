@@ -6,7 +6,7 @@
 --   core  -> ui -> logic -> pages -> bootstrap
 --
 -- Inject with:
---   loadstring(game:HttpGet("https://gitlab.com/miracle-group3/Miracle-Hub/-/raw/main/loader.lua"))()
+--   loadstring(game:HttpGet("https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/loader.lua"))()
 --
 -- NOTE: modules below are loaded incrementally during the refactor.
 -- Only modules that already exist on the branch are listed in MODULES.
