@@ -73,6 +73,7 @@ return function(ctx)
     local GetSprinklerPlacePositions = Logic.GetSprinklerPlacePositions
     local GetSprinklerRadius         = Logic.GetSprinklerRadius
     local GetPlantPositions          = Logic.GetPlantPositions
+    local DoPlaceSprinklerAt         = Logic.DoPlaceSprinklerAt
     local GetSeedStock       = Logic.GetSeedStock
     local GetCrateStock      = Logic.GetCrateStock
     local BuyCratePacket     = Logic.BuyCratePacket
@@ -414,31 +415,25 @@ return function(ctx)
             task.spawn(function()
                 local placed = 0
                 for _, pos in ipairs(positions) do
-                    -- Re-acquire tool jika lepas di tangan
-                    if not IsToolEquipped(tool) then
-                        local t2, sn2 = AcquireSprinklerTool()
-                        if not t2 then
-                            Notify("Sprinkler", "\226\157\140 Sprinkler habis di backpack! Berhenti.", Colors.Error)
-                            break
-                        end
-                        tool, sprinklerName = t2, sn2
-                    end
-                    HopToNearPos(pos)
-                    local ok = pcall(function()
-                        Networking.Place.PlaceSprinkler:Fire(pos, sprinklerName, tool, MY_PLOT_ID)
+                    pcall(function()
+                        local success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
+                        if success then placed += 1 end
                     end)
-                    if ok then
-                        placed += 1
+                    -- Re-acquire setelah tiap placement (tool di-consume server)
+                    local t2, sn2 = AcquireSprinklerTool()
+                    if not t2 then
+                        Notify("Sprinkler", "\226\157\140 Sprinkler habis di backpack!", Colors.Error)
+                        break
                     end
+                    tool, sprinklerName = t2, sn2
                     task.wait(0.5)
                 end
                 if placed > 0 then
                     Notify("Sprinkler \226\156\133",
-                        "Pasang " .. placed .. "/" .. #positions .. " sprinkler di Plot " .. MY_PLOT_ID
-                        .. " (coverage optimal berdasarkan posisi tanaman)",
+                        "Pasang " .. placed .. "/" .. #positions .. " sprinkler di Plot " .. MY_PLOT_ID,
                         Colors.Success, 5)
                 else
-                    Notify("Sprinkler", "Tidak ada sprinkler yang berhasil dipasang. Cek posisi dan plot.", Colors.Warning)
+                    Notify("Sprinkler", "Tidak ada sprinkler yang berhasil dipasang. Pastikan kamu di plotmu dan sudah ada tanaman.", Colors.Warning)
                 end
             end)
         end, Colors.Success)
