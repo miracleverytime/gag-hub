@@ -1271,14 +1271,17 @@ return function(ctx)
     local function ShouldKeepFruit(tool)
         local mut = GetMutation(tool)
         if States.keepMutations and mut ~= "" and mut ~= "None" then return true end
-        local keepMut = States.sellKeepMutation or "None"
-        if keepMut ~= "None" and mut == keepMut then return true end
+        local keepMuts = States.sellKeepMutation or {}
+        if type(keepMuts) == "table" and #keepMuts > 0 and mut ~= "" and mut ~= "None" then
+            if table.find(keepMuts, mut) then return true end
+        end
         return false
     end
     Logic.ShouldKeepFruit = ShouldKeepFruit
 
     local function NeedsSelectiveSell()
-        if not States.keepMutations and (States.sellKeepMutation or "None") == "None" then
+        local keepMuts = States.sellKeepMutation or {}
+        if not States.keepMutations and (type(keepMuts) ~= "table" or #keepMuts == 0) then
             return false
         end
         return true

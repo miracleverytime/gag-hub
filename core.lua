@@ -251,7 +251,7 @@ return function(ctx)
         sellDelay = 0.05,
         sellLoopDelay = 3,
         keepMutations = true,
-        sellKeepMutation = "None",   -- keep mutation spesifik saat auto-sell
+        sellKeepMutation = {},       -- TABLE: mutasi spesifik yang di-keep saat auto-sell (multi-select)
         keepRarity = "Legendary",
         notifySell = false,
         -- Player
