@@ -800,20 +800,16 @@ return function(ctx)
             return nil
         end
         for _, obj in ipairs(myPlot:GetDescendants()) do
-            if obj:IsA("Model") then
-                -- Server menyimpan sprinkler yang dipasang sebagai attribute "SprinklerName"
-                -- Tool di backpack/karakter pakai attribute "Sprinkler"
-                local sName = obj:GetAttribute("SprinklerName") or obj:GetAttribute("Sprinkler")
-                if sName then
-                    local pos = resolveWorldPosition(obj)
-                    if pos then
-                        local r = GetSprinklerRadius(sName)
-                        table.insert(sprinklers, {
-                            pos    = Vector2.new(pos.X, pos.Z),
-                            radius = r,
-                            name   = sName,
-                        })
-                    end
+            if obj:IsA("Model") and obj:GetAttribute("Sprinkler") then
+                local pos = resolveWorldPosition(obj)
+                if pos then
+                    local sName = obj:GetAttribute("Sprinkler") or obj.Name
+                    local r = GetSprinklerRadius(sName)
+                    table.insert(sprinklers, {
+                        pos    = Vector2.new(pos.X, pos.Z),
+                        radius = r,
+                        name   = sName,
+                    })
                 end
             end
         end
@@ -1095,76 +1091,120 @@ return function(ctx)
     local _lastSprinklerFire = 0
 
     local function DoPlaceSprinklerAt(pos, tool, sprinklerName)
-        if not Networking then return false end
-
-        -- Rate-limit
         local now = os.clock()
-        local gap = 0.6 - (now - _lastSprinklerFire)
+        local gap = 0.5 - (now - _lastSprinklerFire)
         if gap > 0 then task.wait(gap) end
 
-        -- Validate tool
+        local myPlot = GetMyPlot()
+        local countBeforePlot = myPlot and CountPlotSprinklers(myPlot) or 0
+        local countBeforeInv = CountSprinklerTools()
+
+        -- [DBG-1] State awal
+        warn("[SPK-DBG] === START DoPlaceSprinklerAt ===")
+        warn("[SPK-DBG] pos=" .. tostring(pos))
+        warn("[SPK-DBG] sprinklerName=" .. tostring(sprinklerName))
+        warn("[SPK-DBG] tool.Parent=" .. tostring(tool and tool.Parent))
+        warn("[SPK-DBG] countBeforeInv=" .. countBeforeInv .. " countBeforePlot=" .. countBeforePlot)
+
         if not (tool and tool.Parent) then
             local t2, sn2 = AcquireSprinklerTool()
-            if not t2 then return false end
+            if not t2 then
+                warn("[SPK-DBG] ABORT: no tool after re-acquire")
+                return false
+            end
             tool, sprinklerName = t2, sn2
         end
 
-        -- Equip tool SEBELUM apapun
+        -- [DBG-2] Sebelum equip
+        local charBefore = player.Character
+        local heldBefore = charBefore and charBefore:FindFirstChildOfClass("Tool")
+        warn("[SPK-DBG] held before equip=" .. tostring(heldBefore and heldBefore.Name))
+
         if not IsToolEquipped(tool) then
-            if not EquipTool(tool) then return false end
+            local ok = EquipTool(tool)
+            warn("[SPK-DBG] EquipTool result=" .. tostring(ok))
+            if not ok then
+                warn("[SPK-DBG] ABORT: EquipTool failed")
+                return false
+            end
+        else
+            warn("[SPK-DBG] tool already equipped")
         end
 
-        -- Dapatkan hitPos yang AKURAT dengan raycast ke bawah dari atas pos
-        -- Ini meniru persis cara game menghitung hitPos saat player klik
-        local hitPos = pos
-        pcall(function()
-            local rayParams = RaycastParams.new()
-            rayParams.FilterType = Enum.RaycastFilterType.Include
-            -- Include semua descendants Gardens agar kena PlantArea
-            local gardens = workspace:FindFirstChild("Gardens")
-            if gardens then
-                rayParams.FilterDescendantsInstances = {gardens}
-            end
-            -- Tembak ray dari atas pos ke bawah
-            local origin = Vector3.new(pos.X, pos.Y + 20, pos.Z)
-            local result = workspace:Raycast(origin, Vector3.new(0, -40, 0), rayParams)
-            if result and result.Instance then
-                -- Pastikan kena PlantArea (tagged atau nama mengandung PlantArea)
-                local inst = result.Instance
-                local isPlantArea = CollectionService:HasTag(inst, "PlantArea")
-                                 or inst.Name:lower():find("plantarea")
-                if isPlantArea then
-                    hitPos = result.Position
-                end
-            end
-        end)
+        -- [DBG-3] Setelah equip, sebelum teleport
+        local charAfterEquip = player.Character
+        local heldAfterEquip = charAfterEquip and charAfterEquip:FindFirstChildOfClass("Tool")
+        warn("[SPK-DBG] held after equip=" .. tostring(heldAfterEquip and heldAfterEquip.Name))
 
-        -- Teleport player ke atas hitPos agar server proximity check lulus
-        local c = player.Character
-        if not c then return false end
-        local hrp = c:FindFirstChild("HumanoidRootPart")
-        if not hrp then return false end
-        hrp.CFrame = CFrame.new(hitPos.X, hitPos.Y + 4, hitPos.Z)
+        local hitPos = SnapPosToSurface(pos)
+        warn("[SPK-DBG] hitPos=" .. tostring(hitPos))
+
+        TeleportNear(hitPos)
         task.wait(0.15)
 
-        -- Re-equip jika lepas saat teleport
+        -- [DBG-4] Setelah teleport
+        local charAfterTP = player.Character
+        local heldAfterTP = charAfterTP and charAfterTP:FindFirstChildOfClass("Tool")
+        warn("[SPK-DBG] held after teleport=" .. tostring(heldAfterTP and heldAfterTP.Name))
+        warn("[SPK-DBG] IsToolEquipped=" .. tostring(IsToolEquipped(tool)))
+
         if not IsToolEquipped(tool) then
-            if not EquipTool(tool) then return false end
+            warn("[SPK-DBG] tool dropped after teleport — re-equipping")
+            EquipTool(tool)
             task.wait(0.1)
+            local heldAfterReEquip = player.Character and player.Character:FindFirstChildOfClass("Tool")
+            warn("[SPK-DBG] held after re-equip=" .. tostring(heldAfterReEquip and heldAfterReEquip.Name))
         end
 
         local plotId = player:GetAttribute("PlotId") or MY_PLOT_ID
-        local countBeforeInv = CountSprinklerTools()
+        warn("[SPK-DBG] plotId=" .. tostring(plotId) .. " type=" .. type(plotId))
 
-        local fireOk = pcall(function()
-            Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
-        end)
-        _lastSprinklerFire = os.clock()
+        -- [DBG-5] Fire
+        local attemptPoints = {
+            hitPos,
+            hitPos + Vector3.new(0.35, 0, 0),
+            hitPos + Vector3.new(-0.35, 0, 0),
+            hitPos + Vector3.new(0, 0, 0.35),
+            hitPos + Vector3.new(0, 0, -0.35),
+        }
 
-        if not fireOk then return false end
+        local success = false
+        for i, point in ipairs(attemptPoints) do
+            warn("[SPK-DBG] firing attempt " .. i .. " at " .. tostring(point))
+            warn("[SPK-DBG]   tool.Parent before fire=" .. tostring(tool and tool.Parent))
 
-        task.wait(0.5)
-        return CountSprinklerTools() < countBeforeInv
+            if Networking then
+                local ok, err = pcall(function()
+                    Networking.Place.PlaceSprinkler:Fire(point, sprinklerName, tool, plotId)
+                end)
+                warn("[SPK-DBG]   pcall ok=" .. tostring(ok) .. (ok and "" or (" err=" .. tostring(err))))
+                if ok then
+                    _lastSprinklerFire = os.clock()
+                    task.wait(0.35)
+
+                    local countAfterPlot = myPlot and CountPlotSprinklers(myPlot) or 0
+                    local countAfterInv = CountSprinklerTools()
+                    warn("[SPK-DBG]   countAfterInv=" .. countAfterInv .. " countAfterPlot=" .. countAfterPlot)
+                    if countAfterPlot > countBeforePlot or countAfterInv < countBeforeInv then
+                        warn("[SPK-DBG]   SUCCESS confirmed by count change")
+                        success = true
+                        break
+                    else
+                        warn("[SPK-DBG]   count unchanged — server rejected or slow replication")
+                    end
+                end
+            else
+                warn("[SPK-DBG]   ABORT: Networking is nil")
+                break
+            end
+        end
+
+        if not success then
+            _lastSprinklerFire = os.clock()
+            warn("[SPK-DBG] FAILED all attempts")
+        end
+        warn("[SPK-DBG] === END DoPlaceSprinklerAt result=" .. tostring(success) .. " ===")
+        return success
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
 
