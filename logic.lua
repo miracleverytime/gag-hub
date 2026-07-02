@@ -776,32 +776,57 @@ return function(ctx)
     Logic.GetPlantPositions = GetPlantPositions
 
     -- Ambil semua sprinkler yang sudah terpasang di plot beserta posisi & radius-nya.
+    -- Gunakan GardenSyncController (canonical server state) jika tersedia,
+    -- fallback ke scan workspace.
     local function GetExistingSprinklers(myPlot)
         local sprinklers = {}
         if not myPlot then return sprinklers end
+
+        -- === Metode 1: GardenSyncController (paling akurat) ===
+        -- Server sync sprinkler data via Networking.Garden.SprinklerAdded
+        -- dengan structure: { SprinklerName=string, Position={X,Y,Z}, Radius=number, ... }
+        local syncOk = false
+        pcall(function()
+            local GardenSync = require(ReplicatedStorage.ClientModules.GardenSyncController)
+            local userId = player.UserId
+            local sprinklerMap = GardenSync:GetSprinklers(userId)
+            for _, data in pairs(sprinklerMap) do
+                -- data fields dari server: SprinklerName, Position (table/Vector3), Radius
+                local pos
+                if typeof(data.Position) == "Vector3" then
+                    pos = Vector2.new(data.Position.X, data.Position.Z)
+                elseif type(data.Position) == "table" then
+                    local px = data.Position.X or data.Position.PosX or 0
+                    local pz = data.Position.Z or data.Position.PosZ or 0
+                    pos = Vector2.new(px, pz)
+                end
+                if pos then
+                    local sName = data.SprinklerName or "Common Sprinkler"
+                    local r = data.Radius or GetSprinklerRadius(sName)
+                    table.insert(sprinklers, { pos = pos, radius = r, name = sName })
+                    syncOk = true
+                end
+            end
+        end)
+
+        if syncOk then return sprinklers end
+
+        -- === Metode 2: Scan workspace (fallback) ===
+        -- Server-placed sprinklers pakai attribute "SprinklerName" (bukan "Sprinkler")
         local function resolveWorldPosition(model)
             if not model then return nil end
             local primary = model.PrimaryPart
             if primary then return primary.Position end
-
-            local okPivot, pivot = pcall(function()
-                return model:GetPivot()
-            end)
-            if okPivot and pivot then
-                return pivot.Position
-            end
-
+            local okPivot, pivot = pcall(function() return model:GetPivot() end)
+            if okPivot and pivot then return pivot.Position end
             for _, desc in ipairs(model:GetDescendants()) do
-                if desc:IsA("BasePart") then
-                    return desc.Position
-                end
+                if desc:IsA("BasePart") then return desc.Position end
             end
-
             return nil
         end
+
         for _, obj in ipairs(myPlot:GetDescendants()) do
             if obj:IsA("Model") then
-                -- Server simpan attribute "SprinklerName" (bukan "Sprinkler")
                 local sName = obj:GetAttribute("SprinklerName") or obj:GetAttribute("Sprinkler")
                 if sName then
                     local pos = resolveWorldPosition(obj)
@@ -1037,44 +1062,36 @@ return function(ctx)
     -- Tidak pakai VirtualInputManager sama sekali (brittle, tergantung kamera & layar).
 
     -- Hitung Y surface dari PlantArea di posisi XZ tertentu
-    -- Pakai raycast ke bawah — same persis seperti TryPlace client game lakukan
     local function GetSurfaceY(px, pz)
+        -- Raycast ke bawah dari atas — hasil posisi surface yang exact
         local foundY = nil
         pcall(function()
             local rayParams = RaycastParams.new()
             rayParams.FilterType = Enum.RaycastFilterType.Include
             local gardens = workspace:FindFirstChild("Gardens")
-            if gardens then
-                rayParams.FilterDescendantsInstances = {gardens}
-            end
-            local origin = Vector3.new(px, 200, pz)
-            local result = workspace:Raycast(origin, Vector3.new(0, -300, 0), rayParams)
+            if gardens then rayParams.FilterDescendantsInstances = {gardens} end
+            local result = workspace:Raycast(Vector3.new(px, 200, pz), Vector3.new(0, -300, 0), rayParams)
             if result and result.Instance then
                 local inst = result.Instance
-                local isPlantArea = CollectionService:HasTag(inst, "PlantArea")
-                               or inst.Name:lower():find("plantarea")
-                               or inst.Name:lower():find("plant_area")
-                if isPlantArea then
+                if CollectionService:HasTag(inst, "PlantArea")
+                   or inst.Name:lower():find("plantarea") then
                     foundY = result.Position.Y
                 end
             end
         end)
         if foundY then return foundY end
-
-        -- Fallback: kalkulasi dari PlantArea terdekat
+        -- Fallback kalkulasi dari PlantArea terdekat
         local plantAreas = GetMyPlantAreas()
-        local bestY = nil
-        local bestDist = math.huge
+        local bestY, bestDist = nil, math.huge
         for _, area in ipairs(plantAreas) do
             local cf = area.CFrame
             local sz = area.Size
-            local topY = cf.Position.Y + sz.Y / 2
             local dx = px - cf.Position.X
             local dz = pz - cf.Position.Z
             local d2 = dx*dx + dz*dz
             if d2 < bestDist then
                 bestDist = d2
-                bestY = topY
+                bestY = cf.Position.Y + sz.Y / 2
             end
         end
         return bestY or 142.602
@@ -1120,36 +1137,39 @@ return function(ctx)
         local gap = 0.6 - (now - _lastSprinklerFire)
         if gap > 0 then task.wait(gap) end
 
-        -- Re-acquire tool jika tidak valid
         if not (tool and tool.Parent) then
             local t2, sn2 = AcquireSprinklerTool()
             if not t2 then return false end
             tool, sprinklerName = t2, sn2
         end
 
-        -- Equip sebelum hop
         if not IsToolEquipped(tool) then
             if not EquipTool(tool) then return false end
         end
 
-        -- hitPos pakai raycast Y yang sudah benar (via GetSurfaceY → raycast ke bawah)
+        -- Y akurat via raycast (bukan kalkulasi sz.Y/2 yang meleset 0.4 studs)
         local hitPos = SnapPosToSurface(pos)
 
-        -- HOP bertahap seperti watering can — bukan teleport langsung
-        -- Ini yang bikin watering can works: server validate player proximity bertahap
+        -- Hop bertahap persis seperti watering can yang sudah terbukti works
         HopToNearPos(hitPos)
         task.wait(0.1)
 
-        -- Re-equip jika hop menyebabkan tool lepas
         if not IsToolEquipped(tool) then
             if not EquipTool(tool) then return false end
             task.wait(0.05)
         end
 
-        local plotId = tonumber(player:GetAttribute("PlotId")) or MY_PLOT_ID
+        -- plotId dari nama model Garden ("Plot3" → 3), bukan player attribute
+        -- Ini persis cara TryPlace client game lakukan: tonumber(match(plot.Name, "%d+"))
+        local plotId
+        local myPlot = GetMyPlot()
+        if myPlot then
+            plotId = tonumber(string.match(myPlot.Name, "%d+"))
+        end
+        plotId = plotId or tonumber(player:GetAttribute("PlotId")) or MY_PLOT_ID
+
         local countBeforeInv = CountSprinklerTools()
 
-        -- Fire — sama persis seperti watering can tapi dengan tambahan plotId
         local ok = pcall(function()
             Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
         end)
@@ -1157,7 +1177,6 @@ return function(ctx)
 
         if not ok then return false end
 
-        -- Deteksi sukses: inventory berkurang = server consume tool = berhasil
         task.wait(0.5)
         return CountSprinklerTools() < countBeforeInv
     end
