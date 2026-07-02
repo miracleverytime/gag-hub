@@ -1091,80 +1091,127 @@ return function(ctx)
     local _lastSprinklerFire = 0
 
     local function DoPlaceSprinklerAt(pos, tool, sprinklerName)
+        -- Rate-limit: minimal 0.5s antar placement request
         local now = os.clock()
         local gap = 0.5 - (now - _lastSprinklerFire)
         if gap > 0 then task.wait(gap) end
 
-        local myPlot = GetMyPlot()
-        local countBeforePlot = myPlot and CountPlotSprinklers(myPlot) or 0
-        local countBeforeInv = CountSprinklerTools()
+        -- Pastikan Networking tersedia — satu-satunya transport yang valid
+        if not Networking then return false end
 
+        -- Re-acquire tool jika sudah tidak valid (misal habis di-consume server sebelumnya)
         if not (tool and tool.Parent) then
             local t2, sn2 = AcquireSprinklerTool()
             if not t2 then return false end
             tool, sprinklerName = t2, sn2
         end
 
+        -- Step 1: Equip tool dulu sebelum teleport
         if not IsToolEquipped(tool) then
             local ok = EquipTool(tool)
             if not ok then return false end
         end
 
+        -- Step 2: Snap posisi ke surface PlantArea yang tepat
         local hitPos = SnapPosToSurface(pos)
-        TeleportNear(hitPos)
-        task.wait(0.15)
 
+        -- Step 3: Teleport player agar server-side proximity check lulus
+        -- Server di StevenController.TryPlace melakukan raycast dari posisi player,
+        -- jadi kita harus benar-benar dekat dengan hitPos (< 50 studs)
+        local c = player.Character
+        if not c then return false end
+        local hrp = c:FindFirstChild("HumanoidRootPart")
+        if not hrp then return false end
+        hrp.CFrame = CFrame.new(hitPos + Vector3.new(0, 3.5, 0))
+        task.wait(0.12)  -- tunggu physics settle
+
+        -- Step 4: Re-check tool masih equipped setelah teleport
         if not IsToolEquipped(tool) then
-            EquipTool(tool)
-            task.wait(0.1)
+            -- Tool bisa lepas saat respawn atau server-forced unequip
+            local t2, sn2 = AcquireSprinklerTool()
+            if not t2 then return false end
+            tool, sprinklerName = t2, sn2
+            if not IsToolEquipped(tool) then
+                EquipTool(tool)
+                task.wait(0.1)
+            end
         end
+
+        -- Snapshot jumlah sprinkler + tool sebelum fire
+        local myPlot = GetMyPlot()
+        local countBeforePlot = myPlot and CountPlotSprinklers(myPlot) or 0
+        local countBeforeInv  = CountSprinklerTools()
 
         local plotId = player:GetAttribute("PlotId") or MY_PLOT_ID
-        local attemptPoints = {
-            hitPos,
-            hitPos + Vector3.new(0.35, 0, 0),
-            hitPos + Vector3.new(-0.35, 0, 0),
-            hitPos + Vector3.new(0, 0, 0.35),
-            hitPos + Vector3.new(0, 0, -0.35),
-        }
 
-        local function fireOnce(point)
-            local fired = false
-            if Networking then
-                local ok = pcall(function()
-                    Networking.Place.PlaceSprinkler:Fire(point, sprinklerName, tool, plotId)
-                end)
-                fired = ok
-            end
-            -- NOTE: no PacketRemote fallback here — packet ID 126 is EquipGear
-            -- (see Data.PACKET in core.lua), not sprinkler placement. There is
-            -- no confirmed legacy packet ID for PlaceSprinkler, so firing 126
-            -- would silently misfire EquipGear instead of placing a sprinkler.
-            -- Networking.Place.PlaceSprinkler is the correct, always-available
-            -- transport (required directly in core.lua), so this is safe.
-            return fired
+        -- Step 5: Fire ke titik utama DULU, lalu cek apakah berhasil
+        -- Tidak langsung retry offset — server bisa batch reject jika kita kirim
+        -- terlalu cepat ke posisi yang sama/dekat.
+        local fireOk = pcall(function()
+            Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+        end)
+
+        _lastSprinklerFire = os.clock()
+
+        if not fireOk then
+            -- Lua error saat fire (jarang terjadi) — coba lagi tidak akan bantu
+            return false
         end
 
-        local success = false
-        for _, point in ipairs(attemptPoints) do
-            if fireOnce(point) then
-                _lastSprinklerFire = os.clock()
-                task.wait(0.35)
+        -- Tunggu server memproses (server membutuhkan ~1 frame + network RTT)
+        task.wait(0.45)
 
-                local countAfterPlot = myPlot and CountPlotSprinklers(myPlot) or 0
-                local countAfterInv = CountSprinklerTools()
+        local countAfterPlot = myPlot and CountPlotSprinklers(myPlot) or 0
+        local countAfterInv  = CountSprinklerTools()
+
+        if countAfterPlot > countBeforePlot or countAfterInv < countBeforeInv then
+            return true  -- server konfirmasi: sprinkler terpasang
+        end
+
+        -- Step 6: Jika gagal, coba offset kecil (server mungkin reject karena hitbox PlantArea ketat)
+        -- Hanya coba jika tool masih ada
+        local offsetPoints = {
+            Vector3.new(0.4, 0, 0),
+            Vector3.new(-0.4, 0, 0),
+            Vector3.new(0, 0, 0.4),
+            Vector3.new(0, 0, -0.4),
+        }
+
+        for _, off in ipairs(offsetPoints) do
+            if not IsToolEquipped(tool) then
+                local t2, sn2 = AcquireSprinklerTool()
+                if not t2 then return false end
+                tool, sprinklerName = t2, sn2
+                EquipTool(tool)
+                task.wait(0.08)
+            end
+
+            local tryPos = hitPos + off
+            -- Re-teleport ke dekat offset point
+            c = player.Character
+            if not c then return false end
+            hrp = c:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = CFrame.new(tryPos + Vector3.new(0, 3.5, 0))
+                task.wait(0.1)
+            end
+
+            local retryOk = pcall(function()
+                Networking.Place.PlaceSprinkler:Fire(tryPos, sprinklerName, tool, plotId)
+            end)
+            _lastSprinklerFire = os.clock()
+
+            if retryOk then
+                task.wait(0.45)
+                countAfterPlot = myPlot and CountPlotSprinklers(myPlot) or 0
+                countAfterInv  = CountSprinklerTools()
                 if countAfterPlot > countBeforePlot or countAfterInv < countBeforeInv then
-                    success = true
-                    break
+                    return true
                 end
             end
         end
 
-        if not success then
-            _lastSprinklerFire = os.clock()
-        end
-
-        return success
+        return false
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
 
@@ -1204,6 +1251,7 @@ return function(ctx)
                         for _, pos in ipairs(positions) do
                             if not States.autoSprinkler then break end
 
+                            -- Re-acquire setiap iterasi karena server consume tool saat berhasil
                             local curTool, curName = AcquireSprinklerTool()
                             if not curTool then
                                 Notify("Auto Sprinkler", "\226\154\160 Sprinkler habis di backpack!", Colors.Warning, 3)
@@ -1211,6 +1259,7 @@ return function(ctx)
                             end
                             tool, sprinklerName = curTool, curName
 
+                            -- DoPlaceSprinklerAt handles equip + teleport + fire internally
                             local success = false
                             local ok = pcall(function()
                                 success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
@@ -1218,10 +1267,15 @@ return function(ctx)
 
                             if ok and success then
                                 placed = placed + 1
+                                failed = 0
+                                -- Short pause biar server settle sebelum placement berikutnya
+                                task.wait(0.3)
                             else
                                 failed = failed + 1
                                 if failed >= 3 then
-                                    task.wait(1)
+                                    -- Terlalu banyak gagal berturut-turut: pause lebih lama
+                                    Notify("Auto Sprinkler", "Beberapa gagal — pastikan kamu di plotmu.", Colors.Warning, 3)
+                                    task.wait(2)
                                     failed = 0
                                 end
                             end
@@ -1238,8 +1292,6 @@ return function(ctx)
                     _sprinklerCooldown = os.clock() + 15
                 end
             end
-
-            _sprinklerCooldown = os.clock() + 15
         end
     end)
 
