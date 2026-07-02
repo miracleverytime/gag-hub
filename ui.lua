@@ -279,10 +279,13 @@ return function(ctx)
     end
 
     local function GetMutationColor(mutation)
-        if mutation == "Gold" then return Colors.Gold
-        elseif mutation == "Electric" then return Colors.Electric
-        elseif mutation == "Rainbow" then return Colors.Rainbow
-        elseif mutation == "Frozen" then return Colors.Frozen
+        if mutation == "Gold"       then return Colors.Gold
+        elseif mutation == "Electric"   then return Colors.Electric
+        elseif mutation == "Rainbow"    then return Colors.Rainbow
+        elseif mutation == "Frozen"     then return Colors.Frozen
+        elseif mutation == "Bloodlit"   then return Colors.Bloodlit   or Color3.fromRGB(220, 40,  40)
+        elseif mutation == "Starstruck" then return Colors.Starstruck or Color3.fromRGB(255, 230, 80)
+        elseif mutation == "Aurora"     then return Colors.Aurora     or Color3.fromRGB(80,  255, 200)
         else return Colors.TextMuted end
     end
 

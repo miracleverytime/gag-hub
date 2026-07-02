@@ -77,6 +77,10 @@ return function(ctx)
         Frozen = Color3.fromRGB(100, 210, 255),
         BadgeRare = Color3.fromRGB(60, 120, 255),
         BadgeLegend = Color3.fromRGB(200, 100, 255),
+        -- Mutation colors (new)
+        Bloodlit   = Color3.fromRGB(220, 40,  40),
+        Starstruck = Color3.fromRGB(255, 230, 80),
+        Aurora     = Color3.fromRGB(80,  255, 200),
     }
 
     -- ====================== GAME DATA (from scanner) ======================
@@ -141,7 +145,7 @@ return function(ctx)
         ["Teleporter Pad Crate"]= 20000000,
     }
 
-    Data.MUTATIONS = {"None", "Gold", "Electric", "Rainbow", "Frozen"}
+    Data.MUTATIONS = {"None", "Gold", "Electric", "Rainbow", "Frozen", "Bloodlit", "Starstruck", "Aurora"}
     Data.RARITIES  = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical"}
     Data.PETS      = {"Frog", "Bunny", "Robin", "Owl", "Cat", "Dog"}
     Data.PET_SIZES = {"Normal", "Big", "Huge", "Giant"}
@@ -247,6 +251,7 @@ return function(ctx)
         sellDelay = 0.05,
         sellLoopDelay = 3,
         keepMutations = true,
+        sellKeepMutation = "None",   -- keep mutation spesifik saat auto-sell
         keepRarity = "Legendary",
         notifySell = false,
         -- Player
