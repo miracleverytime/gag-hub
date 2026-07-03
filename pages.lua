@@ -1189,129 +1189,8 @@ return function(ctx)
             Notify("Visuals", "All ESP labels cleared.", Colors.TextMuted)
         end)
 
-        -- ===== ULTRA LOW GRAPHIC SECTION =====
-        local ulCard, ulContent = CreateSectionCard("\226\154\161 Ultra Low Graphic", 2, Colors.Warning)
-
-        CreateInfoText(ulContent, "Apa ini?",
-            "Mode ekstrem untuk FPS rendah / HP lemah. "
-            .. "Menghapus tanaman orang lain, efek mutasi, cuaca/atmosfer, "
-            .. "tekstur, shadow, VFX, dan dekorasi map. "
-            .. "TIDAK BISA di-undo tanpa relog \226\128\148 simpan progress dulu!"
-        )
-
-        -- Daftar efek
-        local ulInfoItems = {
-            "\240\159\140\191 Tanaman plot orang lain \226\134\146 dihapus permanent",
-            "\226\156\168 Efek mutasi (Bloodlit, Gold, Rainbow...) \226\134\146 dihapus",
-            "\240\159\140\164 Atmosphere, Bloom, Sky, Fog \226\134\146 dihapus",
-            "\240\159\140\145 Shadow global \226\134\146 dimatikan",
-            "\240\159\216\168 Texture BasePart \226\134\146 SmoothPlastic",
-            "\240\159\227\128 Dekorasi Map & Clouds \226\134\146 hidden",
-            "\240\159\176\145 Lighting \226\134\146 flat (no post-FX)",
-            "\240\159\226\150 Render Quality \226\134\146 Level 1",
-        }
-        for _, line in ipairs(ulInfoItems) do
-            Create("TextLabel", {
-                Parent = ulContent,
-                Size = UDim2.new(1, -8, 0, 18),
-                BackgroundTransparency = 1,
-                Text = line,
-                TextColor3 = Colors.TextSecondary,
-                TextSize = 11,
-                Font = Enum.Font.Gotham,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                TextWrapped = true,
-            })
-        end
-
-        -- Status label (update saat aktif)
-        local ulStatusLabel = Create("TextLabel", {
-            Parent = ulContent,
-            Size = UDim2.new(1, -8, 0, 22),
-            BackgroundTransparency = 1,
-            Text = "Status: Belum aktif",
-            TextColor3 = Colors.TextMuted,
-            TextSize = 12,
-            Font = Enum.Font.GothamBold,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-
-        -- Cek apakah sudah aktif saat page dibuka (jika pernah aktif sebelumnya)
-        if ctx.UltraLow and ctx.UltraLow.Active then
-            ulStatusLabel.Text       = "Status: AKTIF \226\128\148 Relog untuk kembali normal"
-            ulStatusLabel.TextColor3 = Colors.Success
-        end
-
-        -- Tombol utama
-        -- CreateActionButton mengembalikan container (Frame), bukan TextButton.
-        -- Kita simpan referensi ke inner TextButton lewat FindFirstChildOfClass.
-        local ulApplyBtnContainer
-        ulApplyBtnContainer = CreateActionButton(ulContent, "\226\154\161 Aktifkan Ultra Low Graphic", function()
-            -- Sudah aktif?
-            if ctx.UltraLow and ctx.UltraLow.Active then
-                Notify("Ultra Low", "Mode sudah aktif. Relog untuk reset.", Colors.Warning)
-                return
-            end
-
-            -- Pastikan module tersedia
-            if not ctx.UltraLow then
-                Notify("Ultra Low", "Module UltraLow tidak ditemukan di ctx. Pastikan ultralow.lua sudah di-load di loader utama.", Colors.Error)
-                return
-            end
-
-            -- Update UI: processing
-            ulStatusLabel.Text       = "Status: Sedang memproses..."
-            ulStatusLabel.TextColor3 = Colors.Warning
-            Notify("Ultra Low", "Memproses... Jangan tutup hub.", Colors.Warning, 3)
-
-            -- Jalankan Apply dalam coroutine
-            task.spawn(function()
-                ctx.UltraLow.Apply()
-
-                -- Update UI setelah selesai
-                task.delay(4, function()
-                    if ctx.UltraLow and ctx.UltraLow.Active then
-                        ulStatusLabel.Text       = "Status: AKTIF \226\128\148 Relog untuk kembali normal"
-                        ulStatusLabel.TextColor3 = Colors.Success
-                        -- ulApplyBtnContainer adalah Frame; inner TextButton ada di dalamnya
-                        local ulApplyBtn = ulApplyBtnContainer and ulApplyBtnContainer:FindFirstChildOfClass("TextButton")
-                        if ulApplyBtn then
-                            -- TextLabel pertama di dalam btn menyimpan teks label
-                            local lblInner = ulApplyBtn:FindFirstChildOfClass("TextLabel")
-                            if lblInner then
-                                lblInner.Text = "\226\156\133 Ultra Low Graphic AKTIF"
-                            end
-                            ulApplyBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
-                        end
-                    end
-                end)
-            end)
-        end)
-
-        -- Warnai tombol kuning (warning) sebelum aktif
-        do
-            local ulApplyBtn = ulApplyBtnContainer and ulApplyBtnContainer:FindFirstChildOfClass("TextButton")
-            if ulApplyBtn then
-                if not (ctx.UltraLow and ctx.UltraLow.Active) then
-                    ulApplyBtn.BackgroundColor3 = Color3.fromRGB(110, 80, 15)
-                else
-                    ulApplyBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
-                    local lblInner = ulApplyBtn:FindFirstChildOfClass("TextLabel")
-                    if lblInner then
-                        lblInner.Text = "\226\156\133 Ultra Low Graphic AKTIF"
-                    end
-                end
-            end
-        end
-
-        CreateInfoText(ulContent, "\226\154\160 Peringatan",
-            "Fitur ini PERMANEN selama sesi. "
-            .. "Tidak bisa di-undo tanpa reconnect. "
-            .. "Semua automation (Auto Plant, Auto Sell, ESP, dll.) tetap berjalan normal."
-        )
-
-        -- ===== VISUAL SETTINGS (existing, index geser ke 3) =====
-        local visCard, visContent = CreateSectionCard("\240\159\140\136 Visual Settings", 3, Colors.Accent)
+        -- ===== VISUAL SETTINGS =====
+        local visCard, visContent = CreateSectionCard("\240\159\140\136 Visual Settings", 2, Colors.Accent)
         CreateToggle(visContent, "Full Bright", "fullBright", "Sets ambient to maximum brightness")
         CreateSlider(visContent, "Brightness", 0, 10, "brightness")
         CreateToggle(visContent, "No Fog", "noFog", "Removes environmental fog")
@@ -1328,6 +1207,20 @@ return function(ctx)
             States.noShadows = false
             Notify("Visuals", "Reset to default lighting.", Colors.TextMuted)
         end)
+        CreateActionButton(visContent, "\226\154\161 Ultra Low Graphic (Permanen / Relog untuk reset)", function()
+            if ctx.UltraLow and ctx.UltraLow.Active then
+                Notify("Ultra Low", "Mode sudah aktif. Relog untuk reset.", Colors.Warning)
+                return
+            end
+            if not ctx.UltraLow then
+                Notify("Ultra Low", "Module UltraLow tidak ditemukan.", Colors.Error)
+                return
+            end
+            Notify("Ultra Low", "Menerapkan... Jangan tutup hub.", Colors.Warning, 3)
+            task.spawn(function()
+                ctx.UltraLow.Apply()
+            end)
+        end, Colors.Warning)
     end)
 
     -- ====================== TELEPORT PAGE ======================
