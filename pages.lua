@@ -674,30 +674,29 @@ return function(ctx)
         local _, intervalLbl    = CreateStatRow(timerRow, "\240\159\147\144 Interval", "...", Colors.TextSecondary)
         local _, stockCountLbl  = CreateStatRow(timerRow, "\240\159\147\166 Tersedia Sekarang", "...", Colors.Success)
 
-        local _predictTick = 0
-        RunService.Heartbeat:Connect(function(dt)
-            if GetActivePage() ~= "Shop" then return end
-            _predictTick = _predictTick + dt
-            if _predictTick < 0.5 then return end
-            _predictTick = 0
-            local data = GetRestockData()
-            if not data then
-                nextRestockLbl.Text = "\226\154\160 StockValues tidak ditemukan"
-                intervalLbl.Text = "\226\128\148"
-                stockCountLbl.Text = "\226\128\148"
-                return
-            end
-            local sisa = math.max(0, data.nextRestock - os.time())
-            nextRestockLbl.Text = sisa > 0 and (FormatSeconds(sisa) .. "  (jam " .. FormatUnixTime(data.nextRestock) .. ")") or "\240\159\159\162 RESTOCK SEKARANG!"
-            intervalLbl.Text = FormatSeconds(data.interval)
-            local items = ReplicatedStorage:FindFirstChild("StockValues") and ReplicatedStorage.StockValues:FindFirstChild("SeedShop") and ReplicatedStorage.StockValues.SeedShop:FindFirstChild("Items")
-            local available = 0
-            if items then
-                for _, c in ipairs(items:GetChildren()) do
-                    if c:IsA("NumberValue") and c.Value > 0 then available = available + 1 end
+        task.spawn(function()
+            while GetActivePage() == "Shop" do
+                task.wait(0.5)
+                if GetActivePage() ~= "Shop" then break end
+                local data = GetRestockData()
+                if not data then
+                    nextRestockLbl.Text = "\226\154\160 StockValues tidak ditemukan"
+                    intervalLbl.Text    = "\226\128\148"
+                    stockCountLbl.Text  = "\226\128\148"
+                    continue
                 end
+                local sisa = math.max(0, data.nextRestock - os.time())
+                nextRestockLbl.Text = sisa > 0 and (FormatSeconds(sisa) .. "  (jam " .. FormatUnixTime(data.nextRestock) .. ")") or "\240\159\159\162 RESTOCK SEKARANG!"
+                intervalLbl.Text    = FormatSeconds(data.interval)
+                local items = ReplicatedStorage:FindFirstChild("StockValues") and ReplicatedStorage.StockValues:FindFirstChild("SeedShop") and ReplicatedStorage.StockValues.SeedShop:FindFirstChild("Items")
+                local available = 0
+                if items then
+                    for _, c in ipairs(items:GetChildren()) do
+                        if c:IsA("NumberValue") and c.Value > 0 then available = available + 1 end
+                    end
+                end
+                stockCountLbl.Text = available .. " seed ada stok"
             end
-            stockCountLbl.Text = available .. " seed ada stok"
         end)
 
         CreateSubHeader(predictContent, "\240\159\140\177 Prediksi Per Seed")
@@ -914,23 +913,22 @@ return function(ctx)
         local _, seedLbl = CreateStatRow(bagContent, "Seeds in Bag", "?", Colors.Success)
         local _, petCntLbl = CreateStatRow(bagContent, "Pets in Bag", "?", Colors.Frozen)
         local _, capLbl = CreateStatRow(bagContent, "Capacity", "? / " .. MAX_FRUIT_CAP, Colors.Accent)
-        local _bagTick = 0
-        RunService.Heartbeat:Connect(function(dt)
-            if GetActivePage() ~= "Sell" then return end
-            _bagTick = _bagTick + dt
-            if _bagTick < 0.5 then return end
-            _bagTick = 0
-            local fruits, seeds, pets, g = 0, 0, 0, 0
-            for _, t in ipairs(player.Backpack:GetChildren()) do
-                if t:GetAttribute("HarvestedFruit") then fruits = fruits + 1
-                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds = seeds + 1
-                elseif t:GetAttribute("Pet") then pets = pets + 1
-                else g = g + 1 end
+        task.spawn(function()
+            while GetActivePage() == "Sell" do
+                task.wait(0.5)
+                if GetActivePage() ~= "Sell" then break end
+                local fruits, seeds, pets, g = 0, 0, 0, 0
+                for _, t in ipairs(player.Backpack:GetChildren()) do
+                    if t:GetAttribute("HarvestedFruit") then fruits = fruits + 1
+                    elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds = seeds + 1
+                    elseif t:GetAttribute("Pet") then pets = pets + 1
+                    else g = g + 1 end
+                end
+                fruitLbl.Text  = tostring(fruits)
+                seedLbl.Text   = tostring(seeds)
+                petCntLbl.Text = tostring(pets)
+                capLbl.Text    = fruits .. " / " .. tostring(player:GetAttribute("MaxFruitCapacity") or MAX_FRUIT_CAP)
             end
-            fruitLbl.Text = tostring(fruits)
-            seedLbl.Text = tostring(seeds)
-            petCntLbl.Text = tostring(pets)
-            capLbl.Text = fruits .. " / " .. tostring(player:GetAttribute("MaxFruitCapacity") or MAX_FRUIT_CAP)
         end)
         CreateActionButton(bagContent, "\240\159\147\139 List Semua Buah di Bag", function()
             local items = {}
@@ -1146,16 +1144,20 @@ return function(ctx)
         local _, jpLbl = CreateStatRow(statsContent, "JumpPower", tostring(ctx.humanoid and ctx.humanoid.JumpPower or "?"), Colors.Accent)
         CreateStatRow(statsContent, "Plot ID", MY_PLOT_ID, Colors.Warning)
         local _, bpLbl = CreateStatRow(statsContent, "Backpack Items", #player.Backpack:GetChildren(), Colors.TextSecondary)
-        local _playerTick = 0
-        RunService.Heartbeat:Connect(function(dt)
-            if GetActivePage() ~= "Player" or not ctx.humanoid then return end
-            hpLbl.Text = math.floor(ctx.humanoid.Health) .. " / " .. ctx.humanoid.MaxHealth
-            wsLbl.Text = string.format("%.1f", ctx.humanoid.WalkSpeed)
-            jpLbl.Text = string.format("%.1f", ctx.humanoid.JumpPower)
-            _playerTick = _playerTick + dt
-            if _playerTick < 0.5 then return end
-            _playerTick = 0
-            bpLbl.Text = tostring(#player.Backpack:GetChildren())
+        task.spawn(function()
+            local _playerTick = 0
+            while GetActivePage() == "Player" do
+                local dt = task.wait()
+                if not ctx.humanoid then continue end
+                hpLbl.Text = math.floor(ctx.humanoid.Health) .. " / " .. ctx.humanoid.MaxHealth
+                wsLbl.Text = string.format("%.1f", ctx.humanoid.WalkSpeed)
+                jpLbl.Text = string.format("%.1f", ctx.humanoid.JumpPower)
+                _playerTick = _playerTick + dt
+                if _playerTick >= 0.5 then
+                    _playerTick = 0
+                    bpLbl.Text = tostring(#player.Backpack:GetChildren())
+                end
+            end
         end)
 
         local moveCard, moveContent = CreateSectionCard("\240\159\143\131 Movement", 2, Colors.Electric)
@@ -1234,48 +1236,46 @@ return function(ctx)
             end
         end, Colors.Electric)
 
-        -- Update debug stats tiap detik saat di halaman Player
-        local _afkDebugTick = 0
-        RunService.Heartbeat:Connect(function(dt)
-            if GetActivePage() ~= "Player" then return end
-            _afkDebugTick = _afkDebugTick + dt
-            if _afkDebugTick < 1 then return end
-            _afkDebugTick = 0
+        -- Update debug stats tiap 1 detik, berhenti otomatis saat pindah halaman
+        task.spawn(function()
+            while GetActivePage() == "Player" do
+                task.wait(1)
+                if GetActivePage() ~= "Player" then break end
 
-            local stats = Logic._antiAfkStats
-            if not stats then
-                statusLbl.Text   = "Logic belum siap"
-                statusLbl.TextColor3 = Colors.Error
-                return
-            end
+                local stats = Logic._antiAfkStats
+                if not stats then
+                    statusLbl.Text        = "Logic belum siap"
+                    statusLbl.TextColor3  = Colors.Error
+                    continue
+                end
 
-            if States.antiAfk then
-                statusLbl.Text        = "\226\151\162 AKTIF"
-                statusLbl.TextColor3  = Colors.Success
-            else
-                statusLbl.Text        = "\226\151\178 NON-AKTIF"
-                statusLbl.TextColor3  = Colors.TextMuted
-            end
+                if States.antiAfk then
+                    statusLbl.Text        = "\226\151\162 AKTIF"
+                    statusLbl.TextColor3  = Colors.Success
+                else
+                    statusLbl.Text        = "\226\151\178 NON-AKTIF"
+                    statusLbl.TextColor3  = Colors.TextMuted
+                end
 
-            methodLbl.Text = stats.lastMethod == "none" and "belum trigger" or stats.lastMethod
-            local isGoodMethod = stats.lastMethod:find("Virtual") or stats.lastMethod:find("mousemoverel")
-            methodLbl.TextColor3 = (stats.lastMethod == "failed (semua metode gagal)") and Colors.Error
-                or (stats.lastMethod == "none" or stats.lastMethod == "belum trigger") and Colors.TextMuted
-                or Colors.Success
+                methodLbl.Text = stats.lastMethod == "none" and "belum trigger" or stats.lastMethod
+                methodLbl.TextColor3 = (stats.lastMethod == "failed (semua metode gagal)") and Colors.Error
+                    or (stats.lastMethod == "none" or stats.lastMethod == "belum trigger") and Colors.TextMuted
+                    or Colors.Success
 
-            countLbl.Text = tostring(stats.triggerCount)
+                countLbl.Text = tostring(stats.triggerCount)
 
-            local nxt = stats.nextTriggerIn
-            nextLbl.Text = tostring(nxt) .. " detik"
-            nextLbl.TextColor3 = nxt <= 10 and Colors.Warning or Colors.Accent
+                local nxt = stats.nextTriggerIn
+                nextLbl.Text = tostring(nxt) .. " detik"
+                nextLbl.TextColor3 = nxt <= 10 and Colors.Warning or Colors.Accent
 
-            if stats.lastTriggerTime > 0 then
-                local ago = math.floor(os.clock() - stats.lastTriggerTime)
-                lastTimeLbl.Text       = tostring(ago) .. " detik lalu"
-                lastTimeLbl.TextColor3 = ago > 70 and Colors.Warning or Colors.Success
-            else
-                lastTimeLbl.Text      = "belum pernah"
-                lastTimeLbl.TextColor3 = Colors.TextMuted
+                if stats.lastTriggerTime > 0 then
+                    local ago = math.floor(os.clock() - stats.lastTriggerTime)
+                    lastTimeLbl.Text       = tostring(ago) .. " detik lalu"
+                    lastTimeLbl.TextColor3 = ago > 70 and Colors.Warning or Colors.Success
+                else
+                    lastTimeLbl.Text       = "belum pernah"
+                    lastTimeLbl.TextColor3 = Colors.TextMuted
+                end
             end
         end)
 
@@ -1419,10 +1419,14 @@ return function(ctx)
             local _, v = CreateStatRow(worthContent, "Currently Holding", currentTool and currentTool.Name or "Nothing", Colors.TextPrimary)
             toolNameLbl = v
         end
-        RunService.Heartbeat:Connect(function()
-            if GetActivePage() == "Utility" and toolNameLbl and toolNameLbl.Parent then
-                local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
-                toolNameLbl.Text = ct and ct.Name or "Nothing"
+        task.spawn(function()
+            while GetActivePage() == "Utility" do
+                task.wait(0.25)
+                if GetActivePage() ~= "Utility" then break end
+                if toolNameLbl and toolNameLbl.Parent then
+                    local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+                    toolNameLbl.Text = ct and ct.Name or "Nothing"
+                end
             end
         end)
         CreateActionButton(worthContent, "Inspect Held Item", function()
@@ -1559,16 +1563,15 @@ return function(ctx)
                 table.insert(playerPlotLabels, {p = p, lbl = pPlotLbl})
             end
         end
-        local _serverTick = 0
-        RunService.Heartbeat:Connect(function(dt)
-            if GetActivePage() ~= "Server" then return end
-            _serverTick = _serverTick + dt
-            if _serverTick < 1 then return end
-            _serverTick = 0
-            pcLbl.Text = tostring(#game:GetService("Players"):GetPlayers())
-            for _, entry in ipairs(playerPlotLabels) do
-                if entry.lbl and entry.lbl.Parent then
-                    entry.lbl.Text = "Plot " .. tostring(entry.p:GetAttribute("PlotId") or "?")
+        task.spawn(function()
+            while GetActivePage() == "Server" do
+                task.wait(1)
+                if GetActivePage() ~= "Server" then break end
+                pcLbl.Text = tostring(#game:GetService("Players"):GetPlayers())
+                for _, entry in ipairs(playerPlotLabels) do
+                    if entry.lbl and entry.lbl.Parent then
+                        entry.lbl.Text = "Plot " .. tostring(entry.p:GetAttribute("PlotId") or "?")
+                    end
                 end
             end
         end)
