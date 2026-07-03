@@ -123,20 +123,42 @@ return function(ctx)
         ZIndex = 51,
     })
     CreateCorner(ShieldOuter, 4)
-    local ShieldStroke = CreateStroke(ShieldOuter, Color3.fromRGB(90, 90, 100), 2)
+    local ShieldStroke = CreateStroke(ShieldOuter, Colors.TextPrimary, 2)
     ShieldStroke.Transparency = 1
 
     local mParts = {}
+    -- Huruf M bergaya heraldik (referensi logo Miracle).
+    -- Semua koordinat relatif terhadap ShieldOuter (44×44px).
+    -- Warna putih tegas (Colors.TextPrimary) sesuai permintaan.
     local mDefs = {
-        {Size=UDim2.new(0,3,0,20), Position=UDim2.new(0,10,0.5,-10), Rotation=0},
-        {Size=UDim2.new(0,3,0,20), Position=UDim2.new(1,-13,0.5,-10), Rotation=0},
-        {Size=UDim2.new(0,3,0,12), Position=UDim2.new(0.5,-1,0.5,-10), Rotation=-30},
-        {Size=UDim2.new(0,3,0,12), Position=UDim2.new(0.5,-1,0.5,-10), Rotation=30},
-        {Size=UDim2.new(0,3,0,10), Position=UDim2.new(0.5,-1,0.5,0), Rotation=0},
+        -- === Batang vertikal kiri & kanan ===
+        {Size=UDim2.new(0,4,0,26), Position=UDim2.new(0, 7, 0,10), Rotation=0},   -- kiri
+        {Size=UDim2.new(0,4,0,26), Position=UDim2.new(0,33, 0,10), Rotation=0},   -- kanan
+
+        -- === Serif horizontal atas ===
+        {Size=UDim2.new(0,12,0,3), Position=UDim2.new(0, 4, 0, 9), Rotation=0},   -- atas kiri
+        {Size=UDim2.new(0,12,0,3), Position=UDim2.new(0,28, 0, 9), Rotation=0},   -- atas kanan
+
+        -- === Serif horizontal bawah ===
+        {Size=UDim2.new(0,12,0,3), Position=UDim2.new(0, 4, 0,32), Rotation=0},   -- bawah kiri
+        {Size=UDim2.new(0,12,0,3), Position=UDim2.new(0,28, 0,32), Rotation=0},   -- bawah kanan
+
+        -- === Diagonal kiri (batang kiri → lembah V tengah) ===
+        {Size=UDim2.new(0,3,0,18), Position=UDim2.new(0,14, 0,11), Rotation=27},
+
+        -- === Diagonal kanan (batang kanan → lembah V tengah) ===
+        {Size=UDim2.new(0,3,0,18), Position=UDim2.new(0,27, 0,11), Rotation=-27},
+
+        -- === Ornamen vertikal kecil di atas kiri & kanan (serif cap) ===
+        {Size=UDim2.new(0,3,0, 6), Position=UDim2.new(0, 8, 0, 4), Rotation=0},
+        {Size=UDim2.new(0,3,0, 6), Position=UDim2.new(0,33, 0, 4), Rotation=0},
+
+        -- === Diamond / ornamen lembah V di tengah bawah diagonal ===
+        {Size=UDim2.new(0,5,0,5), Position=UDim2.new(0,20, 0,27), Rotation=45},
     }
-    -- Warna logo: gelap default, sedikit lebih terang saat hover
-    local LogoColorDefault = Color3.fromRGB(90, 90, 100)
-    local LogoColorHover   = Color3.fromRGB(160, 160, 175)
+    -- Warna logo: putih tegas default, sedikit lebih terang/soft saat hover
+    local LogoColorDefault = Colors.TextPrimary
+    local LogoColorHover   = Color3.fromRGB(220, 220, 225)
 
     for _, def in ipairs(mDefs) do
         local part = Create("Frame", {
@@ -170,12 +192,12 @@ return function(ctx)
 
     LogoClick.MouseEnter:Connect(function()
         for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColorHover}, 0.2) end
-        Tween(ShieldStroke, {Color = LogoColorHover}, 0.2)
+        Tween(ShieldStroke, {Color = LogoColorHover, Transparency = 0.3}, 0.2)
         Tween(MinimizedLogo, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
     end)
     LogoClick.MouseLeave:Connect(function()
         for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColorDefault}, 0.2) end
-        Tween(ShieldStroke, {Color = LogoColorDefault}, 0.2)
+        Tween(ShieldStroke, {Color = LogoColorDefault, Transparency = 1}, 0.2)
         Tween(MinimizedLogo, {BackgroundColor3 = Colors.Background}, 0.2)
     end)
 
