@@ -123,15 +123,15 @@ return function(ctx)
         ZIndex = 51,
     })
     CreateCorner(ShieldOuter, 4)
-    local ShieldStroke = CreateStroke(ShieldOuter, Color3.fromRGB(160, 148, 132), 1.5)
+    local ShieldStroke = CreateStroke(ShieldOuter, Color3.fromRGB(255, 255, 255), 1.5)
     ShieldStroke.Transparency = 0.4  -- selalu terlihat, warna senada M
 
     local mParts = {}
     -- M heraldik lebih kecil & proporsional dalam ShieldOuter 44×44px.
     -- Warna: krem hangat (bukan putih keras) agar clean dan classy.
     -- M menempati ~26×28px di tengah (offset dari tepi ~9px kiri/kanan, 8px atas/bawah).
-    local LogoColor      = Color3.fromRGB(210, 200, 185)   -- krem warm, senada border
-    local LogoColorHover = Color3.fromRGB(235, 228, 215)   -- sedikit lebih terang saat hover
+    local LogoColor      = Color3.fromRGB(255, 255, 255)   -- putih tegas
+    local LogoColorHover = Color3.fromRGB(180, 180, 180)   -- sedikit dim saat hover
     local mDefs = {
         -- Batang vertikal kiri (x=9, y=8, h=28, w=4)
         {Size=UDim2.new(0,4,0,28), Position=UDim2.new(0, 9, 0, 8), Rotation=0},
@@ -188,12 +188,12 @@ return function(ctx)
 
     LogoClick.MouseEnter:Connect(function()
         for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColorHover}, 0.2) end
-        Tween(ShieldStroke, {Transparency = 0, Color = Color3.fromRGB(185, 172, 155)}, 0.2)
+        Tween(ShieldStroke, {Transparency = 0.6, Color = Color3.fromRGB(255, 255, 255)}, 0.2)
         Tween(MinimizedLogo, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
     end)
     LogoClick.MouseLeave:Connect(function()
         for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColor}, 0.2) end
-        Tween(ShieldStroke, {Transparency = 0.4, Color = Color3.fromRGB(160, 148, 132)}, 0.2)
+        Tween(ShieldStroke, {Transparency = 0.4, Color = Color3.fromRGB(255, 255, 255)}, 0.2)
         Tween(MinimizedLogo, {BackgroundColor3 = Colors.Background}, 0.2)
     end)
 
