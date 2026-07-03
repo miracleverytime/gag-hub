@@ -123,8 +123,8 @@ return function(ctx)
         ZIndex = 51,
     })
     CreateCorner(ShieldOuter, 4)
-    local ShieldStroke = CreateStroke(ShieldOuter, Colors.TextPrimary, 2)
-    ShieldStroke.Transparency = 1
+    local ShieldStroke = CreateStroke(ShieldOuter, Colors.TextPrimary, 1.5)
+    ShieldStroke.Transparency = 0.6  -- selalu terlihat dari awal, subtle
 
     local mParts = {}
     -- Huruf M bergaya heraldik (referensi logo Miracle).
@@ -144,10 +144,10 @@ return function(ctx)
         {Size=UDim2.new(0,12,0,3), Position=UDim2.new(0,28, 0,32), Rotation=0},   -- bawah kanan
 
         -- === Diagonal kiri (batang kiri → lembah V tengah) ===
-        {Size=UDim2.new(0,3,0,18), Position=UDim2.new(0,14, 0,11), Rotation=27},
+        {Size=UDim2.new(0,3,0,18), Position=UDim2.new(0,14, 0,11), Rotation=-27},
 
         -- === Diagonal kanan (batang kanan → lembah V tengah) ===
-        {Size=UDim2.new(0,3,0,18), Position=UDim2.new(0,27, 0,11), Rotation=-27},
+        {Size=UDim2.new(0,3,0,18), Position=UDim2.new(0,27, 0,11), Rotation=27},
 
         -- === Ornamen vertikal kecil di atas kiri & kanan (serif cap) ===
         {Size=UDim2.new(0,3,0, 6), Position=UDim2.new(0, 8, 0, 4), Rotation=0},
@@ -184,7 +184,9 @@ return function(ctx)
     })
 
     local function AnimateLogoParts(alpha)
-        Tween(ShieldStroke, {Transparency = alpha}, 0.35)
+        -- alpha=0 → tampil, alpha=1 → hilang
+        -- ShieldStroke: selalu ada (0.6), hilang saat minimize selesai (pakai alpha langsung)
+        Tween(ShieldStroke, {Transparency = alpha == 0 and 0.6 or 1}, 0.35)
         for _, p in ipairs(mParts) do
             Tween(p, {BackgroundTransparency = alpha}, 0.35)
         end
@@ -192,12 +194,14 @@ return function(ctx)
 
     LogoClick.MouseEnter:Connect(function()
         for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColorHover}, 0.2) end
-        Tween(ShieldStroke, {Color = LogoColorHover, Transparency = 0.3}, 0.2)
+        -- Hover: stroke makin tegas
+        Tween(ShieldStroke, {Transparency = 0, Color = LogoColorHover}, 0.2)
         Tween(MinimizedLogo, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
     end)
     LogoClick.MouseLeave:Connect(function()
         for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColorDefault}, 0.2) end
-        Tween(ShieldStroke, {Color = LogoColorDefault, Transparency = 1}, 0.2)
+        -- Leave: kembali ke subtle default
+        Tween(ShieldStroke, {Transparency = 0.6, Color = LogoColorDefault}, 0.2)
         Tween(MinimizedLogo, {BackgroundColor3 = Colors.Background}, 0.2)
     end)
 
