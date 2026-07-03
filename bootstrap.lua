@@ -148,12 +148,12 @@ return function(ctx)
         {Size=UDim2.new(0,10,0,3), Position=UDim2.new(0,27, 0,33), Rotation=0},
 
         -- Diagonal kiri turun ke lembah V (pivot kiri atas, condong kanan-bawah)
-        {Size=UDim2.new(0,3,0,20), Position=UDim2.new(0,12, 0, 9), Rotation=-30},
+        {Size=UDim2.new(0,3,0,20), Position=UDim2.new(0,12, 0, 6), Rotation=-30},
         -- Diagonal kanan turun ke lembah V (pivot kanan atas, condong kiri-bawah)
-        {Size=UDim2.new(0,3,0,20), Position=UDim2.new(0,29, 0, 9), Rotation=30},
+        {Size=UDim2.new(0,3,0,20), Position=UDim2.new(0,29, 0, 6), Rotation=30},
 
         -- Diamond kecil di lembah V tengah
-        {Size=UDim2.new(0,5,0,5), Position=UDim2.new(0,20, 0,26), Rotation=45},
+        {Size=UDim2.new(0,5,0,5), Position=UDim2.new(0,20, 0,23), Rotation=45},
     }
 
     for _, def in ipairs(mDefs) do
