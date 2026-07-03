@@ -112,7 +112,6 @@ return function(ctx)
         ZIndex = 50,
     })
     CreateCorner(MinimizedLogo, 12)
-    CreateStroke(MinimizedLogo, Colors.BorderLight, 2)
 
     local ShieldOuter = Create("Frame", {
         Parent = MinimizedLogo,
@@ -124,7 +123,7 @@ return function(ctx)
         ZIndex = 51,
     })
     CreateCorner(ShieldOuter, 4)
-    local ShieldStroke = CreateStroke(ShieldOuter, Colors.Accent, 2)
+    local ShieldStroke = CreateStroke(ShieldOuter, Color3.fromRGB(90, 90, 100), 2)
     ShieldStroke.Transparency = 1
 
     local mParts = {}
@@ -135,12 +134,16 @@ return function(ctx)
         {Size=UDim2.new(0,3,0,12), Position=UDim2.new(0.5,-1,0.5,-10), Rotation=30},
         {Size=UDim2.new(0,3,0,10), Position=UDim2.new(0.5,-1,0.5,0), Rotation=0},
     }
+    -- Warna logo: gelap default, sedikit lebih terang saat hover
+    local LogoColorDefault = Color3.fromRGB(90, 90, 100)
+    local LogoColorHover   = Color3.fromRGB(160, 160, 175)
+
     for _, def in ipairs(mDefs) do
         local part = Create("Frame", {
             Parent = ShieldOuter,
             Size = def.Size,
             Position = def.Position,
-            BackgroundColor3 = Colors.Accent,
+            BackgroundColor3 = LogoColorDefault,
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Rotation = def.Rotation,
@@ -149,17 +152,6 @@ return function(ctx)
         CreateCorner(part, 2)
         table.insert(mParts, part)
     end
-
-    local LogoGlow = Create("Frame", {
-        Parent = MinimizedLogo,
-        Size = UDim2.new(1,20,1,20),
-        Position = UDim2.new(0,-10,0,-10),
-        BackgroundColor3 = Colors.Accent,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 49,
-    })
-    CreateCorner(LogoGlow, 20)
 
     local LogoClick = Create("TextButton", {
         Parent = MinimizedLogo,
@@ -174,16 +166,17 @@ return function(ctx)
         for _, p in ipairs(mParts) do
             Tween(p, {BackgroundTransparency = alpha}, 0.35)
         end
-        Tween(LogoGlow, {BackgroundTransparency = alpha + 0.65}, 0.35)
     end
 
     LogoClick.MouseEnter:Connect(function()
-        for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = Colors.TextPrimary}, 0.2) end
-        Tween(ShieldStroke, {Color = Colors.TextPrimary}, 0.2)
+        for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColorHover}, 0.2) end
+        Tween(ShieldStroke, {Color = LogoColorHover}, 0.2)
+        Tween(MinimizedLogo, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
     end)
     LogoClick.MouseLeave:Connect(function()
-        for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = Colors.Accent}, 0.2) end
-        Tween(ShieldStroke, {Color = Colors.Accent}, 0.2)
+        for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColorDefault}, 0.2) end
+        Tween(ShieldStroke, {Color = LogoColorDefault}, 0.2)
+        Tween(MinimizedLogo, {BackgroundColor3 = Colors.Background}, 0.2)
     end)
 
     local logoDragging, logoDragStart, logoStartPos, logoHasMoved = false, nil, nil, false
