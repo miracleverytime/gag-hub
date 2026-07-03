@@ -1172,25 +1172,6 @@ return function(ctx)
         CreateInfoText(utilContent, "Controls", "[F] Toggle Fly | [W/A/S/D] Move | [Space] Up | [Ctrl] Down")
         CreateToggle(utilContent, "Fly", "fly", "Hold WASD to fly, Space=up, Ctrl=down")
         CreateSlider(utilContent, "Fly Speed", 1, 300, "flySpeed")
-
-        -- ── Utilitas Karakter ──────────────────────────────────────────────
-        local charCard, charContent = CreateSectionCard("\240\159\x91\xA4 Karakter", 5, Colors.TextSecondary)
-        CreateActionButton(charContent, "Reset Character", function()
-            if ctx.humanoid then ctx.humanoid.Health = 0 end
-            Notify("Player", "Resetting character...", Colors.Warning)
-        end)
-        CreateActionButton(charContent, "Respawn To Plot", function()
-            local plot = GetMyPlot()
-            if plot then
-                local sp = plot:FindFirstChild("SpawnPoint")
-                if sp and player.Character then
-                    player.Character:PivotTo(sp.CFrame + Vector3.new(0, 5, 0))
-                    Notify("Player", "Respawned to Plot " .. MY_PLOT_ID, Colors.Success)
-                    return
-                end
-            end
-            Notify("Player", "SpawnPoint not found.", Colors.Error)
-        end, Colors.Success)
     end)
 
     -- ====================== VISUALS PAGE ======================
@@ -1284,23 +1265,6 @@ return function(ctx)
                 end
             end, Colors.Electric)
         end
-        local savedCard, savedContent = CreateSectionCard("\240\159\146\190 Saved Positions", 2, Colors.TextSecondary)
-        local savedPos = nil
-        CreateActionButton(savedContent, "Save Current Position", function()
-            if player.Character then
-                savedPos = player.Character:GetPivot().Position
-                Notify("Teleport", "Saved: " .. string.format("%.1f, %.1f, %.1f", savedPos.X, savedPos.Y, savedPos.Z), Colors.Success)
-            end
-        end)
-        CreateActionButton(savedContent, "Load Saved Position", function()
-            if savedPos and player.Character then
-                player.Character:PivotTo(CFrame.new(savedPos + Vector3.new(0, 3, 0)))
-                Notify("Teleport", "Loaded saved position.", Colors.Accent)
-            else
-                Notify("Teleport", "No position saved yet.", Colors.Error)
-            end
-        end)
-        CreateSlider(savedContent, "Teleport Delay (s)", 0, 10, "tpDelay")
     end)
 
     -- ====================== UTILITY PAGE ======================
@@ -1353,26 +1317,8 @@ return function(ctx)
             Notify("Bag Contents", "Fruits:" .. f .. " | Seeds:" .. s .. " | Pets:" .. p2 .. " | Other:" .. g, Colors.Accent)
         end)
 
-        local toolCard, toolContent = CreateSectionCard("\240\159\148\167 Quick Tools", 2)
-        CreateActionButton(toolContent, "Copy My Position", function()
-            if player.Character then
-                local pos = player.Character:GetPivot().Position
-                setclipboard(string.format("%.2f, %.2f, %.2f", pos.X, pos.Y, pos.Z))
-                Notify("Copied", string.format("%.1f, %.1f, %.1f", pos.X, pos.Y, pos.Z), Colors.Success)
-            end
-        end)
-        CreateActionButton(toolContent, "Copy Job ID", function()
-            setclipboard(game.JobId)
-            Notify("Copied", "Job ID: " .. game.JobId:sub(1, 20) .. "...", Colors.Accent)
-        end)
-        CreateActionButton(toolContent, "Show All Player Attributes", function()
-            local attrList = {}
-            for k, v in pairs(player:GetAttributes()) do table.insert(attrList, k .. "=" .. tostring(v)) end
-            table.sort(attrList)
-            Notify("Player Attrs", table.concat(attrList, " | "):sub(1, 120), Colors.Accent, 8)
-        end)
 
-        local giftCard, giftContent = CreateSectionCard("\240\159\142\129 Gifts & Mailbox", 3, Colors.Rainbow)
+        local giftCard, giftContent = CreateSectionCard("\240\159\142\129 Gifts & Mailbox", 2, Colors.Rainbow)
         CreateToggle(giftContent, "Auto Accept Gifts", "autoAcceptGifts", "Triggers MailboxPrompt every 10 seconds")
         CreateActionButton(giftContent, "Check Mailbox Now", function()
             local plot = GetMyPlot()
@@ -1439,8 +1385,6 @@ return function(ctx)
         CreateStatRow(infoContent, "Prime Status", (player:GetAttribute("PrimeEnabled") and "\226\156\133 Enabled" or "\226\157\140 Disabled"), Colors.Warning)
         CreateStatRow(infoContent, "Packet Remote", ctx.PacketRemote and "\226\156\133 Found" or "\226\154\160 Not Found", ctx.PacketRemote and Colors.Success or Colors.Error)
 
-        local keybindCard, keybindContent = CreateSectionCard("\226\140\168 Keybinds", 2, Colors.TextSecondary)
-        CreateInfoText(keybindContent, nil, "[Insert] Toggle GUI | [F] Toggle Fly | [W/A/S/D] + Fly Move | [Space] Ascend | [Ctrl] Descend")
     end)
 
     -- ====================== SERVER PAGE ======================
@@ -1489,77 +1433,6 @@ return function(ctx)
             end
         end)
 
-        local scanCard, scanContent = CreateSectionCard("\240\159\169\160 Mythic Pet Server Scanner", 3, Colors.Rainbow)
-        CreateInfoText(scanContent, "Server hop", "Cek server saat ini untuk wild pet target, lalu hop ke public server berikutnya sampai ketemu.")
-        CreateDropdown(scanContent, "Target Rarity", {"Mythic", "Super", "Legendary", "Epic", "Rare", "Uncommon", "Common"}, "serverScannerRarity")
-        CreateSlider(scanContent, "Hop Delay", 5, 60, "serverScannerDelay", "s")
-        CreateToggle(scanContent, "Auto Hop Until Found", "autoServerScanner", "Terus hop server publik sampai pet target ditemukan", function(newVal, revert)
-            if not newVal then return end
-            local targetRarity = States.serverScannerRarity or "Mythic"
-            Notify("Server Scanner", "Mulai cari server dengan pet " .. targetRarity .. ".", Colors.Warning, 4)
-            task.spawn(function()
-                local ok, result = false, nil
-                if Logic.HopUntilWildPetRarityFound then
-                    ok, result = Logic.HopUntilWildPetRarityFound(targetRarity)
-                end
-                if ok and type(result) == "table" and result.found then
-                    Notify("Server Scanner", targetRarity .. " pet sudah ada di server ini.", Colors.Success, 4)
-                elseif ok then
-                    Notify("Server Scanner", "Hopping ke server publik berikutnya...", Colors.Warning, 3)
-                else
-                    if revert then revert() end
-                    Notify("Server Scanner", "Gagal memulai server hunt.", Colors.Error)
-                end
-            end)
-        end)
-        CreateActionButton(scanContent, "Run Hunt Once", function()
-            local targetRarity = States.serverScannerRarity or "Mythic"
-            local ok, result = false, nil
-            if Logic.HopUntilWildPetRarityFound then
-                ok, result = Logic.HopUntilWildPetRarityFound(targetRarity)
-            end
-            if ok and type(result) == "table" and result.found then
-                Notify("Server Scanner", targetRarity .. " pet sudah ada di server ini.", Colors.Success, 4)
-            elseif ok then
-                Notify("Server Scanner", "Teleport ke server publik berikutnya dimulai.", Colors.Warning, 3)
-            else
-                Notify("Server Scanner", "Gagal menjalankan hunt.", Colors.Error)
-            end
-        end, Colors.Rainbow)
-        CreateActionButton(scanContent, "Scan Current Server", function()
-            local targetRarity = States.serverScannerRarity or "Mythic"
-            local pets = Logic.ScanWildPets and Logic.ScanWildPets(targetRarity) or {}
-            if #pets == 0 then
-                Notify("Server Scanner", "Tidak ada wild pet " .. targetRarity .. " di server ini.", Colors.TextMuted, 4)
-                return
-            end
-
-            local preview = {}
-            for i = 1, math.min(#pets, 5) do
-                local entry = pets[i]
-                table.insert(preview, entry.name .. " (" .. entry.rarity .. ")")
-            end
-            NotifyStok(preview, Colors.Success, 8, "Target ditemukan di server ini: " .. targetRarity)
-        end, Colors.Success)
-        CreateActionButton(scanContent, "Hop To Next Public Server", function()
-            local targetRarity = States.serverScannerRarity or "Mythic"
-            local server = Logic.FindNextPublicServer and Logic.FindNextPublicServer(game.JobId, 8)
-            if not server then
-                Notify("Server Scanner", "Tidak ada public server kandidat yang tersedia.", Colors.Error)
-                return
-            end
-
-            local jobId = server.id or server.jobId
-            if not jobId then
-                Notify("Server Scanner", "Job ID server tidak valid.", Colors.Error)
-                return
-            end
-
-            local ok = Logic.HopToServer and Logic.HopToServer(jobId, targetRarity)
-            if not ok then
-                Notify("Server Scanner", "Gagal teleport ke server target.", Colors.Error)
-            end
-        end, Colors.Rainbow)
     end)
 
     -- ====================== SETTINGS PAGE ======================
@@ -1597,9 +1470,6 @@ return function(ctx)
             States.noShadows = false
             States.showFruitWeight = false
             States.showPlantAge = false
-            States.autoServerScanner = false
-            States.serverScannerRarity = "Mythic"
-            States.serverScannerDelay = 8
             Logic.ClearESP()
             Logic.ClearSfxMuteConn()
             pcall(function()
@@ -1611,29 +1481,6 @@ return function(ctx)
             Notify("Settings", "All automation states reset to OFF.", Colors.Warning)
         end, Colors.Error)
 
-        local debugCard, debugContent = CreateSectionCard("\240\159\155\160 Debug", 2, Colors.TextMuted)
-        CreateActionButton(debugContent, "Test RemoteEvent Connection", function()
-            if ctx.PacketRemote then
-                Notify("Debug", "\226\156\133 PacketRemote found: " .. ctx.PacketRemote:GetFullName(), Colors.Success, 6)
-            else
-                local sm = ReplicatedStorage:FindFirstChild("SharedModules")
-                local pk = sm and sm:FindFirstChild("Packet")
-                local re = pk and pk:FindFirstChild("RemoteEvent")
-                ctx.PacketRemote = re
-                Notify("Debug", re and "\226\156\133 Found on retry!" or "\226\157\140 PacketRemote NOT found.", re and Colors.Success or Colors.Error, 6)
-            end
-        end)
-        CreateActionButton(debugContent, "Print Gardens Tree", function()
-            local gardens = game:GetService("Workspace"):FindFirstChild("Gardens")
-            if gardens then
-                for _, plot in ipairs(gardens:GetChildren()) do
-                    local plants = plot:FindFirstChild("Plants")
-                    local cnt = plants and #plants:GetChildren() or 0
-                    print("[Miracle Hub] " .. plot.Name .. ": " .. cnt .. " plants")
-                end
-            end
-            Notify("Debug", "Gardens tree printed to console.", Colors.TextMuted)
-        end)
     end)
 
     ctx.__pagesLoaded = true

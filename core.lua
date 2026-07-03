@@ -280,17 +280,13 @@ return function(ctx)
         showPlantAge = false,
         showFruitWeight = false,
         -- Teleport
-        tpDelay = 0,
-        -- Utility
+            -- Utility
         autoAcceptGifts = false,
         autoBidAccept = false,
         showRestockTimer = false,
         -- Server
         autoRejoin = false,
         rejoinCondition = "Server Full",
-        autoServerScanner = false,
-        serverScannerRarity = "Mythic",
-        serverScannerDelay = 8,
         -- Settings
         autoSaveConfig = true,
         minimizeToTray = false,
