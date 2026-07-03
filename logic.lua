@@ -2415,7 +2415,14 @@ return function(ctx)
             lighting.GlobalShadows = defaults.GlobalShadows
         end
         if States.lockWalkSpeed and humanoid then humanoid.WalkSpeed = States.walkSpeed end
-        if States.lockJumpPower and humanoid then humanoid.JumpPower = States.jumpPower end
+        if States.lockJumpPower and humanoid then
+            if humanoid.UseJumpPower then
+                humanoid.JumpPower = States.jumpPower
+            else
+                -- Roblox baru pakai JumpHeight; konversi dari JumpPower: h = v²/2g
+                humanoid.JumpHeight = (States.jumpPower * States.jumpPower) / (2 * 196.2)
+            end
+        end
     end)
 
     -- ====================== FLY ======================
