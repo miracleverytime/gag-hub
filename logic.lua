@@ -122,7 +122,9 @@ return function(ctx)
                 local fruit = harvestPart and harvestPart.Parent
                 if fruit and fruit:IsA("Model") then
                     local mut = fruit:GetAttribute("Mutation") or ""
-                    if not (mutFilter and mutFilter ~= "None" and mut == mutFilter) then
+                    local skipMuts = (type(mutFilter) == "table") and mutFilter or {}
+                    local shouldSkip = #skipMuts > 0 and mut ~= "" and mut ~= "None" and table.find(skipMuts, mut)
+                    if not shouldSkip then
                         local plantId = fruit:GetAttribute("PlantId")
                         local fruitId = fruit:GetAttribute("FruitId")
                         local fired   = false

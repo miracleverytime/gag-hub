@@ -145,7 +145,7 @@ return function(ctx)
         ["Teleporter Pad Crate"]= 20000000,
     }
 
-    Data.MUTATIONS = {"None", "Gold", "Electric", "Rainbow", "Frozen", "Bloodlit", "Starstruck", "Aurora"}
+    Data.MUTATIONS = {"Gold", "Electric", "Rainbow", "Frozen", "Bloodlit", "Starstruck", "Aurora"}
     Data.RARITIES  = {"Common", "Uncommon", "Rare", "Epic", "Legendary", "Mythical"}
     Data.PETS      = {"Frog", "Bunny", "Robin", "Owl", "Cat", "Dog"}
     Data.PET_SIZES = {"Normal", "Big", "Huge", "Giant"}
@@ -206,7 +206,7 @@ return function(ctx)
         autoSprinkler = false,
         wateringCanTargets = {},    -- TABLE: watering can yang dipilih (multi-select)
         sprinklerTargets = {},      -- TABLE: sprinkler yang dipilih (multi-select)
-        harvestFilterMutation = "None",
+        harvestFilterMutation = {},      -- TABLE: mutasi yang di-skip saat harvest (multi-select)
         plantSeedFilter = "All Seeds",
         plantRarityFilter = "All",
         perFruitDelay = 0.05,

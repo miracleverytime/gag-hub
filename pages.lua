@@ -235,7 +235,7 @@ return function(ctx)
         CreateSlider(harvestContent, "Per-Fruit Delay (s)", 0, 2, "perFruitDelay")
         CreateSlider(harvestContent, "Loop Delay (s)", 0, 30, "harvestLoopDelay")
         CreateSubHeader(harvestContent, "Mutation Filter")
-        CreateDropdown(harvestContent, "Skip This Mutation", {"None", table.unpack(MUTATIONS)}, "harvestFilterMutation")
+        CreateMultiSelect(harvestContent, "⏭️Skip Mutation", MUTATIONS, "harvestFilterMutation")
         CreateActionButton(harvestContent, "\226\154\161 Harvest All Now", function()
             local myPlot = GetMyPlot()
             if not myPlot then
