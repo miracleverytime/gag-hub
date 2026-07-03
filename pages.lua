@@ -1173,112 +1173,6 @@ return function(ctx)
         CreateToggle(utilContent, "Fly", "fly", "Hold WASD to fly, Space=up, Ctrl=down")
         CreateSlider(utilContent, "Fly Speed", 1, 300, "flySpeed")
 
-        -- ── Anti AFK Card ─────────────────────────────────────────────────
-        local afkCard, afkContent = CreateSectionCard("\240\159\x9B\xB4 Anti AFK", 4, Colors.Success)
-
-        CreateInfoText(afkContent, "Cara Kerja",
-            "Mensimulasikan input ke UserInputService tiap 60 detik agar "
-            .. "AntiAfkController game tidak anggap kamu idle. "
-            .. "Game ini track aktivitas sendiri via os.clock — bukan idle Roblox biasa. "
-            .. "Threshold game: ~19 menit. Kita kirim sinyal tiap 60 detik (margin 19x)."
-        )
-
-        CreateToggle(afkContent, "Anti AFK", "antiAfk",
-            "Aktifkan untuk mencegah kick/hop karena idle. Loop berjalan di background.",
-            function(newVal)
-                if newVal then
-                    Notify("Anti AFK", "Anti AFK aktif \226\128\148 mengirim sinyal tiap 60 detik.", Colors.Success)
-                else
-                    Notify("Anti AFK", "Anti AFK dimatikan.", Colors.TextMuted)
-                end
-            end
-        )
-
-        -- ── Debug Panel ──────────────────────────────────────────────────
-        local debugHeader = Create("TextLabel", {
-            Parent = afkContent,
-            Size = UDim2.new(1, 0, 0, 18),
-            BackgroundTransparency = 1,
-            Text = "\240\159\x94\x8D Debug Status",
-            TextColor3 = Colors.TextSecondary,
-            TextSize = 12,
-            Font = Enum.Font.GothamBold,
-            TextXAlignment = Enum.TextXAlignment.Left,
-        })
-
-        local _, statusLbl    = CreateStatRow(afkContent, "Status",         "Memuat...",  Colors.TextMuted)
-        local _, methodLbl    = CreateStatRow(afkContent, "Metode Terakhir","none",        Colors.TextMuted)
-        local _, countLbl     = CreateStatRow(afkContent, "Total Trigger",  "0",           Colors.Accent)
-        local _, nextLbl      = CreateStatRow(afkContent, "Trigger Berikutnya", "60 detik", Colors.Warning)
-        local _, lastTimeLbl  = CreateStatRow(afkContent, "Terakhir Trigger", "belum pernah", Colors.TextMuted)
-
-        -- Tombol manual trigger untuk test
-        CreateActionButton(afkContent, "\240\159\x94\x81 Test Anti AFK Sekarang", function()
-            local stats = Logic._antiAfkStats
-            if not stats then
-                Notify("Anti AFK", "Stats belum tersedia, logic belum siap.", Colors.Error)
-                return
-            end
-            -- Paksa trigger manual melalui field method langsung
-            local oldCount = stats.triggerCount
-            -- Expose TriggerAntiAfk via ctx agar bisa dipanggil dari sini
-            if ctx._triggerAntiAfk then
-                ctx._triggerAntiAfk()
-                task.wait(0.2)
-                local newCount = stats.triggerCount
-                if newCount > oldCount then
-                    Notify("Anti AFK", "Manual trigger berhasil! Metode: " .. stats.lastMethod, Colors.Success)
-                else
-                    Notify("Anti AFK", "Trigger gagal! Cek console. Metode: " .. stats.lastMethod, Colors.Error)
-                end
-            else
-                Notify("Anti AFK", "ctx._triggerAntiAfk belum diregister. Pastikan logic.lua versi fix dipakai.", Colors.Warning)
-            end
-        end, Colors.Electric)
-
-        -- Update debug stats tiap 1 detik, berhenti otomatis saat pindah halaman
-        task.spawn(function()
-            while GetActivePage() == "Player" do
-                task.wait(1)
-                if GetActivePage() ~= "Player" then break end
-
-                local stats = Logic._antiAfkStats
-                if not stats then
-                    statusLbl.Text        = "Logic belum siap"
-                    statusLbl.TextColor3  = Colors.Error
-                    continue
-                end
-
-                if States.antiAfk then
-                    statusLbl.Text        = "\226\151\162 AKTIF"
-                    statusLbl.TextColor3  = Colors.Success
-                else
-                    statusLbl.Text        = "\226\151\178 NON-AKTIF"
-                    statusLbl.TextColor3  = Colors.TextMuted
-                end
-
-                methodLbl.Text = stats.lastMethod == "none" and "belum trigger" or stats.lastMethod
-                methodLbl.TextColor3 = (stats.lastMethod == "failed (semua metode gagal)") and Colors.Error
-                    or (stats.lastMethod == "none" or stats.lastMethod == "belum trigger") and Colors.TextMuted
-                    or Colors.Success
-
-                countLbl.Text = tostring(stats.triggerCount)
-
-                local nxt = stats.nextTriggerIn
-                nextLbl.Text = tostring(nxt) .. " detik"
-                nextLbl.TextColor3 = nxt <= 10 and Colors.Warning or Colors.Accent
-
-                if stats.lastTriggerTime > 0 then
-                    local ago = math.floor(os.clock() - stats.lastTriggerTime)
-                    lastTimeLbl.Text       = tostring(ago) .. " detik lalu"
-                    lastTimeLbl.TextColor3 = ago > 70 and Colors.Warning or Colors.Success
-                else
-                    lastTimeLbl.Text       = "belum pernah"
-                    lastTimeLbl.TextColor3 = Colors.TextMuted
-                end
-            end
-        end)
-
         -- ── Utilitas Karakter ──────────────────────────────────────────────
         local charCard, charContent = CreateSectionCard("\240\159\x91\xA4 Karakter", 5, Colors.TextSecondary)
         CreateActionButton(charContent, "Reset Character", function()
@@ -1672,6 +1566,7 @@ return function(ctx)
     ctx.registerPage("Settings", function()
         local settCard, settContent = CreateSectionCard("\226\154\153 General Settings", 1, Colors.Accent)
         CreateToggle(settContent, "Auto Save Config", "autoSaveConfig", "Saves your config automatically")
+        CreateToggle(settContent, "Anti AFK", "antiAfk", "Prevents auto-disconnect (fires every 60s)")
         CreateToggle(settContent, "Minimize to Tray on Close", "minimizeToTray", "Minimizes to M shield instead of closing")
         CreateToggle(settContent, "Show Notifications", "showNotifications", "Shows popup notifications")
         CreateSubHeader(settContent, "Config")
