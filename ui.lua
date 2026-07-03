@@ -649,20 +649,11 @@ return function(ctx)
     local Pages = {}
     ctx.Pages = Pages
 
-    -- Simpan States ke _G setiap ada perubahan agar persist saat re-inject.
-    -- core.lua akan baca ini saat inject berikutnya.
-    if not _G._MiracleHubSavedStates then
-        _G._MiracleHubSavedStates = {}
-    end
+    -- SaveState: dipanggil tiap kali ada perubahan toggle/dropdown/slider/multiselect.
+    -- Cukup trigger SaveConfig() yang dump seluruh States ke disk sekaligus.
+    -- ctx.SaveConfig didefinisikan di core.lua dan tersedia di ctx saat ui.lua jalan.
     local function SaveState(key, value)
-        -- Simpan shallow copy untuk table agar tidak terpengaruh mutasi di States
-        if type(value) == "table" then
-            local copy = {}
-            for i, v in ipairs(value) do copy[i] = v end
-            _G._MiracleHubSavedStates[key] = copy
-        else
-            _G._MiracleHubSavedStates[key] = value
-        end
+        if ctx.SaveConfig then ctx.SaveConfig() end
     end
     ctx.SaveState = SaveState
 
