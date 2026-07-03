@@ -2459,38 +2459,153 @@ return function(ctx)
         end
     end)
 
-    -- Anti AFK
+    -- ====================== ANTI AFK (FIXED) ======================
+    --
+    -- ROOT CAUSE LAMA:
+    --   Game ini (Grow a Garden) punya AntiAfkController sendiri yang track
+    --   activity via os.clock() — bukan idle Roblox bawaan. Ia listen ke:
+    --     • UserInputService.InputBegan   (keyboard/mouse/gamepad)
+    --     • UserInputService.InputChanged (mouse move + thumbstick)
+    --     • UserInputService.TouchStarted / TouchMoved
+    --   Kalau input benar-benar dikenali UIS, markActivity() reset timer-nya.
+    --   Solusi: simulasi keystroke via VirtualInputManager (jika tersedia di
+    --   executor) LALU fallback ke VirtualUser + mousemoverel.
+    --   Threshold game = 1140 detik (~19 mnt), kita kirim sinyal tiap 60 detik
+    --   untuk margin aman yang besar.
+    --
+    -- DEBUG:
+    --   Logic._antiAfkStats dapat dibaca oleh page untuk status real-time.
+
     local VirtualUser = game:GetService("VirtualUser")
+
+    -- Stats table untuk debug panel di UI
+    Logic._antiAfkStats = {
+        lastTriggerTime  = 0,       -- os.clock() saat terakhir trigger
+        triggerCount     = 0,       -- total berapa kali trigger
+        lastMethod       = "none",  -- metode yang berhasil: "vim" / "virtualuser" / "mousemoverel" / "failed"
+        active           = false,   -- apakah loop sedang jalan
+        nextTriggerIn    = 60,      -- countdown detik ke trigger berikutnya
+    }
+
+    local _afkStats = Logic._antiAfkStats
+
+    -- Coba VirtualInputManager (executor-level, paling reliable karena bypass
+    -- check executor dan langsung inject ke UIS pipeline game).
+    local VIM = nil
+    pcall(function()
+        -- Nama bervariasi tergantung executor (Synapse, Script-Ware, Celery, dll.)
+        VIM = game:GetService("VirtualInputManager")
+    end)
+
     local function TriggerAntiAfk()
-        pcall(function()
-            local cam = workspace.CurrentCamera
-            if VirtualUser.CaptureController then
-                VirtualUser:CaptureController()
-            end
-            if VirtualUser.Button2Down and VirtualUser.Button2Up and cam then
-                VirtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
-                task.wait(0.1)
-                VirtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
-            end
-            if mousemoverel then
-                mousemoverel(1, 0)
-                mousemoverel(-1, 0)
-            end
-        end)
+        local success = false
+
+        -- METODE 1: VirtualInputManager — simulasi keystroke nyata yang masuk ke UIS
+        if not success and VIM then
+            pcall(function()
+                -- Kirim Shift kiri turun lalu naik (tidak ganggu gameplay)
+                VIM:SendKeyEvent(true,  Enum.KeyCode.LeftShift, false, game)
+                task.wait(0.05)
+                VIM:SendKeyEvent(false, Enum.KeyCode.LeftShift, false, game)
+                success = true
+                _afkStats.lastMethod = "VirtualInputManager"
+            end)
+        end
+
+        -- METODE 2: VirtualUser Button2 (right-click simulasi)
+        if not success then
+            pcall(function()
+                local cam = workspace.CurrentCamera
+                if cam then
+                    if VirtualUser.CaptureController then
+                        VirtualUser:CaptureController()
+                    end
+                    VirtualUser:Button2Down(Vector2.new(0, 0), cam.CFrame)
+                    task.wait(0.05)
+                    VirtualUser:Button2Up(Vector2.new(0, 0), cam.CFrame)
+                    success = true
+                    _afkStats.lastMethod = "VirtualUser.Button2"
+                end
+            end)
+        end
+
+        -- METODE 3: mousemoverel (Synapse / Fluxus legacy API)
+        if not success then
+            pcall(function()
+                if mousemoverel then
+                    mousemoverel(1, 0)
+                    task.wait(0.05)
+                    mousemoverel(-1, 0)
+                    success = true
+                    _afkStats.lastMethod = "mousemoverel"
+                end
+            end)
+        end
+
+        -- METODE 4: VirtualUser MouseButton1 sebagai last resort
+        if not success then
+            pcall(function()
+                local cam = workspace.CurrentCamera
+                if cam then
+                    VirtualUser:Button1Down(Vector2.new(0, 0), cam.CFrame)
+                    task.wait(0.05)
+                    VirtualUser:Button1Up(Vector2.new(0, 0), cam.CFrame)
+                    success = true
+                    _afkStats.lastMethod = "VirtualUser.Button1 (last resort)"
+                end
+            end)
+        end
+
+        if success then
+            _afkStats.lastTriggerTime = os.clock()
+            _afkStats.triggerCount    = _afkStats.triggerCount + 1
+        else
+            _afkStats.lastMethod = "failed (semua metode gagal)"
+            warn("[Miracle Hub] Anti AFK: semua metode gagal! Executor mungkin tidak support VIM/VirtualUser.")
+        end
     end
+
+    -- Loop utama: interval 60 detik (game threshold 1140 detik → margin 19x)
+    local ANTI_AFK_INTERVAL = 60
     task.spawn(function()
+        _afkStats.active = true
+        local countdown  = ANTI_AFK_INTERVAL  -- mulai hitung dari penuh
+
         while _G._MiracleHubSession == SESSION do
-            task.wait(45)
+            task.wait(1)
             if States.antiAfk then
-                TriggerAntiAfk()
+                countdown = countdown - 1
+                _afkStats.nextTriggerIn = math.max(countdown, 0)
+
+                if countdown <= 0 then
+                    countdown = ANTI_AFK_INTERVAL
+                    TriggerAntiAfk()
+                    print(string.format(
+                        "[Miracle Hub] Anti AFK fired #%d via '%s' | next in %ds",
+                        _afkStats.triggerCount,
+                        _afkStats.lastMethod,
+                        ANTI_AFK_INTERVAL
+                    ))
+                end
+            else
+                -- Reset countdown tiap saat non-aktif agar langsung fire pas diaktifkan
+                countdown = ANTI_AFK_INTERVAL
+                _afkStats.nextTriggerIn = ANTI_AFK_INTERVAL
             end
         end
+        _afkStats.active = false
     end)
+
+    -- Fallback: tetap listen Idled Roblox sebagai safety net
     player.Idled:Connect(function()
         if States.antiAfk then
+            warn("[Miracle Hub] Anti AFK: player.Idled terpicu! Game belum kick kita, trigger sekarang...")
             TriggerAntiAfk()
         end
     end)
+
+    -- Expose TriggerAntiAfk ke ctx agar UI debug button bisa panggil langsung
+    ctx._triggerAntiAfk = TriggerAntiAfk
 
     -- Character respawn handler
     player.CharacterAdded:Connect(function(char)
