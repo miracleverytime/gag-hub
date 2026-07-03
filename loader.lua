@@ -19,6 +19,7 @@ local BASE = "https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/"
 local MODULES = {
     "core.lua",
     "ui.lua",
+    "ultralow.lua",
     "logic.lua",
     "pages.lua",
     "bootstrap.lua",
