@@ -187,6 +187,8 @@ return function(ctx)
     end)
 
     local logoDragging, logoDragStart, logoStartPos, logoHasMoved = false, nil, nil, false
+    -- Simpan posisi logo terakhir yang diketahui (nil = belum pernah minimize/drag)
+    local lastLogoPosition = nil
     LogoClick.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
             logoDragging = true
@@ -200,7 +202,9 @@ return function(ctx)
             local delta = input.Position - logoDragStart
             if delta.Magnitude > 5 then logoHasMoved = true end
             if logoHasMoved then
-                MinimizedLogo.Position = UDim2.new(logoStartPos.X.Scale, logoStartPos.X.Offset + delta.X, logoStartPos.Y.Scale, logoStartPos.Y.Offset + delta.Y)
+                local newPos = UDim2.new(logoStartPos.X.Scale, logoStartPos.X.Offset + delta.X, logoStartPos.Y.Scale, logoStartPos.Y.Offset + delta.Y)
+                MinimizedLogo.Position = newPos
+                lastLogoPosition = newPos  -- update posisi terakhir saat drag
             end
         end
     end)
@@ -236,8 +240,13 @@ return function(ctx)
         local as = MainFrame.AbsoluteSize
         local cx = ap.X + as.X / 2
         local cy = ap.Y + as.Y / 2
-        MinimizedLogo.Position = UDim2.new(0, cx - 30, 0, cy - 30)
-        Tween(MainFrame, {Size = UDim2.new(0,60,0,60), Position = UDim2.new(0, cx-30, 0, cy-30)}, 0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
+        -- Gunakan posisi logo terakhir jika sudah pernah di-drag, otherwise pakai tengah window
+        local targetLogoPos = lastLogoPosition or UDim2.new(0, cx - 30, 0, cy - 30)
+        MinimizedLogo.Position = targetLogoPos
+        -- Animasikan MainFrame menyusut ke posisi logo, bukan selalu ke tengah
+        local logoX = targetLogoPos.X.Offset
+        local logoY = targetLogoPos.Y.Offset
+        Tween(MainFrame, {Size = UDim2.new(0,60,0,60), Position = UDim2.new(0, logoX, 0, logoY)}, 0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.InOut)
         task.delay(0.25, function()
             Sidebar.Visible = false
             ContentArea.Visible = false
@@ -253,6 +262,8 @@ return function(ctx)
 
     local function DoRestore()
         minimized = false
+        -- Simpan posisi logo saat ini sebelum disembunyikan (termasuk hasil drag terakhir)
+        lastLogoPosition = MinimizedLogo.Position
         AnimateLogoParts(1)
         Tween(MinimizedLogo, {BackgroundTransparency = 1}, 0.25)
         task.delay(0.2, function()
