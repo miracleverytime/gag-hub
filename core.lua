@@ -198,6 +198,9 @@ return function(ctx)
     end)
 
     -- ====================== STATES ======================
+    -- Definisikan default dulu, lalu timpa dengan saved config jika ada.
+    -- Saved config disimpan di _G._MiracleHubSavedStates oleh ui.lua
+    -- saat setiap nilai diubah user (toggle, slider, dropdown, dll).
     ctx.States = {
         -- Farm
         autoPlant = false,
@@ -298,6 +301,24 @@ return function(ctx)
         minimizeToTray = false,
         showNotifications = true,
     }
+
+    -- ====================== RESTORE SAVED CONFIG ======================
+    -- Timpa States default dengan nilai yang pernah disimpan user.
+    -- Hanya key yang sudah ada di States yang di-restore (type-check untuk keamanan).
+    if type(_G._MiracleHubSavedStates) == "table" then
+        for k, v in pairs(_G._MiracleHubSavedStates) do
+            if ctx.States[k] ~= nil and type(v) == type(ctx.States[k]) then
+                if type(v) == "table" then
+                    -- Copy agar States tidak share reference dengan _G
+                    local copy = {}
+                    for i, item in ipairs(v) do copy[i] = item end
+                    ctx.States[k] = copy
+                else
+                    ctx.States[k] = v
+                end
+            end
+        end
+    end
 
     return ctx
 end

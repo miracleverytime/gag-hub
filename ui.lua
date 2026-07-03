@@ -649,6 +649,30 @@ return function(ctx)
     local Pages = {}
     ctx.Pages = Pages
 
+    -- Simpan States ke _G setiap ada perubahan agar persist saat re-inject.
+    -- core.lua akan baca ini saat inject berikutnya.
+    if not _G._MiracleHubSavedStates then
+        _G._MiracleHubSavedStates = {}
+    end
+    local function SaveState(key, value)
+        -- Simpan shallow copy untuk table agar tidak terpengaruh mutasi di States
+        if type(value) == "table" then
+            local copy = {}
+            for i, v in ipairs(value) do copy[i] = v end
+            _G._MiracleHubSavedStates[key] = copy
+        else
+            _G._MiracleHubSavedStates[key] = value
+        end
+    end
+    ctx.SaveState = SaveState
+
+    -- Cache collapsed/expanded state tiap section card per page.
+    -- Key: pageName .. "|" .. cardTitle → boolean (true = collapsed)
+    if not _G._MiracleHubCardStates then
+        _G._MiracleHubCardStates = {}
+    end
+    local _cardStates = _G._MiracleHubCardStates
+
     local function ClearContent()
         for _, child in ipairs(ContentScroll:GetChildren()) do
             if child:IsA("GuiObject") and child.Name ~= "UIPadding" and child.Name ~= "UIListLayout" then
@@ -761,10 +785,15 @@ return function(ctx)
         })
         CreateListLayout(content, 10)
 
-        local collapsed = true
-        dropBtn.Rotation = -90
+        -- Baca state card dari cache; default collapsed jika belum pernah di-set
+        local cardKey = ActivePage .. "|" .. title
+        local collapsed = (_cardStates[cardKey] ~= false)  -- true jika nil (default collapsed) atau true
+        content.Visible = not collapsed
+        dropBtn.Rotation = collapsed and -90 or 0
+
         dropBtn.MouseButton1Click:Connect(function()
             collapsed = not collapsed
+            _cardStates[cardKey] = collapsed  -- simpan state
             content.Visible = not collapsed
             Tween(dropBtn, {Rotation = collapsed and -90 or 0}, 0.25)
         end)
@@ -858,12 +887,14 @@ return function(ctx)
         toggleBtn.MouseButton1Click:Connect(function()
             state = not state
             States[stateKey] = state
+            SaveState(stateKey, state)
             Tween(toggleBg, {BackgroundColor3 = state and Colors.ToggleOn or Colors.ToggleOff}, 0.2)
             Tween(knob, {Position = UDim2.new(0, state and 25 or 3, 0.5, -10)}, 0.2)
             if onToggle then
                 onToggle(state, function()
                     state = false
                     States[stateKey] = false
+                    SaveState(stateKey, false)
                     Tween(toggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2)
                     Tween(knob, {Position = UDim2.new(0, 3, 0.5, -10)}, 0.2)
                 end)
@@ -934,12 +965,13 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "",
         })
-        local function updateSlider(x)
+        local function updateSlider(x, save)
             local trackAbsPos = track.AbsolutePosition.X
             local trackAbsSize = track.AbsoluteSize.X
             local pct = math.clamp((x - trackAbsPos) / math.max(trackAbsSize, 1), 0, 1)
             local val = math.floor(minVal + pct * (maxVal - minVal))
             States[stateKey] = val
+            if save then SaveState(stateKey, val) end
             valLabel.Text = tostring(val) .. (suffix or "")
             if onChange then onChange(val) end
             Tween(fill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
@@ -948,16 +980,22 @@ return function(ctx)
         trackBtn.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
                 dragging = true
-                updateSlider(input.Position.X)
+                updateSlider(input.Position.X, false)
             end
         end)
         UserInputService.InputChanged:Connect(function(input)
             if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-                updateSlider(input.Position.X)
+                updateSlider(input.Position.X, false)
             end
         end)
         UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if dragging then
+                    -- Save hanya saat drag selesai, bukan setiap frame
+                    SaveState(stateKey, States[stateKey])
+                end
+                dragging = false
+            end
         end)
         return container
     end
@@ -1099,6 +1137,7 @@ return function(ctx)
                     item.MouseButton1Click:Connect(function()
                         currentVal = opt
                         States[stateKey] = opt
+                        SaveState(stateKey, opt)
                         lbl.Text = label .. "  \226\128\162  " .. opt
                         isOpen = false
                         Tween(arr, {Rotation = 0}, 0.2)
@@ -1371,6 +1410,7 @@ return function(ctx)
                 if idx then table.remove(selected, idx)
                 else table.insert(selected, opt) end
                 States[stateKey] = selected
+                SaveState(stateKey, selected)
                 updateRow(entry)
                 updatePill()
             end)
@@ -1380,12 +1420,14 @@ return function(ctx)
             table.clear(selected)
             for _, opt in ipairs(options) do table.insert(selected, opt) end
             States[stateKey] = selected
+            SaveState(stateKey, selected)
             for _, t in ipairs(itemFrames) do updateRow(t) end
             updatePill()
         end)
         clearBtn.MouseButton1Click:Connect(function()
             table.clear(selected)
             States[stateKey] = selected
+            SaveState(stateKey, selected)
             for _, t in ipairs(itemFrames) do updateRow(t) end
             updatePill()
         end)
