@@ -272,6 +272,9 @@ return function(ctx)
             Sidebar.Visible = true
             ContentArea.Visible = true
             MainFrame.BackgroundTransparency = 0
+            -- Snap MainFrame ke posisi logo terlebih dahulu agar animasi expand berasal dari sana
+            MainFrame.Size = UDim2.new(0, 60, 0, 60)
+            MainFrame.Position = lastLogoPosition
             Tween(MainFrame, {Size = originalSize, Position = UDim2.new(0.5,-450,0.5,-300)}, 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
         end)
     end
