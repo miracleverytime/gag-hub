@@ -1243,8 +1243,10 @@ return function(ctx)
         end
 
         -- Tombol utama
-        local ulApplyBtn
-        ulApplyBtn = CreateActionButton(ulContent, "\226\154\161 Aktifkan Ultra Low Graphic", function()
+        -- CreateActionButton mengembalikan container (Frame), bukan TextButton.
+        -- Kita simpan referensi ke inner TextButton lewat FindFirstChildOfClass.
+        local ulApplyBtnContainer
+        ulApplyBtnContainer = CreateActionButton(ulContent, "\226\154\161 Aktifkan Ultra Low Graphic", function()
             -- Sudah aktif?
             if ctx.UltraLow and ctx.UltraLow.Active then
                 Notify("Ultra Low", "Mode sudah aktif. Relog untuk reset.", Colors.Warning)
@@ -1271,9 +1273,15 @@ return function(ctx)
                     if ctx.UltraLow and ctx.UltraLow.Active then
                         ulStatusLabel.Text       = "Status: AKTIF \226\128\148 Relog untuk kembali normal"
                         ulStatusLabel.TextColor3 = Colors.Success
+                        -- ulApplyBtnContainer adalah Frame; inner TextButton ada di dalamnya
+                        local ulApplyBtn = ulApplyBtnContainer and ulApplyBtnContainer:FindFirstChildOfClass("TextButton")
                         if ulApplyBtn then
-                            ulApplyBtn.Text              = "\226\156\133 Ultra Low Graphic AKTIF"
-                            ulApplyBtn.BackgroundColor3  = Color3.fromRGB(40, 100, 60)
+                            -- TextLabel pertama di dalam btn menyimpan teks label
+                            local lblInner = ulApplyBtn:FindFirstChildOfClass("TextLabel")
+                            if lblInner then
+                                lblInner.Text = "\226\156\133 Ultra Low Graphic AKTIF"
+                            end
+                            ulApplyBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
                         end
                     end
                 end)
@@ -1281,11 +1289,19 @@ return function(ctx)
         end)
 
         -- Warnai tombol kuning (warning) sebelum aktif
-        if ulApplyBtn and not (ctx.UltraLow and ctx.UltraLow.Active) then
-            ulApplyBtn.BackgroundColor3 = Color3.fromRGB(110, 80, 15)
-        elseif ulApplyBtn then
-            ulApplyBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
-            ulApplyBtn.Text = "\226\156\133 Ultra Low Graphic AKTIF"
+        do
+            local ulApplyBtn = ulApplyBtnContainer and ulApplyBtnContainer:FindFirstChildOfClass("TextButton")
+            if ulApplyBtn then
+                if not (ctx.UltraLow and ctx.UltraLow.Active) then
+                    ulApplyBtn.BackgroundColor3 = Color3.fromRGB(110, 80, 15)
+                else
+                    ulApplyBtn.BackgroundColor3 = Color3.fromRGB(40, 100, 60)
+                    local lblInner = ulApplyBtn:FindFirstChildOfClass("TextLabel")
+                    if lblInner then
+                        lblInner.Text = "\226\156\133 Ultra Low Graphic AKTIF"
+                    end
+                end
+            end
         end
 
         CreateInfoText(ulContent, "\226\154\160 Peringatan",

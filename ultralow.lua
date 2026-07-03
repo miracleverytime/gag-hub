@@ -206,9 +206,10 @@ return function(ctx)
 
         ProcessBatch(toPatch, function(part)
             if part and part.Parent then
-                part.Transparency     = 1
-                part.CastShadow       = false
-                part.ReceiveAge       = false   -- no-op safe
+                pcall(function()
+                    part.Transparency = 1
+                    part.CastShadow   = false
+                end)
             end
         end)
 
