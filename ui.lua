@@ -649,20 +649,15 @@ return function(ctx)
     local Pages = {}
     ctx.Pages = Pages
 
-    -- SaveState: dipanggil tiap kali ada perubahan toggle/dropdown/slider/multiselect.
-    -- Cukup trigger SaveConfig() yang dump seluruh States ke disk sekaligus.
-    -- ctx.SaveConfig didefinisikan di core.lua dan tersedia di ctx saat ui.lua jalan.
-    local function SaveState(key, value)
-        if ctx.SaveConfig then ctx.SaveConfig() end
-    end
+    -- SaveState: no-op. Config persist dihapus;
+    -- state sudah hidup di ctx.States selama sesi berjalan.
+    local function SaveState(key, value) end
     ctx.SaveState = SaveState
 
     -- Cache collapsed/expanded state tiap section card per page.
-    -- Key: pageName .. "|" .. cardTitle → boolean (true = collapsed)
-    if not _G._MiracleHubCardStates then
-        _G._MiracleHubCardStates = {}
-    end
-    local _cardStates = _G._MiracleHubCardStates
+    -- Variabel lokal — state tetap tersimpan selama GUI tidak di-destroy.
+    -- Key: pageName .. "|"… cardTitle — boolean (true = collapsed)
+    local _cardStates = {}
 
     local function ClearContent()
         for _, child in ipairs(ContentScroll:GetChildren()) do

@@ -17,7 +17,6 @@ return function(ctx)
     local CollectionService    = game:GetService("CollectionService")
     local ReplicatedStorage    = game:GetService("ReplicatedStorage")
     local TeleportService      = game:GetService("TeleportService")
-    local HttpService          = game:GetService("HttpService")
 
     ctx.Players           = Players
     ctx.TweenService      = TweenService
@@ -26,7 +25,6 @@ return function(ctx)
     ctx.CollectionService = CollectionService
     ctx.ReplicatedStorage = ReplicatedStorage
     ctx.TeleportService   = TeleportService
-    ctx.HttpService       = HttpService
 
     -- ====================== PLAYER REFS ======================
     local player    = Players.LocalPlayer
@@ -198,9 +196,6 @@ return function(ctx)
     end)
 
     -- ====================== STATES ======================
-    -- Definisikan default dulu, lalu timpa dengan saved config jika ada.
-    -- Saved config disimpan di _G._MiracleHubSavedStates oleh ui.lua
-    -- saat setiap nilai diubah user (toggle, slider, dropdown, dll).
     ctx.States = {
         -- Farm
         autoPlant = false,
@@ -302,73 +297,6 @@ return function(ctx)
         showNotifications = true,
     }
 
-    -- ====================== CONFIG PERSIST (FILE + _G CACHE) ======================
-    -- Simpan ke disk (survive game restart) + cache di _G (fast re-inject).
-    -- Executor API: writefile / readfile / isfile (Synapse, KRNL, Fluxus, dll.)
-
-    local CONFIG_PATH = "MiracleHub_config.json"
-
-    local function ShallowCopyArray(t)
-        local copy = {}
-        for i, v in ipairs(t) do copy[i] = v end
-        return copy
-    end
-
-    -- Encode + tulis ke disk. Dipanggil oleh SaveState di ui.lua.
-    local function SaveConfig()
-        pcall(function()
-            local data = {}
-            for k, v in pairs(ctx.States) do
-                if type(v) ~= "function" then
-                    data[k] = v
-                end
-            end
-            local encoded = HttpService:JSONEncode(data)
-            writefile(CONFIG_PATH, encoded)
-            _G._MiracleHubSavedStates = data   -- update cache juga
-        end)
-    end
-    ctx.SaveConfig = SaveConfig
-
-    -- Baca config: prioritas file disk → _G cache → default.
-    local function LoadConfig()
-        local raw = nil
-
-        -- Coba file disk dulu (survive restart)
-        pcall(function()
-            if isfile and isfile(CONFIG_PATH) then
-                raw = readfile(CONFIG_PATH)
-            end
-        end)
-
-        -- Fallback: _G cache (re-inject dalam sesi yang sama, tanpa file support)
-        if (not raw or raw == "") and type(_G._MiracleHubSavedStates) == "table" then
-            pcall(function()
-                raw = HttpService:JSONEncode(_G._MiracleHubSavedStates)
-            end)
-        end
-
-        if not raw or raw == "" then return end
-
-        local ok, decoded = pcall(function()
-            return HttpService:JSONDecode(raw)
-        end)
-        if not ok or type(decoded) ~= "table" then return end
-
-        for k, v in pairs(decoded) do
-            if ctx.States[k] ~= nil then
-                local expectedType = type(ctx.States[k])
-                local gotType      = type(v)
-                if expectedType == gotType then
-                    ctx.States[k] = (gotType == "table") and ShallowCopyArray(v) or v
-                end
-            end
-        end
-
-        _G._MiracleHubSavedStates = decoded
-    end
-
-    LoadConfig()
 
     return ctx
 end
