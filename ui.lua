@@ -1164,13 +1164,13 @@ return function(ctx)
         local pillText = label:gsub("^[%z\1-\127\194-\244][\128-\191]*%s*", "")
 
         local function getShortText()
-            if #selected == 0 then return pillText .. "  \226\128\162  (belum dipilih)" end
+            if #selected == 0 then return pillText .. "  \226\128\162  (none selected)" end
             if #selected <= 2 then
                 local names = {}
                 for _, s in ipairs(selected) do names[#names+1] = s end
                 return pillText .. "  \226\128\162  " .. table.concat(names, ", ")
             end
-            return pillText .. "  \226\128\162  " .. #selected .. " dipilih"
+            return pillText .. "  \226\128\162  " .. #selected .. " selected"
         end
 
         local wrapper = Create("Frame", {

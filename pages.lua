@@ -88,14 +88,14 @@ return function(ctx)
     ctx.registerPage("Farm", function()
         local plantCard, plantContent = CreateSectionCard("\240\159\140\177 Auto Plant", 1, Colors.Success)
 
-        CreateInfoText(plantContent, "How It Works",
-            "Automatically plants seeds on your plot. "
-            .. "Enable the toggle, then select which seeds to plant below. "
-            .. "The loop will keep running \226\128\148 replanting whenever your plot has empty slots."
-        )
+CreateInfoText(plantContent, "How It Works",
+    "Scans your plot for empty slots and plants seeds from your backpack automatically. "
+    .. "You must select at least one seed type before enablingor turn on 'Plant All Seeds in Backpack' to use everything in your backpack. "
+    .. "The loop runs continuously until the toggle is turned off"
+)
 
         CreateToggle(plantContent, "Auto Plant", "autoPlant",
-            "Continuously plants seeds on your plot. 0.3s delay between each plant.",
+            "Fills empty plot slots, Needs at least one seed selected below (or enable Plant All)",
             function(newVal, revert)
                 if newVal and not States.autoPlantAllSeeds then
                     local targets = States.autoPlantTargets or {}
@@ -108,17 +108,17 @@ return function(ctx)
             end)
 
         CreateToggle(plantContent, "Plant All Seeds in Backpack", "autoPlantAllSeeds",
-            "ON: plants every seed in your backpack | OFF: only plants seeds selected below")
+            "Plants all seeds in backpack, ignoring the selection below")
 
-        CreateMultiSelect(plantContent, "\240\159\140\177Choose Seeds to Plant", SEEDS, "autoPlantTargets")
+        CreateMultiSelect(plantContent, "Choose Seeds to Plant", SEEDS, "autoPlantTargets")
 
         CreateToggle(plantContent, "Notify on Plant Cycle", "autoPlantNotify",
-            "Show a notification each time a full planting cycle completes")
+            "Notifies you each time a planting cycle completes")
 
-        CreateActionButton(plantContent, "\226\154\161 Plant Now (Manual)", function()
+        CreateActionButton(plantContent, "Plant Now", function()
             local plantAreas = GetMyPlantAreas()
             if #plantAreas == 0 then
-                Notify("Farm", "\226\157\140 No plant areas found on your plot. Make sure you're on your plot.", Colors.Error)
+                Notify("Farm", "\226\157\140 No plant areas found on your plot. Make sure you're on your plot", Colors.Error)
                 return
             end
             local firstSeed = GetNextSeedFromBackpack()
@@ -162,7 +162,7 @@ return function(ctx)
             end)
         end, Colors.Success)
 
-        CreateActionButton(plantContent, "\240\159\148\141 Scan Seeds in Backpack", function()
+        CreateActionButton(plantContent, "Scan Seeds in Backpack", function()
             local backpack = player:FindFirstChildOfClass("Backpack")
             if not backpack then
                 Notify("Farm", "Backpack not found.", Colors.Error)
