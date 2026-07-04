@@ -88,50 +88,49 @@ return function(ctx)
     ctx.registerPage("Farm", function()
         local plantCard, plantContent = CreateSectionCard("\240\159\140\177 Auto Plant", 1, Colors.Success)
 
-        CreateInfoText(plantContent, "Cara Kerja",
-            "Menanam seed secara otomatis ke plot kamu (Plot " .. MY_PLOT_ID .. "). "
-            .. "Posisi tanam dideteksi langsung dari area tanam di plotmu. "
-            .. "Selama Auto Plant aktif, loop akan terus berjalan \226\128\148 menanam ulang setelah plot penuh dan di-harvest."
+        CreateInfoText(plantContent, "How It Works",
+            "Automatically plants seeds on your plot. "
+            .. "Enable the toggle, then select which seeds to plant below. "
+            .. "The loop will keep running \226\128\148 replanting whenever your plot has empty slots."
         )
 
         CreateToggle(plantContent, "Auto Plant", "autoPlant",
-            "Aktifkan untuk menanam otomatis terus-menerus. Delay antar tanam: 0.3 detik.",
+            "Continuously plants seeds on your plot. 0.3s delay between each plant.",
             function(newVal, revert)
                 if newVal and not States.autoPlantAllSeeds then
                     local targets = States.autoPlantTargets or {}
                     if #targets == 0 then
                         revert()
-                        Notify("Auto Plant", "\226\154\160\239\184\143 Pilih seed dulu di 'Pilih Seed yang Ditanam' sebelum aktifkan Auto Plant!", Colors.Warning, 5)
+                        Notify("Auto Plant", "\226\154\160\239\184\143 Select seeds in 'Choose Seeds to Plant' before enabling Auto Plant!", Colors.Warning, 5)
                         return
                     end
                 end
             end)
 
-        CreateToggle(plantContent, "Tanam Semua Seed di Backpack", "autoPlantAllSeeds",
-            "ON: tanam semua seed yang ada di backpack | OFF: hanya seed yang dipilih di bawah")
+        CreateToggle(plantContent, "Plant All Seeds in Backpack", "autoPlantAllSeeds",
+            "ON: plants every seed in your backpack | OFF: only plants seeds selected below")
 
-        CreateMultiSelect(plantContent, "\240\159\140\177Pilih Seed yang Ditanam", SEEDS, "autoPlantTargets")
+        CreateMultiSelect(plantContent, "\240\159\140\177Choose Seeds to Plant", SEEDS, "autoPlantTargets")
 
-        CreateToggle(plantContent, "Notif Hasil Tanam", "autoPlantNotify",
-            "Tampilkan notifikasi setiap kali satu siklus tanam selesai")
+        CreateToggle(plantContent, "Notify on Plant Cycle", "autoPlantNotify",
+            "Show a notification each time a full planting cycle completes")
 
-        CreateActionButton(plantContent, "\226\154\161 Tanam Sekarang (Manual)", function()
+        CreateActionButton(plantContent, "\226\154\161 Plant Now (Manual)", function()
             local plantAreas = GetMyPlantAreas()
             if #plantAreas == 0 then
-                Notify("Farm", "\226\157\140 PlantArea tidak ditemukan di Plot " .. MY_PLOT_ID
-                    .. ". Pastikan kamu berada di plotmu.", Colors.Error)
+                Notify("Farm", "\226\157\140 No plant areas found on your plot. Make sure you're on your plot.", Colors.Error)
                 return
             end
             local firstSeed = GetNextSeedFromBackpack()
             if not firstSeed then
-                Notify("Farm", "\226\154\160 Tidak ada seed di backpack (sesuai filter).", Colors.Warning)
+                Notify("Farm", "\226\154\160 No matching seeds in backpack.", Colors.Warning)
                 return
             end
-            Notify("Farm", "Mulai menanam di Plot " .. MY_PLOT_ID .. "...", Colors.Success)
+            Notify("Farm", "Planting on Plot " .. MY_PLOT_ID .. "...", Colors.Success)
             task.spawn(function()
                 local validPos = BuildValidPlantPositions(plantAreas, 500)
                 if #validPos == 0 then
-                    Notify("Farm", "Plot " .. MY_PLOT_ID .. " sudah penuh / tidak ada slot kosong.", Colors.Warning)
+                    Notify("Farm", "Plot " .. MY_PLOT_ID .. " is full — no empty slots available.", Colors.Warning)
                     return
                 end
                 local planted    = 0
@@ -156,17 +155,17 @@ return function(ctx)
                         local cb = tonumber(b:match("- (%d+)$")) or 0
                         return ca > cb
                     end)
-                    NotifyStok(lines, Colors.Success, 8, "\240\159\140\177 Tanam Sekarang (+" .. planted .. " ditanam)")
+                    NotifyStok(lines, Colors.Success, 8, "\240\159\140\177 Planted (+" .. planted .. " seeds)")
                 else
-                    Notify("Farm", "Tidak ada yang ditanam.", Colors.Warning, 3)
+                    Notify("Farm", "Nothing was planted.", Colors.Warning, 3)
                 end
             end)
         end, Colors.Success)
 
-        CreateActionButton(plantContent, "\240\159\148\141 Scan Seed di Backpack", function()
+        CreateActionButton(plantContent, "\240\159\148\141 Scan Seeds in Backpack", function()
             local backpack = player:FindFirstChildOfClass("Backpack")
             if not backpack then
-                Notify("Farm", "Backpack tidak ditemukan.", Colors.Error)
+                Notify("Farm", "Backpack not found.", Colors.Error)
                 return
             end
             local counts = {}
@@ -192,7 +191,7 @@ return function(ctx)
                 end
             end
             if total == 0 then
-                Notify("Farm", "Tidak ada seed di backpack.", Colors.TextMuted)
+                Notify("Farm", "No seeds found in backpack.", Colors.TextMuted)
                 return
             end
             local lines = {}
@@ -200,16 +199,16 @@ return function(ctx)
                 table.insert(lines, name .. " x" .. cnt)
             end
             table.sort(lines)
-            Notify("Seed di Backpack (" .. total .. ")",
+            Notify("Seeds in Backpack (" .. total .. ")",
                 table.concat(lines, " | "):sub(1, 200), Colors.Success, 7)
         end)
 
-        CreateActionButton(plantContent, "\240\159\147\138 Cek Slot Terisi", function()
+        CreateActionButton(plantContent, "\240\159\147\138 Check Planted Slots", function()
             local seedCounts, totalPlanted = GetPlantedSeedCounts()
             local plantsFolder = GetPlantsFolder()
             local totalAll = plantsFolder and #plantsFolder:GetChildren() or 0
             if totalPlanted == 0 then
-                Notify("Slot Terisi", "Tidak ada tanaman milikmu di Plot " .. MY_PLOT_ID, Colors.TextMuted, 4)
+                Notify("Planted Slots", "No plants found on your plot.", Colors.TextMuted, 4)
                 return
             end
             local lines = {}
@@ -221,16 +220,16 @@ return function(ctx)
                 local cb = tonumber(b:match("- (%d+)$")) or 0
                 return ca > cb
             end)
-            NotifyStok(lines, Colors.Accent, 15, "\240\159\147\138 Milikku: " .. totalPlanted .. " | Plot: " .. totalAll)
+            NotifyStok(lines, Colors.Accent, 15, "\240\159\147\138 Mine: " .. totalPlanted .. " | Plot Total: " .. totalAll)
         end)
 
         local harvestCard, harvestContent = CreateSectionCard("\240\159\141\133 Auto Harvest", 2, Colors.Warning)
-        CreateInfoText(harvestContent, "Cara Kerja",
-            "Memanen semua buah yang sudah siap di Plot " .. MY_PLOT_ID .. " secara otomatis. "
-            .. "Hanya buah yang prompt-nya aktif (sudah matang) yang akan dipanen."
+        CreateInfoText(harvestContent, "How It Works",
+            "Automatically harvests all ready fruits on your plot. "
+            .. "Only mature fruits are collected \226\128\148 anything still growing is left alone."
         )
-        CreateToggle(harvestContent, "Auto Harvest", "autoHarvest", "Aktifkan panen otomatis di plotmu")
-        CreateToggle(harvestContent, "Notif Setelah Panen", "notifyHarvest", "Tampilkan notifikasi setelah setiap siklus panen selesai")
+        CreateToggle(harvestContent, "Auto Harvest", "autoHarvest", "Automatically harvest fruits on your plot")
+        CreateToggle(harvestContent, "Notify After Harvest", "notifyHarvest", "Show a notification after each harvest cycle")
         CreateSubHeader(harvestContent, "Delay Settings")
         CreateSlider(harvestContent, "Per-Fruit Delay (s)", 0, 2, "perFruitDelay")
         CreateSlider(harvestContent, "Loop Delay (s)", 0, 30, "harvestLoopDelay")
@@ -239,31 +238,31 @@ return function(ctx)
         CreateActionButton(harvestContent, "\226\154\161 Harvest All Now", function()
             local myPlot = GetMyPlot()
             if not myPlot then
-                Notify("Harvest", "\226\157\140 Plot " .. MY_PLOT_ID .. " tidak ditemukan!", Colors.Error)
+                Notify("Harvest", "\226\157\140 Your plot was not found!", Colors.Error)
                 return
             end
             local currentCount = player:GetAttribute("FruitCount") or 0
             local remaining = MAX_FRUIT_CAP - currentCount
             if remaining <= 0 then
-                Notify("Harvest", "\240\159\142\146 Backpack penuh! (" .. currentCount .. "/" .. MAX_FRUIT_CAP .. ")", Colors.Warning)
+                Notify("Harvest", "\240\159\142\146 Backpack full! (" .. currentCount .. "/" .. MAX_FRUIT_CAP .. ")", Colors.Warning)
                 return
             end
             local ready = GetReadyFruitCount()
             if ready == 0 then
-                Notify("Harvest", "Tidak ada buah siap panen saat ini.", Colors.TextMuted)
+                Notify("Harvest", "No fruits are ready to harvest right now.", Colors.TextMuted)
                 return
             end
             local willHarvest = math.min(ready, remaining)
-            Notify("Harvest", "Memanen " .. willHarvest .. " buah (bag " .. currentCount .. "/" .. MAX_FRUIT_CAP .. ")...", Colors.Warning)
+            Notify("Harvest", "Harvesting " .. willHarvest .. " fruits (bag " .. currentCount .. "/" .. MAX_FRUIT_CAP .. ")...", Colors.Warning)
             task.spawn(function()
                 local harvested = DoHarvestAll(States.harvestFilterMutation, MAX_FRUIT_CAP)
                 local after = player:GetAttribute("FruitCount") or 0
-                Notify("Harvest \226\156\133", "Panen " .. harvested .. " buah | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Success)
+                Notify("Harvest \226\156\133", "Harvested " .. harvested .. " fruits | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Success)
             end)
         end, Colors.Warning)
         CreateActionButton(harvestContent, "\240\159\148\141 Scan Fruits Ready", function()
             local myPlot = GetMyPlot()
-            if not myPlot then Notify("Scan", "\226\157\140 Plot tidak ditemukan!", Colors.Error) return end
+            if not myPlot then Notify("Scan", "\226\157\140 Your plot was not found!", Colors.Error) return end
             local readyList, total = {}, 0
             for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
                 if prompt:IsDescendantOf(myPlot) then
@@ -282,16 +281,15 @@ return function(ctx)
                 end
             end
             local currentCount = player:GetAttribute("FruitCount") or 0
-            local msg = #readyList .. "/" .. total .. " siap | Bag " .. currentCount .. "/" .. MAX_FRUIT_CAP
+            local msg = #readyList .. "/" .. total .. " ready | Bag " .. currentCount .. "/" .. MAX_FRUIT_CAP
                 .. "\n" .. table.concat(readyList, ", "):sub(1, 80)
             Notify("Fruit Scanner \240\159\148\141", msg, Colors.Success, 7)
         end)
 
         local waterCard, waterContent = CreateSectionCard("\240\159\146\167 Watering & Sprinklers", 3, Colors.Electric)
-        CreateInfoText(waterContent, "Cara Kerja",
-            "Pilih Watering Can dan Sprinkler yang ingin dipakai dari daftar di bawah. "
-            .. "Toggle akan otomatis aktif saat kamu memilih item. "
-            .. "Jika tidak memilih, semua watering can / sprinkler di backpack akan dipakai."
+        CreateInfoText(waterContent, "How It Works",
+            "Select the watering can or sprinkler you want to use from the lists below. "
+            .. "You must have the item in your backpack before enabling the toggle."
         )
 
         local WATERING_CANS = {}
@@ -305,44 +303,44 @@ return function(ctx)
 
         CreateSubHeader(waterContent, "\240\159\146\167 Auto Water")
         CreateToggle(waterContent, "Auto Water Plants", "autoWater",
-            "Siram otomatis semua tanaman via Networking.WateringCan.UseWateringCan",
+            "Automatically waters all plants on your plot using your selected watering can",
             function(newVal, revert)
                 if newVal then
                     local targets = States.wateringCanTargets or {}
                     if #targets == 0 then
                         revert()
-                        Notify("Auto Water", "\226\154\160\239\184\143 Pilih Watering Can dulu di 'Pilih Watering Can' sebelum aktifkan!", Colors.Warning, 5)
+                        Notify("Auto Water", "\226\154\160\239\184\143 Select a Watering Can below before enabling!", Colors.Warning, 5)
                         return
                     end
                 end
             end)
-        CreateMultiSelect(waterContent, "\240\159\170\163 Pilih Watering Can", WATERING_CANS, "wateringCanTargets")
-        CreateToggle(waterContent, "Notif Setelah Siram", "notifyHarvest",
-            "Tampilkan notifikasi jumlah tanaman yang disiram tiap siklus")
+        CreateMultiSelect(waterContent, "\240\159\170\163 Choose Watering Can", WATERING_CANS, "wateringCanTargets")
+        CreateToggle(waterContent, "Notify After Watering", "notifyHarvest",
+            "Show a notification with how many plants were watered each cycle")
         CreateSlider(waterContent, "Per-Plant Delay (s)", 0, 2, "perFruitDelay")
         CreateSlider(waterContent, "Water Loop Delay (s)", 1, 60, "harvestLoopDelay")
 
         CreateActionButton(waterContent, "\240\159\146\167 Water All Now", function()
             if not Networking then
-                Notify("Auto Water", "\226\157\140 Networking module tidak ditemukan!", Colors.Error)
+                Notify("Auto Water", "\226\157\140 Networking not available!", Colors.Error)
                 return
             end
             local selectedCans = States.wateringCanTargets or {}
             if #selectedCans == 0 then
-                Notify("Auto Water", "\226\154\160\239\184\143 Pilih Watering Can dulu sebelum menyiram!", Colors.Warning, 5)
+                Notify("Auto Water", "\226\154\160\239\184\143 Select a Watering Can below before watering!", Colors.Warning, 5)
                 return
             end
             local tool, canName = AcquireWateringCan()
             if not tool or not canName then
-                Notify("Auto Water", "\226\157\140 Watering Can yang dipilih tidak ada di backpack/tangan!", Colors.Error)
+                Notify("Auto Water", "\226\157\140 Selected Watering Can not found in backpack!", Colors.Error)
                 return
             end
             local plants = GetPlantsFolder()
             if not plants then
-                Notify("Auto Water", "\226\157\140 Plants folder Plot " .. MY_PLOT_ID .. " tidak ditemukan!", Colors.Error)
+                Notify("Auto Water", "\226\157\140 No plants found on your plot!", Colors.Error)
                 return
             end
-            Notify("Auto Water \240\159\146\167", "Menyiram dengan " .. canName .. "...", Colors.Electric)
+            Notify("Auto Water \240\159\146\167", "Watering with " .. canName .. "...", Colors.Electric)
             task.spawn(function()
                 local watered = 0
                 for _, plant in ipairs(plants:GetChildren()) do
@@ -363,58 +361,58 @@ return function(ctx)
                         end
                     end
                 end
-                Notify("Auto Water \226\156\133", "Siram " .. watered .. " tanaman di Plot " .. MY_PLOT_ID, Colors.Success)
+                Notify("Auto Water \226\156\133", "Watered " .. watered .. " plants on Plot " .. MY_PLOT_ID, Colors.Success)
             end)
         end, Colors.Electric)
 
         CreateSubHeader(waterContent, "\240\159\140\191 Auto Sprinkler")
         CreateToggle(waterContent, "Auto Place Sprinklers", "autoSprinkler",
-            "Pasang sprinkler otomatis di PlantArea yang belum ada sprinklernya",
+            "Automatically places sprinklers on areas that don't have one yet",
             function(newVal, revert)
                 if newVal then
                     local targets = States.sprinklerTargets or {}
                     if #targets == 0 then
                         revert()
-                        Notify("Auto Sprinkler", "\226\154\160\239\184\143 Pilih Sprinkler dulu sebelum aktifkan!", Colors.Warning, 5)
+                        Notify("Auto Sprinkler", "\226\154\160\239\184\143 Select a Sprinkler below before enabling!", Colors.Warning, 5)
                         return
                     end
                 end
             end)
-        CreateMultiSelect(waterContent, "\240\159\140\191 Pilih Sprinkler", SPRINKLER_LIST, "sprinklerTargets")
+        CreateMultiSelect(waterContent, "\240\159\140\191 Choose Sprinkler", SPRINKLER_LIST, "sprinklerTargets")
 
         CreateActionButton(waterContent, "\240\159\140\191 Place Sprinkler Now", function()
             if not Networking and not ctx.PacketRemote then
-                Notify("Sprinkler", "\226\157\140 Networking module dan PacketRemote tidak ditemukan!", Colors.Error)
+                Notify("Sprinkler", "\226\157\140 Networking not available!", Colors.Error)
                 return
             end
             local selectedTargets = States.sprinklerTargets or {}
             if #selectedTargets == 0 then
-                Notify("Sprinkler", "\226\154\160\239\184\143 Pilih jenis sprinkler dulu di 'Pilih Sprinkler' sebelum menekan ini!", Colors.Warning, 5)
+                Notify("Sprinkler", "\226\154\160\239\184\143 Select a sprinkler type in 'Choose Sprinkler' first!", Colors.Warning, 5)
                 return
             end
             local tool, sprinklerName = AcquireSprinklerTool()
             if not tool or not sprinklerName then
-                Notify("Sprinkler", "\226\157\140 Sprinkler yang dipilih tidak ada di backpack/tangan!", Colors.Error)
+                Notify("Sprinkler", "\226\157\140 Selected sprinkler not found in backpack!", Colors.Error)
                 return
             end
 
-            -- Hitung posisi sprinkler optimal berdasarkan tanaman aktual + radius sprinkler
+            -- Calculate optimal sprinkler positions based on actual plants + sprinkler radius
             -- GetSprinklerPlacePositions menerima sprinklerName agar radius-nya tepat per rarity
             local positions = GetSprinklerPlacePositions(50, sprinklerName)
 
             if #positions == 0 then
                 local plants = Logic.GetPlantPositions and Logic.GetPlantPositions() or {}
                 if #plants == 0 then
-                    Notify("Sprinkler", "Tidak ada tanaman di Plot " .. MY_PLOT_ID .. ". Tanam dulu!", Colors.TextMuted)
+                    Notify("Sprinkler", "No plants on your plot yet. Plant some seeds first!", Colors.TextMuted)
                 else
-                    Notify("Sprinkler", "Semua tanaman sudah ter-cover oleh sprinkler yang ada \240\159\140\191", Colors.Success)
+                    Notify("Sprinkler", "All plants are already covered by existing sprinklers \240\159\140\191", Colors.Success)
                 end
                 return
             end
 
             local radius = Logic.GetSprinklerRadius and Logic.GetSprinklerRadius(sprinklerName) or 8
             Notify("Sprinkler \240\159\140\191",
-                "Memasang " .. #positions .. " sprinkler (" .. sprinklerName .. ", radius " .. radius .. " studs)...",
+                "Placing " .. #positions .. " sprinkler(s) (" .. sprinklerName .. ", radius " .. radius .. " studs)...",
                 Colors.Success)
 
             task.spawn(function()
@@ -424,10 +422,10 @@ return function(ctx)
                         local success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
                         if success then placed = placed + 1 end
                     end)
-                    -- Re-acquire setelah tiap placement (tool di-consume server)
+                    -- Re-acquire after each placement (tool is consumed by the server)
                     local t2, sn2 = AcquireSprinklerTool()
                     if not t2 then
-                        Notify("Sprinkler", "\226\157\140 Sprinkler habis di backpack!", Colors.Error)
+                        Notify("Sprinkler", "\226\157\140 Ran out of sprinklers in backpack!", Colors.Error)
                         break
                     end
                     tool, sprinklerName = t2, sn2
@@ -435,18 +433,18 @@ return function(ctx)
                 end
                 if placed > 0 then
                     Notify("Sprinkler \226\156\133",
-                        "Pasang " .. placed .. "/" .. #positions .. " sprinkler di Plot " .. MY_PLOT_ID,
+                        "Placed " .. placed .. "/" .. #positions .. " sprinklers on Plot " .. MY_PLOT_ID,
                         Colors.Success, 5)
                 else
-                    Notify("Sprinkler", "Tidak ada sprinkler yang berhasil dipasang. Pastikan kamu di plotmu dan sudah ada tanaman.", Colors.Warning)
+                    Notify("Sprinkler", "No sprinklers were placed. Make sure you're on your plot and have plants.", Colors.Warning)
                 end
             end)
         end, Colors.Success)
 
-        CreateActionButton(waterContent, "\240\159\148\141 Scan Sprinkler di Plot", function()
+        CreateActionButton(waterContent, "\240\159\148\141 Scan Sprinklers on Plot", function()
             local myPlot = GetMyPlot()
             if not myPlot then
-                Notify("Scan", "\226\157\140 Plot " .. MY_PLOT_ID .. " tidak ditemukan!", Colors.Error)
+                Notify("Scan", "\226\157\140 Your plot was not found!", Colors.Error)
                 return
             end
             local sprinklers = {}
@@ -457,9 +455,9 @@ return function(ctx)
                 end
             end
             if #sprinklers == 0 then
-                Notify("Sprinkler Scan", "Tidak ada sprinkler di Plot " .. MY_PLOT_ID, Colors.TextMuted)
+                Notify("Sprinkler Scan", "No sprinklers found on your plot.", Colors.TextMuted)
             else
-                NotifyStok(sprinklers, Colors.Success, 10, "\240\159\140\191 Sprinkler di Plot (" .. #sprinklers .. ")")
+                NotifyStok(sprinklers, Colors.Success, 10, "\240\159\140\191 Sprinklers on Plot (" .. #sprinklers .. ")")
             end
         end, Colors.Accent)
     end)
@@ -467,7 +465,7 @@ return function(ctx)
     -- ====================== PLOT PAGE ======================
     ctx.registerPage("Plot", function()
         local plotCard, plotContent = CreateSectionCard("\240\159\147\144 My Plot \226\128\148 Plot " .. MY_PLOT_ID, 1, Colors.Accent)
-        CreateInfoText(plotContent, "Detected from scanner", "PlotId = " .. MY_PLOT_ID .. " | Path: Workspace.Gardens.Plot" .. MY_PLOT_ID)
+        CreateInfoText(plotContent, "Your Plot", "Detected Plot ID: " .. MY_PLOT_ID .. ". Stats below update in real-time.")
 
         local statsGrid = Create("Frame", {
             Parent = plotContent,
@@ -524,7 +522,7 @@ return function(ctx)
         end)
 
         CreateSubHeader(plotContent, "Plot Actions")
-        CreateActionButton(plotContent, "Customise Theme (ProximityPrompt)", function()
+        CreateActionButton(plotContent, "Customise Plot Theme", function()
             local plot = GetMyPlot()
             if plot then
                 local signs = plot:FindFirstChild("Signs")
@@ -539,7 +537,7 @@ return function(ctx)
                     end
                 end
             end
-            Notify("Plot", "Triggered CustomiseTheme prompt", Colors.Accent)
+            Notify("Plot", "Opened theme customiser.", Colors.Accent)
         end)
         CreateActionButton(plotContent, "Like My Garden", function()
             local plot = GetMyPlot()
@@ -550,7 +548,7 @@ return function(ctx)
                     end
                 end
             end
-            Notify("Plot", "Triggered GardenSignLike", Colors.Gold)
+            Notify("Plot", "Liked your garden!", Colors.Gold)
         end)
         CreateActionButton(plotContent, "Teleport to Plot SpawnPoint", function()
             local plot = GetMyPlot()
@@ -566,7 +564,7 @@ return function(ctx)
         end, Colors.Success)
 
         local pottedCard, pottedContent = CreateSectionCard("\240\159\170\180 Potted Plants", 2, Colors.Rainbow)
-        CreateInfoText(pottedContent, "Scanner detected", "PickUpPottedPlantPrompt found in workspace.")
+        CreateInfoText(pottedContent, "How It Works", "Scans for potted plants nearby and picks them all up automatically.")
         CreateActionButton(pottedContent, "Auto Pickup Potted Plants", function()
             local picked = 0
             for _, desc in ipairs(game:GetService("Workspace"):GetDescendants()) do
@@ -583,29 +581,29 @@ return function(ctx)
     -- ====================== SHOP PAGE ======================
     ctx.registerPage("Shop", function()
         local buyCard, buyContent = CreateSectionCard("\240\159\155\146 Auto Buy Seeds", 1, Colors.Success)
-        CreateInfoText(buyContent, "Cara Pakai", "1. Pilih seed di 'Pilih Seed Target'.\n2. Aktifkan 'Auto Buy Seeds'.\n3. Script beli 1 seed per cycle selama stok ada.\nGunakan 'Beli SEMUA yang ada stok' untuk auto-beli semua seed.")
+        CreateInfoText(buyContent, "How To Use", "1. Select seeds in 'Choose Target Seeds'.\n2. Enable 'Auto Buy Seeds'.\n3. Seeds will be purchased automatically while they're in stock.\nUse 'Buy ALL available seeds' to buy everything in stock.")
 
-        CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed", "Loop cepat beli seed yang dipilih, stop jika stok 0", function(newVal, revert)
+        CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed", "Rapidly buys selected seeds, stops when out of stock", function(newVal, revert)
             if newVal and not States.autoBuyAll then
                 local targets = States.autoBuySeedTargets or {}
                 if #targets == 0 then
                     revert()
-                    Notify("Auto Buy", "\226\154\160\239\184\143 Pilih seed dulu sebelum aktifkan Auto Buy!", Colors.Warning, 5)
+                    Notify("Auto Buy", "\226\154\160\239\184\143 Select seeds below before enabling Auto Buy!", Colors.Warning, 5)
                     return
                 end
             end
             if newVal then pcall(MuteSFX_Failed) end
         end)
-        CreateToggle(buyContent, "Beli SEMUA yang ada stok", "autoBuyAll", "ON: beli semua seed yg stok > 0 | OFF: hanya seed dipilih")
-        CreateMultiSelect(buyContent, "\240\159\140\177Pilih Seed Target", SEEDS, "autoBuySeedTargets")
-        CreateSlider(buyContent, "Delay Antar Beli (s)", 0, 2, "buyDelay")
+        CreateToggle(buyContent, "Buy ALL available seeds", "autoBuyAll", "ON: buys every seed that has stock | OFF: only selected seeds")
+        CreateMultiSelect(buyContent, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
+        CreateSlider(buyContent, "Delay Between Purchases (s)", 0, 2, "buyDelay")
         CreateSlider(buyContent, "Loop Delay (s)", 0, 10, "shopLoopDelay")
-        CreateToggle(buyContent, "Notif Saat Beli", "notifyBuy", "Tampilkan notif setiap seed dibeli")
+        CreateToggle(buyContent, "Notify on Purchase", "notifyBuy", "Show a notification each time a seed is bought")
 
         -- Predict Next Stock
         local predictCard, predictContent = CreateSectionCard("\240\159\148\174 Predict Next Stock", 2, Colors.Rainbow)
-        CreateInfoText(predictContent, "Cara Kerja",
-            "Menggunakan RestockChance dari SeedData untuk hitung rata-rata berapa restock lagi sampai seed muncul.")
+        CreateInfoText(predictContent, "How It Works",
+            "Uses each seed's restock chance to estimate how many restocks until it appears in the shop.")
 
         local SEED_RESTOCK_DATA = {
             ["Carrot"]={chance=100,restockMin=3,restockMax=4},["Strawberry"]={chance=100,restockMin=4,restockMax=5},
@@ -643,7 +641,7 @@ return function(ctx)
             local h = math.floor(secs / 3600)
             local m = math.floor((secs % 3600) / 60)
             local s = secs % 60
-            if h > 0 then return h .. "j " .. m .. "m " .. s .. "s"
+            if h > 0 then return h .. "h " .. m .. "m " .. s .. "s"
             elseif m > 0 then return m .. "m " .. s .. "s" end
             return s .. "s"
         end
@@ -670,9 +668,9 @@ return function(ctx)
 
         local timerRow = Create("Frame", {Parent = predictContent, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y})
         CreateListLayout(timerRow, 4)
-        local _, nextRestockLbl = CreateStatRow(timerRow, "\226\143\177 Restock Berikutnya", "...", Colors.Rainbow)
+        local _, nextRestockLbl = CreateStatRow(timerRow, "\226\143\177 Next Restock", "...", Colors.Rainbow)
         local _, intervalLbl    = CreateStatRow(timerRow, "\240\159\147\144 Interval", "...", Colors.TextSecondary)
-        local _, stockCountLbl  = CreateStatRow(timerRow, "\240\159\147\166 Tersedia Sekarang", "...", Colors.Success)
+        local _, stockCountLbl  = CreateStatRow(timerRow, "\240\159\147\166 In Stock Now", "...", Colors.Success)
 
         task.spawn(function()
             while GetActivePage() == "Shop" do
@@ -680,7 +678,7 @@ return function(ctx)
                 if GetActivePage() ~= "Shop" then break end
                 local data = GetRestockData()
                 if not data then
-                    nextRestockLbl.Text = "\226\154\160 StockValues tidak ditemukan"
+                    nextRestockLbl.Text = "\226\154\160 Stock data unavailable"
                     intervalLbl.Text    = "\226\128\148"
                     stockCountLbl.Text  = "\226\128\148"
                     continue
@@ -695,81 +693,81 @@ return function(ctx)
                         if c:IsA("NumberValue") and c.Value > 0 then available = available + 1 end
                     end
                 end
-                stockCountLbl.Text = available .. " seed ada stok"
+                stockCountLbl.Text = available .. " seed(s) in stock"
             end
         end)
 
-        CreateSubHeader(predictContent, "\240\159\140\177 Prediksi Per Seed")
+        CreateSubHeader(predictContent, "\240\159\140\177 Predict Per Seed")
         States.predictSeedTarget = States.predictSeedTarget or SEEDS[1]
-        CreateDropdown(predictContent, "Pilih Seed", SEEDS, "predictSeedTarget")
-        CreateActionButton(predictContent, "\240\159\148\141 Prediksi Seed Ini", function()
+        CreateDropdown(predictContent, "Select Seed", SEEDS, "predictSeedTarget")
+        CreateActionButton(predictContent, "\240\159\148\141 Predict This Seed", function()
             local seedName = States.predictSeedTarget or SEEDS[1]
             local data = GetRestockData()
-            if not data then Notify("Predict", "\226\154\160\239\184\143 Data restock tidak ditemukan!", Colors.Warning, 5) return end
+            if not data then Notify("Predict", "\226\154\160\239\184\143 Restock data not available!", Colors.Warning, 5) return end
             local stock = GetSeedStock(seedName)
             local sdata = SEED_RESTOCK_DATA[seedName]
             local sisa = math.max(0, data.nextRestock - os.time())
             if stock > 0 then
-                Notify("\240\159\140\177 " .. seedName, "\226\156\133 Ada stok: " .. stock, Colors.Success, 8)
+                Notify("\240\159\140\177 " .. seedName, "\226\156\133 In stock: " .. stock, Colors.Success, 8)
                 task.wait(0.1)
-                Notify("\226\143\177 Restock berikutnya", FormatSeconds(sisa), Colors.Accent, 8)
+                Notify("\226\143\177 Next restock", FormatSeconds(sisa), Colors.Accent, 8)
                 return
             end
-            if not sdata then Notify("\240\159\140\177 " .. seedName, "\226\157\140 Stok habis, data chance tidak ada", Colors.Warning, 6) return end
+            if not sdata then Notify("\240\159\140\177 " .. seedName, "\226\157\140 Out of stock, no chance data available", Colors.Warning, 6) return end
             local meanN = ExpectedRestocksUntilAppear(sdata.chance)
             local n75 = RestocksFor75Pct(sdata.chance)
             local etaDetik = sisa + (data.interval * (meanN - 1))
             local eta75Detik = sisa + (data.interval * (n75 - 1))
             local col = RestockColor(meanN)
-            Notify("\240\159\140\177 " .. seedName, "\226\157\140 Stok habis | Chance: " .. sdata.chance .. "%", col, 10)
+            Notify("\240\159\140\177 " .. seedName, "\226\157\140 Out of stock | Chance: " .. sdata.chance .. "%", col, 10)
             task.wait(0.1)
-            Notify("\240\159\147\138 Expected muncul", "~" .. meanN .. " restock lagi (~" .. FormatSeconds(etaDetik) .. ")", col, 10)
+            Notify("\240\159\147\138 Expected to appear", "~" .. meanN .. " restocks away (~" .. FormatSeconds(etaDetik) .. ")", col, 10)
             task.wait(0.1)
-            Notify("\240\159\142\175 75% kemungkinan", "dalam " .. n75 .. " restock (~" .. FormatSeconds(eta75Detik) .. ")", Colors.Warning, 10)
+            Notify("\240\159\142\175 75% likely within", n75 .. " restocks (~" .. FormatSeconds(eta75Detik) .. ")", Colors.Warning, 10)
         end, Colors.Rainbow)
 
         -- Auto Buy Gear
         local gearCard, gearContent = CreateSectionCard("\226\154\153\239\184\143 Auto Buy Gear", 3, Colors.Electric)
-        CreateInfoText(gearContent, "Cara Pakai", "Pilih gear di 'Pilih Gear Target', aktifkan toggle. Script beli 1 gear per cycle selama stok ada.")
-        CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear", "Loop cepat beli gear yang dipilih, stop jika stok 0", function(newVal, revert)
+        CreateInfoText(gearContent, "How To Use", "Select gear in 'Choose Target Gear', then enable the toggle. Purchases one gear per cycle while in stock.")
+        CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear", "Rapidly buys selected gear, stops when out of stock", function(newVal, revert)
             if newVal and not States.autoBuyGearAll then
                 local targets = States.autoBuyGearTargets or {}
                 if #targets == 0 then
                     revert()
-                    Notify("Auto Buy Gear", "\226\154\160\239\184\143 Pilih gear dulu sebelum aktifkan!", Colors.Warning, 5)
+                    Notify("Auto Buy Gear", "\226\154\160\239\184\143 Select gear below before enabling!", Colors.Warning, 5)
                     return
                 end
             end
             if newVal then pcall(MuteSFX_Failed) end
         end)
-        CreateToggle(gearContent, "Beli SEMUA Gear yang ada stok", "autoBuyGearAll", "ON: beli semua gear yg stok > 0 | OFF: hanya gear dipilih")
-        CreateMultiSelect(gearContent, "\226\154\153\239\184\143Pilih Gear Target", GEARS, "autoBuyGearTargets")
-        CreateSlider(gearContent, "Delay Antar Beli Gear (s)", 0, 2, "gearBuyDelay")
-        CreateSlider(gearContent, "Loop Delay Gear (s)", 0, 10, "gearShopLoopDelay")
-        CreateToggle(gearContent, "Notif Saat Beli Gear", "notifyBuyGear", "Tampilkan notif setiap gear dibeli")
+        CreateToggle(gearContent, "Buy ALL available gear", "autoBuyGearAll", "ON: buys every gear that has stock | OFF: only selected gear")
+        CreateMultiSelect(gearContent, "\226\154\153\239\184\143Choose Target Gear", GEARS, "autoBuyGearTargets")
+        CreateSlider(gearContent, "Delay Between Purchases (s)", 0, 2, "gearBuyDelay")
+        CreateSlider(gearContent, "Loop Delay (s)", 0, 10, "gearShopLoopDelay")
+        CreateToggle(gearContent, "Notify on Purchase", "notifyBuyGear", "Show a notification each time a gear is bought")
 
         -- Auto Buy Crate
         local crateCard, crateContent = CreateSectionCard("\240\159\147\166 Auto Buy Crate", 4, Colors.Warning)
-        CreateInfoText(crateContent, "Cara Pakai", "Pilih crate di 'Pilih Crate Target', aktifkan toggle. Stok dibaca dari StockValues.CrateShop.Items.")
-        CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate", "Loop cepat beli crate yang dipilih, stop jika stok 0", function(newVal, revert)
+        CreateInfoText(crateContent, "How To Use", "Select crates in 'Choose Target Crates', then enable the toggle. Automatically purchases while crates are in stock.")
+        CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate", "Rapidly buys selected crates, stops when out of stock", function(newVal, revert)
             if newVal and not States.autoBuyCrateAll then
                 local targets = States.autoBuyCrateTargets or {}
                 if #targets == 0 then
                     revert()
-                    Notify("Auto Buy Crate", "\226\154\160\239\184\143 Pilih crate dulu sebelum aktifkan!", Colors.Warning, 5)
+                    Notify("Auto Buy Crate", "\226\154\160\239\184\143 Select crates below before enabling!", Colors.Warning, 5)
                     return
                 end
             end
             if newVal then pcall(MuteSFX_Failed) end
         end)
-        CreateToggle(crateContent, "Beli SEMUA Crate yang ada stok", "autoBuyCrateAll", "ON: beli semua crate yg stok > 0 | OFF: hanya crate dipilih")
-        CreateMultiSelect(crateContent, "\240\159\147\166Pilih Crate Target", CRATES, "autoBuyCrateTargets")
-        CreateSlider(crateContent, "Delay Antar Beli Crate (s)", 0, 2, "crateBuyDelay")
-        CreateSlider(crateContent, "Loop Delay Crate (s)", 0, 10, "crateShopLoopDelay")
-        CreateToggle(crateContent, "Notif Saat Beli Crate", "notifyBuyCrate", "Tampilkan notif setiap crate dibeli")
-        CreateActionButton(crateContent, "\240\159\155\146 Beli Crate yang Dipilih Sekarang", function()
+        CreateToggle(crateContent, "Buy ALL available crates", "autoBuyCrateAll", "ON: buys every crate that has stock | OFF: only selected crates")
+        CreateMultiSelect(crateContent, "\240\159\147\166Choose Target Crates", CRATES, "autoBuyCrateTargets")
+        CreateSlider(crateContent, "Delay Between Purchases (s)", 0, 2, "crateBuyDelay")
+        CreateSlider(crateContent, "Loop Delay (s)", 0, 10, "crateShopLoopDelay")
+        CreateToggle(crateContent, "Notify on Purchase", "notifyBuyCrate", "Show a notification each time a crate is bought")
+        CreateActionButton(crateContent, "\240\159\155\146 Buy Selected Crates Now", function()
             local targets = States.autoBuyCrateTargets or {}
-            if #targets == 0 then Notify("Buy Crate", "\226\154\160\239\184\143 Pilih crate dulu!", Colors.Warning) return end
+            if #targets == 0 then Notify("Buy Crate", "\226\154\160\239\184\143 Select crates first!", Colors.Warning) return end
             local bought = 0
             for _, crateName in ipairs(targets) do
                 local stock = GetCrateStock(crateName)
@@ -779,34 +777,34 @@ return function(ctx)
                     task.wait(0.1)
                 end
             end
-            Notify("Buy Crate", "Beli " .. bought .. " crate sekarang.", Colors.Warning)
+            Notify("Buy Crate", "Bought " .. bought .. " crate(s).", Colors.Warning)
         end, Colors.Warning)
-        CreateActionButton(crateContent, "\240\159\146\176 Lihat Harga Crate", function()
+        CreateActionButton(crateContent, "\240\159\146\176 View Crate Prices", function()
             local lines = {}
             for _, name in ipairs(CRATES) do
                 local cost = CRATE_COST[name] or 0
                 local costStr = cost >= 1000000 and string.format("%.1fM", cost/1000000) or string.format("%dk", cost/1000)
                 table.insert(lines, name:gsub(" Crate", "") .. ": \194\162" .. costStr)
             end
-            Notify("Harga Crate", table.concat(lines, " | "):sub(1, 200), Colors.Gold, 10)
+            Notify("Crate Prices", table.concat(lines, " | "):sub(1, 200), Colors.Gold, 10)
         end)
 
         -- Auto Open Crate
         local openCrateCard, openCrateContent = CreateSectionCard("\240\159\142\129 Auto Open Crate", 5, Colors.Gold)
-        CreateInfoText(openCrateContent, "Cara Kerja", "Script cek inventory; jika ada crate tool, otomatis equip lalu open via Networking.Crate.OpenCrate.")
-        CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Open semua crate di inventory secara otomatis")
-        CreateSlider(openCrateContent, "Delay Antar Open (s)", 1, 30, "crateOpenDelay")
-        CreateToggle(openCrateContent, "Notif Hasil Open", "notifyOpenCrate", "Tampilkan item yang didapat saat open crate")
-        CreateActionButton(openCrateContent, "\240\159\148\141 Scan Crate di Inventory", function()
+        CreateInfoText(openCrateContent, "How It Works", "Checks your backpack for crates and opens them automatically one by one.")
+        CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Automatically opens all crates in your backpack")
+        CreateSlider(openCrateContent, "Delay Between Opens (s)", 1, 30, "crateOpenDelay")
+        CreateToggle(openCrateContent, "Notify on Open", "notifyOpenCrate", "Show what item you received when a crate is opened")
+        CreateActionButton(openCrateContent, "\240\159\148\141 Scan Crates in Backpack", function()
             local cratesInBag = GetCratesInInventory()
-            if #cratesInBag == 0 then Notify("Scan Crate", "Tidak ada crate di inventory.", Colors.TextMuted) return end
+            if #cratesInBag == 0 then Notify("Scan Crates", "No crates found in backpack.", Colors.TextMuted) return end
             local names = {}
             for _, entry in ipairs(cratesInBag) do table.insert(names, entry.name) end
-            Notify("Crate di Bag (" .. #cratesInBag .. ")", table.concat(names, ", "):sub(1, 150), Colors.Warning, 6)
+            Notify("Crates in Bag (" .. #cratesInBag .. ")", table.concat(names, ", "):sub(1, 150), Colors.Warning, 6)
         end)
-        CreateActionButton(openCrateContent, "\226\154\161 Open Semua Crate Sekarang", function()
+        CreateActionButton(openCrateContent, "\226\154\161 Open All Crates Now", function()
             local cratesInBag = GetCratesInInventory()
-            if #cratesInBag == 0 then Notify("Open Crate", "Tidak ada crate di inventory!", Colors.Error) return end
+            if #cratesInBag == 0 then Notify("Open Crate", "No crates in backpack!", Colors.Error) return end
             Notify("Open Crate", "Opening " .. #cratesInBag .. " crate(s)...", Colors.Warning)
             task.spawn(function()
                 for _, entry in ipairs(cratesInBag) do
@@ -820,7 +818,7 @@ return function(ctx)
                     if ok then
                         local wonItem = type(result) == "table" and result.WonItem
                         if wonItem then
-                            Notify("\240\159\147\166 " .. crateName, "Dapat: " .. (wonItem.Name or "?"), Colors.Gold, 5)
+                            Notify("\240\159\147\166 " .. crateName, "Got: " .. (wonItem.Name or "?"), Colors.Gold, 5)
                         else
                             Notify("\240\159\147\166 Opened!", crateName, Colors.Warning, 3)
                         end
@@ -831,61 +829,61 @@ return function(ctx)
                 end
             end)
         end, Colors.Gold)
-        CreateActionButton(openCrateContent, "\240\159\147\139 Copy Semua Packet IDs", function()
+        CreateActionButton(openCrateContent, "\240\159\147\139 Copy All Packet IDs", function()
             local ids = {}
             for k, v in pairs(PACKET) do table.insert(ids, k .. "=" .. v) end
             table.sort(ids)
             setclipboard(table.concat(ids, ", "))
-            Notify("Dev", "Semua Packet IDs disalin ke clipboard.", Colors.Accent)
+            Notify("Dev", "All Packet IDs copied to clipboard.", Colors.Accent)
         end)
     end)
 
     -- ====================== SELL PAGE ======================
     ctx.registerPage("Sell", function()
         local sellCard, sellContent = CreateSectionCard("\240\159\146\176 Auto Sell", 1, Colors.Gold)
-        local netStatus = Networking and "\226\156\133 Networking OK (Networking.NPCS.SellAll)" or "\226\157\140 Networking nil \226\128\148 sell tidak akan work!"
-        CreateInfoText(sellContent, "Sell System", netStatus .. "\nCara benar: Networking.NPCS.SellAll:Fire() atau SellFruit:Fire(fruitId).")
-        CreateToggle(sellContent, "Auto Sell Fruits", "autoSell", "Loop otomatis jual semua buah via Networking.NPCS.SellAll")
-        CreateToggle(sellContent, "Keep Mutations (Jangan Dijual)", "keepMutations", "Skip semua buah yg punya mutation apapun")
-        CreateMultiSelect(sellContent, "🔒Keep Mutation Spesifik", MUTATIONS, "sellKeepMutation")
-        CreateSlider(sellContent, "Delay Antar Jual (s)", 0, 3, "sellDelay")
+        local netStatus = Networking and "\226\156\133 Sell system ready." or "\226\157\140 Sell system unavailable \226\128\148 reload the hub if this persists."
+        CreateInfoText(sellContent, "How It Works", netStatus .. "\nAuto Sell continuously sells all fruits in your backpack. Use filters below to keep specific mutations.")
+        CreateToggle(sellContent, "Auto Sell Fruits", "autoSell", "Continuously sells all fruits in your backpack automatically")
+        CreateToggle(sellContent, "Keep Mutated Fruits", "keepMutations", "Skip all fruits that have any mutation")
+        CreateMultiSelect(sellContent, "🔒Keep Specific Mutations", MUTATIONS, "sellKeepMutation")
+        CreateSlider(sellContent, "Delay Between Sells (s)", 0, 3, "sellDelay")
         CreateSlider(sellContent, "Loop Delay (s)", 1, 60, "sellLoopDelay")
-        CreateToggle(sellContent, "Notif Saat Jual", "notifySell", "Tampilkan notif hasil penjualan + total")
+        CreateToggle(sellContent, "Notify on Sell", "notifySell", "Show a notification with sell totals after each cycle")
 
-        CreateActionButton(sellContent, "\240\159\148\141 Preview Harga Inventory", function()
-            if not Networking then Notify("Preview", "\226\157\140 Networking nil!", Colors.Error) return end
+        CreateActionButton(sellContent, "\240\159\148\141 Preview Inventory Value", function()
+            if not Networking then Notify("Preview", "\226\157\140 Sell system unavailable!", Colors.Error) return end
             local ok, data = pcall(function() return Networking.NPCS.PreviewSellAll:Fire() end)
             if ok and data and data.FruitCount then
                 local ddok, dddata = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
                 local ddAvail = ddok and dddata and dddata.Available
-                local msg = data.FruitCount .. " buah | Normal: " .. tostring(data.TotalValue or 0) .. "\194\162"
+                local msg = data.FruitCount .. " fruits | Normal: " .. tostring(data.TotalValue or 0) .. "\194\162"
                 if ddAvail then
                     local ddPrice = math.max(1, math.floor((data.TotalBaseValue or data.TotalValue or 0) * 5))
                     msg = msg .. " | Daily Deal: " .. tostring(ddPrice) .. "\194\162 (5x!) \226\173\144"
                 end
                 Notify("Preview Sell", msg, Colors.Gold, 6)
             else
-                Notify("Preview Sell", "Tidak ada buah di inventory.", Colors.TextMuted)
+                Notify("Preview Sell", "No fruits in backpack.", Colors.TextMuted)
             end
         end)
-        CreateActionButton(sellContent, "\226\154\161 Jual Semua Sekarang", function()
-            if not Networking then Notify("Sell", "\226\157\140 Networking nil! Coba reload hub.", Colors.Error) return end
+        CreateActionButton(sellContent, "\226\154\161 Sell All Now", function()
+            if not Networking then Notify("Sell", "\226\157\140 Sell system unavailable! Try reloading the hub.", Colors.Error) return end
             local ok, result = pcall(function() return Networking.NPCS.SellAll:Fire() end)
             if ok and result and result.Success then
-                Notify("Sell \226\156\133", "Sold " .. (result.SoldCount or "?") .. " buah = " .. tostring(result.SellPrice or 0) .. "\194\162", Colors.Gold, 10)
+                Notify("Sell \226\156\133", "Sold " .. (result.SoldCount or "?") .. " fruits = " .. tostring(result.SellPrice or 0) .. "\194\162", Colors.Gold, 10)
             else
-                Notify("Sell", "Gagal: " .. tostring(result and result.Reason or "Networking error"), Colors.Error)
+                Notify("Sell", "Failed: " .. tostring(result and result.Reason or "Networking error"), Colors.Error)
             end
         end, Colors.Gold)
-        CreateActionButton(sellContent, "\240\159\142\175 Jual Selective (Pakai Filter)", function()
-            if not Networking then Notify("Sell", "\226\157\140 Networking nil!", Colors.Error) return end
+        CreateActionButton(sellContent, "\240\159\142\175 Sell with Filters", function()
+            if not Networking then Notify("Sell", "\226\157\140 Sell system unavailable!", Colors.Error) return end
             local fruits = {}
             for _, tool in ipairs(player.Backpack:GetChildren()) do
                 if tool:GetAttribute("FruitName") or tool:GetAttribute("HarvestedFruit") then
                     table.insert(fruits, tool)
                 end
             end
-            if #fruits == 0 then Notify("Sell", "Tidak ada buah di backpack.", Colors.TextMuted) return end
+            if #fruits == 0 then Notify("Sell", "No fruits in backpack.", Colors.TextMuted) return end
             local sold, skipped = 0, 0
             for _, tool in ipairs(fruits) do
                 if ShouldKeepFruit(tool) then
@@ -905,7 +903,7 @@ return function(ctx)
                 end
                 task.wait(States.sellDelay or 0.1)
             end
-            Notify("Sell Selective", "Sold " .. sold .. " buah, skip " .. skipped, Colors.Gold, 10)
+            Notify("Sell with Filters", "Sold " .. sold .. " fruit(s), skipped " .. skipped, Colors.Gold, 10)
         end)
 
         local bagCard, bagContent = CreateSectionCard("\240\159\142\146 Bag Inspector", 2, Colors.Accent)
@@ -930,7 +928,7 @@ return function(ctx)
                 capLbl.Text    = fruits .. " / " .. tostring(player:GetAttribute("MaxFruitCapacity") or MAX_FRUIT_CAP)
             end
         end)
-        CreateActionButton(bagContent, "\240\159\147\139 List Semua Buah di Bag", function()
+        CreateActionButton(bagContent, "\240\159\147\139 List All Fruits in Bag", function()
             local items = {}
             for _, t in ipairs(player.Backpack:GetChildren()) do
                 local fn = t:GetAttribute("FruitName")
@@ -943,9 +941,9 @@ return function(ctx)
                     table.insert(items, entry)
                 end
             end
-            if #items == 0 then Notify("Bag", "Tidak ada buah di backpack.", Colors.TextMuted)
+            if #items == 0 then Notify("Bag", "No fruits in backpack.", Colors.TextMuted)
             else
-                Notify("Bag (" .. #items .. " buah)", table.concat(items, ", "):sub(1, 150), Colors.Accent, 7)
+                Notify("Bag (" .. #items .. " fruits)", table.concat(items, ", "):sub(1, 150), Colors.Accent, 7)
             end
         end)
     end)
@@ -987,9 +985,9 @@ return function(ctx)
                 if ra ~= rb then return ra > rb end
                 return (sizeOrd[a.size] or 1) > (sizeOrd[b.size] or 1)
             end)
-            CreateSubHeader(listArea, "Pets di Backpack (" .. #playerPets .. ")")
+            CreateSubHeader(listArea, "Pets in Backpack (" .. #playerPets .. ")")
             if #playerPets == 0 then
-                CreateInfoText(listArea, nil, "Tidak ada pet di backpack saat ini.", Colors.TextMuted)
+                CreateInfoText(listArea, nil, "No pets in backpack.", Colors.TextMuted)
                 return
             end
             local ROW_H, ROW_GAP = 28, 6
@@ -1019,7 +1017,7 @@ return function(ctx)
         end)
 
         local finderCard, finderContent = CreateSectionCard("\240\159\148\141 Pet Finder", 2, Colors.Warning)
-        CreateInfoText(finderContent, "Cara Kerja", "Membaca Workspace.Map.WildPetRef. Setiap pet BasePart dengan Attribute Rarity & OwnerUserId (0 = bebas).")
+        CreateInfoText(finderContent, "How It Works", "Scans for unclaimed wild pets nearby. Click TP to move your character to them and attempt a catch.")
         local listContainer = Create("Frame", {Parent = finderContent, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y})
         CreateListLayout(listContainer, 4)
 
@@ -1031,13 +1029,13 @@ return function(ctx)
             end
             local pets = ScanWildPets("All")
             if #pets == 0 then
-                CreateInfoText(listContainer, nil, "Tidak ada wild pet bebas ditemukan di WildPetRef.", Colors.TextMuted)
+                CreateInfoText(listContainer, nil, "No unclaimed wild pets found nearby.", Colors.TextMuted)
                 return
             end
-            CreateSubHeader(listContainer, #pets .. " pet tersedia")
+            CreateSubHeader(listContainer, #pets .. " pet(s) available")
             for i, entry in ipairs(pets) do
                 if i > 15 then
-                    CreateInfoText(listContainer, nil, "... dan " .. (#pets - 15) .. " lainnya.", Colors.TextMuted)
+                    CreateInfoText(listContainer, nil, "... and " .. (#pets - 15) .. " more.", Colors.TextMuted)
                     break
                 end
                 local part, rarity, dist = entry.part, entry.rarity, entry.dist
@@ -1058,7 +1056,7 @@ return function(ctx)
                 tpBtn.MouseLeave:Connect(function() Tween(tpBtn, {BackgroundColor3 = Colors.Surface}, 0.1) end)
                 tpBtn.MouseButton1Click:Connect(function()
                     if not part or not part.Parent then
-                        Notify("Pet Finder", "Pet sudah menghilang!", Colors.Error)
+                        Notify("Pet Finder", "That pet has already disappeared!", Colors.Error)
                         RebuildPetList()
                         return
                     end
@@ -1093,9 +1091,9 @@ return function(ctx)
                 _finderConn:Disconnect()
             end
         end)
-        CreateActionButton(finderContent, "\226\154\161 TP ke Pet Terdekat", function()
+        CreateActionButton(finderContent, "\226\154\161 TP to Nearest Pet", function()
             local pets = ScanWildPets("All")
-            if #pets == 0 then Notify("Pet Finder", "Tidak ada pet tersedia saat ini.", Colors.Error) return end
+            if #pets == 0 then Notify("Pet Finder", "No pets available right now.", Colors.Error) return end
             local nearest = pets[1]
             local pName = HumanizePetName(nearest.name or "Unknown")
             Notify("Pet Finder", "Moving -> " .. pName .. " (" .. nearest.rarity .. ")", RarityColor[nearest.rarity] or Colors.Warning, 4)
@@ -1113,16 +1111,16 @@ return function(ctx)
         task.defer(RebuildPetList)
 
         local wildCard, wildContent = CreateSectionCard("\240\159\142\175 Auto Catch Wild", 3, Colors.Warning)
-        CreateInfoText(wildContent, "Auto Catch via WildPetRef", "Loop otomatis hop ke tiap pet yang dipilih. Kalau tidak ada dipilih = tangkap semua.")
+        CreateInfoText(wildContent, "How It Works", "Automatically moves to wild pets and catches them. Leave selection empty to catch all pets, or pick specific ones below.")
         local WILD_PET_NAMES = {"Frog", "Bunny", "Owl", "Deer", "Turtle", "Robin", "Bee", "Monkey", "Bear", "Unicorn", "Golden Dragonfly", "Raccoon", "Black Dragon", "Ice Serpent"}
-        CreateMultiSelect(wildContent, "\240\159\144\190Pilih Pet Target", WILD_PET_NAMES, "wildCatchTargets")
+        CreateMultiSelect(wildContent, "\240\159\144\190Choose Target Pets", WILD_PET_NAMES, "wildCatchTargets")
         CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild",
-            "ON: loop jalan terus, notif saat menunggu spawn | OFF: loop berhenti",
+            "ON: keeps running, chasing any matching pet that spawns | OFF: stops the loop",
             function(newVal)
                 if newVal then
                     local sel = States.wildCatchTargets or {}
-                    if #sel == 0 then Notify("Auto Catch", "ON \226\128\148 mengejar semua pet yang spawn", Colors.Success, 3)
-                    else Notify("Auto Catch", "ON \226\128\148 mengejar: " .. table.concat(sel, ", "), Colors.Success, 3) end
+                    if #sel == 0 then Notify("Auto Catch", "ON \226\128\148 chasing all wild pets", Colors.Success, 3)
+                    else Notify("Auto Catch", "ON \226\128\148 targeting: " .. table.concat(sel, ", "), Colors.Success, 3) end
                 else
                     Notify("Auto Catch", "OFF", Colors.TextMuted, 2)
                 end
@@ -1133,7 +1131,7 @@ return function(ctx)
     ctx.registerPage("Eggs", function()
         local eggCard, eggContent = CreateSectionCard("\240\159\165\154 Egg Hatching", 1, Colors.Warning)
         CreateInfoText(eggContent, "\240\159\154\167 Coming Soon",
-            "Fitur Egg Hatching sedang dalam pengembangan.\nBelum banyak yang punya egg, jadi fitur ini belum diaktifkan.\nStay tuned untuk update berikutnya!")
+            "Egg Hatching is currently under development.\nNot many players have eggs yet, so this feature isn't active.\nStay tuned for the next update!")
     end)
 
     -- ====================== PLAYER PAGE ======================
@@ -1177,7 +1175,7 @@ return function(ctx)
     -- ====================== VISUALS PAGE ======================
     ctx.registerPage("Visuals", function()
         local espCard, espContent = CreateSectionCard("\240\159\145\129 ESP & Highlights", 1, Colors.Electric)
-        CreateInfoText(espContent, "ESP system", "Renders BillboardGuis on targets. Wild Pets dari Workspace.Map.WildPetRef, mutations dari plant attrs.")
+        CreateInfoText(espContent, "ESP System", "Displays labels above players, pets, fruits, and mutated plants. Toggles update in real-time.")
         CreateToggle(espContent, "ESP Players", "espPlayers", "Shows player names/tags above heads")
         CreateToggle(espContent, "ESP Wild Pets", "espItems", "Highlights wild pets in workspace")
         CreateToggle(espContent, "ESP Fruits", "espFruits", "Highlights harvestable fruits on the plot")
@@ -1207,16 +1205,16 @@ return function(ctx)
             States.noShadows = false
             Notify("Visuals", "Reset to default lighting.", Colors.TextMuted)
         end)
-        CreateActionButton(visContent, "\226\154\161 Ultra Low Graphic (Permanen / Relog untuk reset)", function()
+        CreateActionButton(visContent, "\226\154\161 Ultra Low Graphics (Permanent until rejoin)", function()
             if ctx.UltraLow and ctx.UltraLow.Active then
-                Notify("Ultra Low", "Mode sudah aktif. Relog untuk reset.", Colors.Warning)
+                Notify("Ultra Low", "Already active. Rejoin to reset.", Colors.Warning)
                 return
             end
             if not ctx.UltraLow then
-                Notify("Ultra Low", "Module UltraLow tidak ditemukan.", Colors.Error)
+                Notify("Ultra Low", "Ultra Low module not found.", Colors.Error)
                 return
             end
-            Notify("Ultra Low", "Menerapkan... Jangan tutup hub.", Colors.Warning, 3)
+            Notify("Ultra Low", "Applying... Don't close the hub.", Colors.Warning, 3)
             task.spawn(function()
                 ctx.UltraLow.Apply()
             end)
@@ -1226,7 +1224,7 @@ return function(ctx)
     -- ====================== TELEPORT PAGE ======================
     ctx.registerPage("Teleport", function()
         local tpCard, tpContent = CreateSectionCard("\240\159\147\141 Quick Teleport", 1, Colors.Accent)
-        CreateInfoText(tpContent, "Scanner data", "Workspace.Teleports: Seeds, Sell, Gears, Props.")
+        CreateInfoText(tpContent, "Quick Teleport", "Instantly move to key game locations or other players.")
         local gameTeleports = {
             {"\240\159\140\177 Seeds Shop", "Seeds", Colors.Success},
             {"\240\159\146\176 Sell Area", "Sell", Colors.Gold},
@@ -1243,7 +1241,7 @@ return function(ctx)
                         player.Character:PivotTo(part.CFrame + Vector3.new(0, 5, 0))
                         Notify("Teleport", "\226\134\146 " .. tp[1], tp[3])
                     else
-                        Notify("Teleport", "Part '" .. tp[2] .. "' not found!", Colors.Error)
+                        Notify("Teleport", tp[1] .. " location not found!", Colors.Error)
                     end
                 end
             end, tp[3])
@@ -1285,7 +1283,7 @@ return function(ctx)
     -- ====================== UTILITY PAGE ======================
     ctx.registerPage("Utility", function()
         local worthCard, worthContent = CreateSectionCard("\240\159\146\142 Item Inspector", 1, Colors.Gold)
-        CreateInfoText(worthContent, "Fruit attrs", "Weight, SizeMultiplier, DecayAlpha, Mutation.")
+        CreateInfoText(worthContent, "Item Inspector", "Inspect any item you're holding to see its weight, mutation, size multiplier, and decay.")
         local toolNameLbl
         do
             local currentTool = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
@@ -1315,7 +1313,7 @@ return function(ctx)
                 else
                     local seedName = ct:GetAttribute("SeedTool") or ct:GetAttribute("SeedName")
                     if seedName then Notify("Inspect: Seed", "Type: " .. seedName, Colors.Success)
-                    else Notify("Inspect", ct.Name .. " \226\128\148 no fruit/seed attrs.", Colors.TextMuted) end
+                    else Notify("Inspect", ct.Name .. " \226\128\148 not a fruit or seed.", Colors.TextMuted) end
                 end
             else
                 Notify("Inspect", "Not holding anything.", Colors.TextMuted)
@@ -1334,14 +1332,14 @@ return function(ctx)
 
 
         local giftCard, giftContent = CreateSectionCard("\240\159\142\129 Gifts & Mailbox", 2, Colors.Rainbow)
-        CreateToggle(giftContent, "Auto Accept Gifts", "autoAcceptGifts", "Triggers MailboxPrompt every 10 seconds")
+        CreateToggle(giftContent, "Auto Accept Gifts", "autoAcceptGifts", "Automatically checks your mailbox every 10 seconds")
         CreateActionButton(giftContent, "Check Mailbox Now", function()
             local plot = GetMyPlot()
-            if not plot then Notify("Mailbox", "Plot " .. MY_PLOT_ID .. " not found!", Colors.Error) return end
+            if not plot then Notify("Mailbox", "Your plot was not found!", Colors.Error) return end
             local signs = plot:FindFirstChild("Signs")
-            if not signs then Notify("Mailbox", "Signs folder not found!", Colors.Error) return end
+            if not signs then Notify("Mailbox", "Mailbox not found on your plot.", Colors.Error) return end
             local mailbox = signs:FindFirstChild("GreyMailBox")
-            if not mailbox then Notify("Mailbox", "GreyMailBox not found!", Colors.Error) return end
+            if not mailbox then Notify("Mailbox", "Mailbox not found on your plot.", Colors.Error) return end
             local found = false
             for _, desc in ipairs(mailbox:GetDescendants()) do
                 if desc:IsA("ProximityPrompt") and desc.Name == "MailboxPrompt" then
@@ -1350,14 +1348,14 @@ return function(ctx)
                     break
                 end
             end
-            Notify("Mailbox", found and "Checked mailbox on Plot " .. MY_PLOT_ID or "MailboxPrompt not found!", found and Colors.Rainbow or Colors.Error)
+            Notify("Mailbox", found and "Mailbox checked on Plot " .. MY_PLOT_ID or "Mailbox could not be opened.", found and Colors.Rainbow or Colors.Error)
         end, Colors.Rainbow)
     end)
 
     -- ====================== MAILER PAGE ======================
     ctx.registerPage("Mailer", function()
         local mailerCard, mailerContent = CreateSectionCard("\226\156\137 Mailer System", 1, Colors.Accent)
-        CreateInfoText(mailerContent, "Mailer info", "Send items via GreyMailBox on plots. BidPrice/BidsAsked attrs detected on fruits.")
+        CreateInfoText(mailerContent, "Mailer System", "Send and receive items via the mailbox on your plot.")
         CreateSubHeader(mailerContent, "Outbox")
         CreateActionButton(mailerContent, "Open My Mailbox", function()
             local plot = GetMyPlot()
@@ -1396,9 +1394,9 @@ return function(ctx)
         CreateStatRow(infoContent, "Game", "Grow A Garden 2", Colors.TextSecondary)
         CreateStatRow(infoContent, "Player", player.DisplayName or player.Name, Colors.Accent)
         CreateStatRow(infoContent, "UserId", player.UserId, Colors.TextMuted)
-        CreateStatRow(infoContent, "PlotId (detected)", MY_PLOT_ID, Colors.Warning)
+        CreateStatRow(infoContent, "Plot ID", MY_PLOT_ID, Colors.Warning)
         CreateStatRow(infoContent, "Prime Status", (player:GetAttribute("PrimeEnabled") and "\226\156\133 Enabled" or "\226\157\140 Disabled"), Colors.Warning)
-        CreateStatRow(infoContent, "Packet Remote", ctx.PacketRemote and "\226\156\133 Found" or "\226\154\160 Not Found", ctx.PacketRemote and Colors.Success or Colors.Error)
+        CreateStatRow(infoContent, "Connection Status", ctx.PacketRemote and "\226\156\133 Connected" or "\226\154\160 Not Connected", ctx.PacketRemote and Colors.Success or Colors.Error)
 
     end)
 
@@ -1454,7 +1452,7 @@ return function(ctx)
     ctx.registerPage("Settings", function()
         local settCard, settContent = CreateSectionCard("\226\154\153 General Settings", 1, Colors.Accent)
         CreateToggle(settContent, "Auto Save Config", "autoSaveConfig", "Saves your config automatically")
-        CreateToggle(settContent, "Anti AFK", "antiAfk", "Prevents auto-disconnect (fires every 60s)")
+        CreateToggle(settContent, "Anti AFK", "antiAfk", "Prevents auto-disconnect")
         CreateToggle(settContent, "Minimize to Tray on Close", "minimizeToTray", "Minimizes to M shield instead of closing")
         CreateToggle(settContent, "Show Notifications", "showNotifications", "Shows popup notifications")
         CreateSubHeader(settContent, "Config")

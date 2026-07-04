@@ -486,7 +486,7 @@ return function(ctx)
     CreateCorner(HubCard, 12)
     CreatePadding(HubCard, 14)
     Create("TextLabel", {Parent=HubCard, Size=UDim2.new(1,0,0,22), BackgroundTransparency=1, Text="Miracle Hub", TextColor3=Colors.Accent, TextSize=17, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Left})
-    Create("TextLabel", {Parent=HubCard, Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,0,24), BackgroundTransparency=1, Text="Grow A Garden 2  \226\128\162  Full Edition", TextColor3=Colors.TextMuted, TextSize=11, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left})
+    Create("TextLabel", {Parent=HubCard, Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,0,24), BackgroundTransparency=1, Text="Grow A Garden 2", TextColor3=Colors.TextMuted, TextSize=11, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Left})
 
     local SidebarButtons = {}
     ctx.SidebarButtons = SidebarButtons
