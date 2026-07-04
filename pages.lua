@@ -89,9 +89,8 @@ return function(ctx)
         local plantCard, plantContent = CreateSectionCard("\240\159\140\177 Auto Plant", 1, Colors.Success)
 
 CreateInfoText(plantContent, "How It Works",
-    "Scans your plot for empty slots and plants seeds from your backpack automatically. "
-    .. "You must select at least one seed type before enablingor turn on 'Plant All Seeds in Backpack' to use everything in your backpack. "
-    .. "The loop runs continuously until the toggle is turned off"
+    "Automatically fills empty plot slots with seeds from your backpack. "
+    .. "Select seeds below before enabling, or turn on 'Plant All' to skip selection."
 )
 
         CreateToggle(plantContent, "Auto Plant", "autoPlant",
@@ -110,7 +109,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateToggle(plantContent, "Plant All Seeds in Backpack", "autoPlantAllSeeds",
             "Plants all seeds in backpack, ignoring the selection below")
 
-        CreateMultiSelect(plantContent, "Choose Seeds to Plant", SEEDS, "autoPlantTargets")
+        CreateMultiSelect(plantContent, " Choose Seeds to Plant", SEEDS, "autoPlantTargets")
 
         CreateToggle(plantContent, "Notify on Plant Cycle", "autoPlantNotify",
             "Notifies you each time a planting cycle completes")
@@ -203,7 +202,7 @@ CreateInfoText(plantContent, "How It Works",
                 table.concat(lines, " | "):sub(1, 200), Colors.Success, 7)
         end)
 
-        CreateActionButton(plantContent, "\240\159\147\138 Check Planted Slots", function()
+        CreateActionButton(plantContent, "Check Planted Slots", function()
             local seedCounts, totalPlanted = GetPlantedSeedCounts()
             local plantsFolder = GetPlantsFolder()
             local totalAll = plantsFolder and #plantsFolder:GetChildren() or 0
