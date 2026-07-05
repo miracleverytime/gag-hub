@@ -587,7 +587,9 @@ CreateInfoText(plantContent, "How It Works",
         local NO_TARGET_NOTIF_COOLDOWN = 5
 
         local autoBuyToggleBg, autoBuyKnob  -- referensi visual toggle Auto Buy Seeds
-        local multiSelectWrapper             -- referensi wrapper MultiSelect untuk grey-out
+        -- Shared control bridge: diisi oleh do-block setelah CreateMultiSelect selesai.
+        -- Toggle callback pakai table ini sehingga tidak ada ordering issue (closure capture).
+        local _msControl = { SetDisabled = nil }  -- akan diisi oleh do-block di bawah
 
         -- Toggle Auto Buy Seeds
         local autoBuyContainer, getAutoBuyState = CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed",
@@ -641,9 +643,9 @@ CreateInfoText(plantContent, "How It Works",
             "ON: buys every seed that has stock | OFF: only selected seeds",
             function(newVal)
                 pcall(function() Logic.ResetNotifiedEmpty() end)
-                -- Disable/enable MultiSelect secara langsung via API (bukan overlay)
-                if multiSelectWrapper and multiSelectWrapper.SetDisabled then
-                    pcall(function() multiSelectWrapper.SetDisabled(newVal) end)
+                -- _msControl.SetDisabled diisi oleh do-block di bawah setelah widget dibuat
+                if _msControl.SetDisabled then
+                    pcall(function() _msControl.SetDisabled(newVal) end)
                 end
                 -- Saat Buy ALL dimatikan: cek targets kosong → force off Auto Buy
                 if not newVal then
@@ -659,14 +661,17 @@ CreateInfoText(plantContent, "How It Works",
         -- MultiSelect wrapper dengan polling
         do
             local _prevTargetCount = #(States.autoBuySeedTargets or {})
-            -- Simpan return value CreateMultiSelect — expose SetDisabled API
-            multiSelectWrapper = CreateMultiSelect(buyContent, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
+            -- CreateMultiSelect return table {instance, SetDisabled}
+            -- wrapper sudah auto-parented ke buyContent di dalam CreateMultiSelect
+            local msResult = CreateMultiSelect(buyContent, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
+            -- Sambungkan ke shared bridge — toggle callback di atas bisa pakai ini sekarang
+            _msControl.SetDisabled = msResult.SetDisabled
 
             -- Terapkan disabled state awal jika Buy ALL sudah ON saat load
             if States.autoBuyAll then
                 task.defer(function()
-                    if multiSelectWrapper and multiSelectWrapper.SetDisabled then
-                        pcall(function() multiSelectWrapper.SetDisabled(true) end)
+                    if _msControl.SetDisabled then
+                        pcall(function() _msControl.SetDisabled(true) end)
                     end
                 end)
             end

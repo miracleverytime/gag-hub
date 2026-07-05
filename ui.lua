@@ -1384,14 +1384,17 @@ return function(ctx)
             itemFrames[#itemFrames+1] = entry
 
             hitBtn.MouseEnter:Connect(function()
+                if isDisabled then return end
                 if not isSelected(opt) then
                     Tween(row, {BackgroundColor3 = Colors.Surface, BackgroundTransparency = 0.5}, 0.1)
                 end
             end)
             hitBtn.MouseLeave:Connect(function()
+                if isDisabled then return end
                 if not isSelected(opt) then row.BackgroundTransparency = 1 end
             end)
             hitBtn.MouseButton1Click:Connect(function()
+                if isDisabled then return end  -- blokir mutasi saat disabled
                 local idx = table.find(selected, opt)
                 if idx then table.remove(selected, idx)
                 else table.insert(selected, opt) end
@@ -1403,6 +1406,7 @@ return function(ctx)
         end
 
         selAllBtn.MouseButton1Click:Connect(function()
+            if isDisabled then return end
             table.clear(selected)
             for _, opt in ipairs(options) do table.insert(selected, opt) end
             States[stateKey] = selected
@@ -1411,6 +1415,7 @@ return function(ctx)
             updatePill()
         end)
         clearBtn.MouseButton1Click:Connect(function()
+            if isDisabled then return end
             table.clear(selected)
             States[stateKey] = selected
             SaveState(stateKey, selected)
@@ -1472,9 +1477,9 @@ return function(ctx)
             end
         end
 
-        wrapper.SetDisabled = SetDisabled
-
-        return wrapper
+        -- Return table tipis: .instance = Frame asli, .SetDisabled = fungsi kontrol
+        -- (tidak bisa assign custom property ke Roblox Instance, jadi dibungkus table)
+        return { instance = wrapper, SetDisabled = SetDisabled }
     end
 
     local function CreateInfoText(parent, title, desc, color)
