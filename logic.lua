@@ -1548,16 +1548,21 @@ return function(ctx)
     -- _notifiedEmpty[seedName] = true  → notif "stok habis" sudah dikirim, jangan kirim lagi
     -- _notifiedEmpty[seedName] = false/nil → belum dinotif, atau sudah di-reset (siap kirim ulang)
     -- _notifEmptyTime[seedName] = os.clock() → waktu terakhir notif dikirim (rate-limit spam)
+    -- _notifBuyTime[seedName]   = os.clock() → waktu terakhir notif "berhasil beli" dikirim
     local _notifiedEmpty = {}
     local _notifEmptyTime = {}
+    local _notifBuyTime = {}
     local NOTIF_EMPTY_COOLDOWN = 3  -- detik minimum antara dua notif "stok habis" untuk seed yang sama
+    local NOTIF_BUY_COOLDOWN = 5    -- detik minimum antara dua notif "berhasil beli" untuk seed yang sama
 
     -- Reset flag "sudah dinotif" agar notif bisa muncul lagi saat toggle ON atau targets berubah.
     -- PENTING: _notifEmptyTime TIDAK di-clear di sini — cooldown anti-spam harus tetap berlaku
     -- bahkan setelah toggle ON ulang, supaya spam toggle tidak membanjiri notif.
     -- _notifEmptyTime hanya di-clear saat benar-benar ada restock dari server.
+    -- _notifBuyTime di-clear agar notif beli langsung muncul setelah toggle ON.
     local function ResetNotifiedEmpty()
         table.clear(_notifiedEmpty)
+        table.clear(_notifBuyTime)
         -- _notifEmptyTime sengaja TIDAK di-clear
     end
     Logic.ResetNotifiedEmpty = ResetNotifiedEmpty
@@ -1576,11 +1581,13 @@ return function(ctx)
             if child:IsA("NumberValue") then
                 _notifiedEmpty[child.Name] = nil
                 _notifEmptyTime[child.Name] = nil
+                _notifBuyTime[child.Name] = nil
                 child.Changed:Connect(function(newVal)
                     if newVal > 0 then
-                        -- Restock terjadi: seed ini kembali ada stok, reset flag notifikasi
+                        -- Restock terjadi: seed ini kembali ada stok, reset semua flag notifikasi
                         _notifiedEmpty[child.Name] = nil
                         _notifEmptyTime[child.Name] = nil
+                        _notifBuyTime[child.Name] = nil
                     end
                 end)
             end
@@ -1592,6 +1599,7 @@ return function(ctx)
                     if newVal > 0 then
                         _notifiedEmpty[child.Name] = nil
                         _notifEmptyTime[child.Name] = nil
+                        _notifBuyTime[child.Name] = nil
                     end
                 end)
             end
@@ -1626,6 +1634,15 @@ return function(ctx)
                                 _notifiedEmpty[seedName] = false
                                 _notifEmptyTime[seedName] = nil
                                 BuySeedPacket(seedName, 1)
+                                -- Notif berhasil beli: sekali per NOTIF_BUY_COOLDOWN detik per seed
+                                if States.notifyBuy then
+                                    local now = os.clock()
+                                    local lastBuy = _notifBuyTime[seedName] or 0
+                                    if now - lastBuy >= NOTIF_BUY_COOLDOWN then
+                                        _notifBuyTime[seedName] = now
+                                        Notify("Auto Buy ✅", "Beli: " .. seedName .. " (stok: " .. stock .. ")", Colors.Success, 3)
+                                    end
+                                end
                                 task.wait(States.buyDelay or 0.05)
                             else
                                 -- Stok habis → kirim notif sekali, dengan rate-limit anti-spam
