@@ -591,10 +591,33 @@ CreateInfoText(plantContent, "How It Works",
                     return
                 end
             end
-            if newVal then pcall(MuteSFX_Failed) end
+            if newVal then
+                -- Reset flag notif "stok habis" agar notif muncul lagi setelah toggle ON ulang
+                pcall(function() Logic.ResetNotifiedEmpty() end)
+                pcall(MuteSFX_Failed)
+            end
         end)
-        CreateToggle(buyContent, "Buy ALL available seeds", "autoBuyAll", "ON: buys every seed that has stock | OFF: only selected seeds")
-        CreateMultiSelect(buyContent, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
+        CreateToggle(buyContent, "Buy ALL available seeds", "autoBuyAll", "ON: buys every seed that has stock | OFF: only selected seeds", function(newVal)
+            -- Saat mode beralih (all ↔ selected), reset flag agar notif fresh
+            pcall(function() Logic.ResetNotifiedEmpty() end)
+        end)
+        -- Wrapper MultiSelect: reset flag saat seed target berubah supaya notif muncul lagi
+        do
+            local _prevTargetCount = #(States.autoBuySeedTargets or {})
+            CreateMultiSelect(buyContent, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
+            -- Pantau perubahan target via polling ringan (MultiSelect tidak expose onChange)
+            task.spawn(function()
+                while true do
+                    task.wait(0.3)
+                    local cur = #(States.autoBuySeedTargets or {})
+                    if cur ~= _prevTargetCount then
+                        _prevTargetCount = cur
+                        -- Target berubah → notif stok habis bisa muncul lagi untuk seed baru
+                        pcall(function() Logic.ResetNotifiedEmpty() end)
+                    end
+                end
+            end)
+        end
         CreateSlider(buyContent, "Delay Between Purchases (s)", 0, 2, "buyDelay")
         CreateSlider(buyContent, "Loop Delay (s)", 0, 10, "shopLoopDelay")
         CreateToggle(buyContent, "Notify on Purchase", "notifyBuy", "Show a notification each time a seed is bought")

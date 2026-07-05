@@ -1545,7 +1545,56 @@ return function(ctx)
     end)
 
     -- ====================== AUTO BUY SEED LOOP ======================
+    -- _notifiedEmpty[seedName] = true  → notif "stok habis" sudah dikirim, jangan kirim lagi
+    -- _notifiedEmpty[seedName] = false/nil → belum dinotif, atau sudah di-reset (siap kirim ulang)
+    -- _notifEmptyTime[seedName] = os.clock() → waktu terakhir notif dikirim (rate-limit spam)
     local _notifiedEmpty = {}
+    local _notifEmptyTime = {}
+    local NOTIF_EMPTY_COOLDOWN = 3  -- detik minimum antara dua notif "stok habis" untuk seed yang sama
+
+    -- Reset semua flag agar notif bisa muncul lagi (dipanggil saat toggle ON atau targets berubah)
+    local function ResetNotifiedEmpty()
+        table.clear(_notifiedEmpty)
+        table.clear(_notifEmptyTime)
+    end
+    Logic.ResetNotifiedEmpty = ResetNotifiedEmpty
+
+    -- Auto-reset saat ada restock dari server: pantau perubahan di StockValues.SeedShop.Items
+    -- Jika seed yang sebelumnya 0 berubah > 0, clear flag-nya agar notif beli/habis bisa muncul lagi
+    pcall(function()
+        local sv = ReplicatedStorage:WaitForChild("StockValues", 10)
+        if not sv then return end
+        local ss = sv:WaitForChild("SeedShop", 10)
+        if not ss then return end
+        local items = ss:WaitForChild("Items", 10)
+        if not items then return end
+        items.ChildAdded:Connect(function(child)
+            -- Seed baru muncul di toko (bisa terjadi saat restock)
+            if child:IsA("NumberValue") then
+                _notifiedEmpty[child.Name] = nil
+                _notifEmptyTime[child.Name] = nil
+                child.Changed:Connect(function(newVal)
+                    if newVal > 0 then
+                        -- Restock terjadi: seed ini kembali ada stok, reset flag notifikasi
+                        _notifiedEmpty[child.Name] = nil
+                        _notifEmptyTime[child.Name] = nil
+                    end
+                end)
+            end
+        end)
+        -- Pasang listener ke semua seed yang sudah ada saat inject
+        for _, child in ipairs(items:GetChildren()) do
+            if child:IsA("NumberValue") then
+                child.Changed:Connect(function(newVal)
+                    if newVal > 0 then
+                        _notifiedEmpty[child.Name] = nil
+                        _notifEmptyTime[child.Name] = nil
+                    end
+                end)
+            end
+        end
+    end)
+
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(math.max(States.shopLoopDelay or 0.5, 0.1))
@@ -1570,13 +1619,21 @@ return function(ctx)
                         if States.autoBuySeed then
                             local stock = GetSeedStock(seedName)
                             if stock > 0 then
+                                -- Ada stok → clear flag notif habis, beli
                                 _notifiedEmpty[seedName] = false
+                                _notifEmptyTime[seedName] = nil
                                 BuySeedPacket(seedName, 1)
                                 task.wait(States.buyDelay or 0.05)
                             else
+                                -- Stok habis → kirim notif sekali, dengan rate-limit anti-spam
                                 if States.notifyBuy and not _notifiedEmpty[seedName] then
-                                    _notifiedEmpty[seedName] = true
-                                    Notify("Auto Buy", seedName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                    local now = os.clock()
+                                    local lastT = _notifEmptyTime[seedName] or 0
+                                    if now - lastT >= NOTIF_EMPTY_COOLDOWN then
+                                        _notifiedEmpty[seedName] = true
+                                        _notifEmptyTime[seedName] = now
+                                        Notify("Auto Buy", seedName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                    end
                                 end
                             end
                         end
