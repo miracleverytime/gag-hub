@@ -1552,10 +1552,13 @@ return function(ctx)
     local _notifEmptyTime = {}
     local NOTIF_EMPTY_COOLDOWN = 3  -- detik minimum antara dua notif "stok habis" untuk seed yang sama
 
-    -- Reset semua flag agar notif bisa muncul lagi (dipanggil saat toggle ON atau targets berubah)
+    -- Reset flag "sudah dinotif" agar notif bisa muncul lagi saat toggle ON atau targets berubah.
+    -- PENTING: _notifEmptyTime TIDAK di-clear di sini — cooldown anti-spam harus tetap berlaku
+    -- bahkan setelah toggle ON ulang, supaya spam toggle tidak membanjiri notif.
+    -- _notifEmptyTime hanya di-clear saat benar-benar ada restock dari server.
     local function ResetNotifiedEmpty()
         table.clear(_notifiedEmpty)
-        table.clear(_notifEmptyTime)
+        -- _notifEmptyTime sengaja TIDAK di-clear
     end
     Logic.ResetNotifiedEmpty = ResetNotifiedEmpty
 
