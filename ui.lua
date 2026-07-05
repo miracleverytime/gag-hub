@@ -657,21 +657,22 @@ return function(ctx)
         local iconLabel = Create("TextLabel", {
             Parent = button,
             Size = UDim2.new(0, 20, 0, 20),
-            Position = UDim2.new(0, 14, 0.5, -10),
+            Position = UDim2.new(0, 10, 0.5, -10),
             BackgroundTransparency = 1,
             Text = icon,
-            TextColor3 = Colors.TextMuted,
-            TextSize = 14,
+            TextColor3 = Colors.TextPrimary,
+            TextTransparency = 0.15,
+            TextSize = 15,
             Font = FONT_BODY,
         })
         local textLabel = Create("TextLabel", {
             Parent = button,
-            Size = UDim2.new(1, -46, 1, 0),
-            Position = UDim2.new(0, 40, 0, 0),
+            Size = UDim2.new(1, -38, 1, 0),
+            Position = UDim2.new(0, 34, 0, 0),
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextSecondary,
-            TextSize = 14,
+            TextSize = 13,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
@@ -698,24 +699,24 @@ return function(ctx)
     -- Build sidebar buttons; store refs on ctx for bootstrap wiring
     local sb = {}
     CreateSectionHeader(SidebarContent, "AUTOMATION", 1)
-    sb.Farm     = CreateSidebarButton(SidebarContent, "\240\159\140\177", "Farm", 2)
-    sb.Plot     = CreateSidebarButton(SidebarContent, "\240\159\147\144", "Plot", 3)
-    sb.Shop     = CreateSidebarButton(SidebarContent, "\240\159\155\146", "Shop", 4)
-    sb.Sell     = CreateSidebarButton(SidebarContent, "\240\159\146\176", "Sell", 5)
-    sb.Pets     = CreateSidebarButton(SidebarContent, "\240\159\144\190", "Pets", 6)
-    sb.Eggs     = CreateSidebarButton(SidebarContent, "\240\159\165\154", "Eggs", 7)
+    sb.Farm     = CreateSidebarButton(SidebarContent, "\226\157\167", "Farm", 2)       -- ❧ leaf/plant outline
+    sb.Plot     = CreateSidebarButton(SidebarContent, "\226\138\158", "Plot", 3)       -- ⊞ grid outline
+    sb.Shop     = CreateSidebarButton(SidebarContent, "\226\138\161", "Shop", 4)       -- ⊡ box outline
+    sb.Sell     = CreateSidebarButton(SidebarContent, "\226\138\153", "Sell", 5)       -- ⊙ circle outline
+    sb.Pets     = CreateSidebarButton(SidebarContent, "\226\151\139", "Pets", 6)       -- ○ half circle outline
+    sb.Eggs     = CreateSidebarButton(SidebarContent, "\226\151\141", "Eggs", 7)       -- ◍ dotted circle outline
 
     CreateSectionHeader(SidebarContent, "PLAYER", 8)
-    sb.Player   = CreateSidebarButton(SidebarContent, "\240\159\145\164", "Player", 9)
-    sb.Visuals  = CreateSidebarButton(SidebarContent, "\240\159\145\129", "Visuals", 10)
-    sb.Teleport = CreateSidebarButton(SidebarContent, "\240\159\147\141", "Teleport", 11)
+    sb.Player   = CreateSidebarButton(SidebarContent, "\226\138\156", "Player", 9)    -- ⊜ person outline
+    sb.Visuals  = CreateSidebarButton(SidebarContent, "\226\151\142", "Visuals", 10)  -- ◎ eye/circle outline
+    sb.Teleport = CreateSidebarButton(SidebarContent, "\226\150\183", "Teleport", 11) -- ▷ arrow outline
 
     CreateSectionHeader(SidebarContent, "MISC", 12)
-    sb.Utility  = CreateSidebarButton(SidebarContent, "\240\159\148\167", "Utility", 13)
-    sb.Mailer   = CreateSidebarButton(SidebarContent, "\226\156\137", "Mailer", 14)
-    sb.Info     = CreateSidebarButton(SidebarContent, "\226\132\185", "Info", 15)
-    sb.Server   = CreateSidebarButton(SidebarContent, "\240\159\140\144", "Server", 16)
-    sb.Settings = CreateSidebarButton(SidebarContent, "\226\154\153", "Settings", 17)
+    sb.Utility  = CreateSidebarButton(SidebarContent, "\226\152\134", "Utility", 13)  -- ☆ star outline (hollow)
+    sb.Mailer   = CreateSidebarButton(SidebarContent, "\226\156\137", "Mailer", 14)   -- ✉ envelope outline
+    sb.Info     = CreateSidebarButton(SidebarContent, "\226\132\185", "Info", 15)     -- ℹ info outline
+    sb.Server   = CreateSidebarButton(SidebarContent, "\226\151\183", "Server", 16)   -- ◷ clock outline
+    sb.Settings = CreateSidebarButton(SidebarContent, "\226\152\134", "Settings", 17) -- ☆ cog outline
     ctx.sidebarButtonRefs = sb
 
     -- ====================== PROFILE CARD (top of sidebar, Neo) ======================
@@ -777,23 +778,11 @@ return function(ctx)
         PrimeLabel.TextColor3 = Colors.TextMuted
     end
 
-    -- footer: Powered by Miracle Labs (stacked, centered)
+    -- footer: Powered by Miracle Labs (single centered label, no icon)
     Create("TextLabel", {
         Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 12),
-        Position = UDim2.new(0, 0, 1, -28),
-        BackgroundTransparency = 1,
-        Text = "\226\154\161",
-        TextColor3 = Colors.Accent,
-        TextTransparency = 0.5,
-        TextSize = 10,
-        Font = FONT_BODY,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-    Create("TextLabel", {
-        Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 12),
-        Position = UDim2.new(0, 0, 1, -16),
+        Size = UDim2.new(1, 0, 0, 14),
+        Position = UDim2.new(0, 0, 1, -20),
         BackgroundTransparency = 1,
         Text = "Powered by Miracle Labs",
         TextColor3 = Colors.TextMuted,
@@ -833,9 +822,10 @@ return function(ctx)
         Size = UDim2.new(0, 22, 0, 22),
         Position = UDim2.new(0, 16, 0.5, -11),
         BackgroundTransparency = 1,
-        Text = "\240\159\140\177",
-        TextColor3 = Colors.Accent,
-        TextSize = 14,
+        Text = "\226\151\139",
+        TextColor3 = Colors.TextPrimary,
+        TextTransparency = 0.15,
+        TextSize = 15,
         Font = FONT_BODY,
     })
     local PageHeaderTitle = Create("TextLabel", {
@@ -960,7 +950,8 @@ return function(ctx)
             Tween(s.button, {BackgroundTransparency = 1}, 0.15)
             s.label.TextColor3 = Colors.TextSecondary
             s.label.Font = FONT_BODY
-            s.icon.TextColor3 = Colors.TextMuted
+            s.icon.TextColor3 = Colors.TextPrimary
+            s.icon.TextTransparency = 0.55
         end
 
         ActivePage = pageName
@@ -973,10 +964,13 @@ return function(ctx)
             Tween(s.button, {BackgroundTransparency = 0.9}, 0.15)
             s.label.TextColor3 = Colors.TextPrimary
             s.label.Font = FONT_BOLD
-            s.icon.TextColor3 = Colors.Accent
+            s.icon.TextColor3 = Colors.TextPrimary
+            s.icon.TextTransparency = 0
             PageHeaderIcon.Text = s.icon.Text
+            PageHeaderIcon.TextColor3 = Colors.TextPrimary
+            PageHeaderIcon.TextTransparency = 0.15
         else
-            PageHeaderIcon.Text = "\240\159\145\164"
+            PageHeaderIcon.Text = "\226\151\139"
         end
         ProfileStroke.Color = (pageName == "Profile") and Colors.BorderLight or Colors.Border
         PageHeaderTitle.Text = string.upper(pageName)
