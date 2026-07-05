@@ -457,15 +457,74 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     CreateCorner(BrandCard, 8)
-    local BrandStroke = CreateStroke(BrandCard, Colors.Border, 1)
+    -- base border (always visible, dim)
+    CreateStroke(BrandCard, Colors.Border, 1)
 
-    -- breathing outline: fades between dim border and lime-tinted border
+    -- Snake/chaser effect: 4 glow segments that light up sequentially
+    -- Each segment is a thin lime Frame clipped to the card edges
+    local R = 8  -- corner radius, matches CreateCorner above
+    local W, H = 300, 30
+    local T = 2  -- glow thickness
+
+    -- Top edge
+    local snakeTop = Create("Frame", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, W - R*2, 0, T),
+        Position = UDim2.new(0, R, 0, 0),
+        BackgroundColor3 = Colors.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 5,
+    })
+    -- Right edge
+    local snakeRight = Create("Frame", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, T, 0, H - R*2),
+        Position = UDim2.new(1, -T, 0, R),
+        BackgroundColor3 = Colors.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 5,
+    })
+    -- Bottom edge
+    local snakeBottom = Create("Frame", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, W - R*2, 0, T),
+        Position = UDim2.new(0, R, 1, -T),
+        BackgroundColor3 = Colors.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 5,
+    })
+    -- Left edge
+    local snakeLeft = Create("Frame", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, T, 0, H - R*2),
+        Position = UDim2.new(0, 0, 0, R),
+        BackgroundColor3 = Colors.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ZIndex = 5,
+    })
+
+    local segments = {snakeTop, snakeRight, snakeBottom, snakeLeft}
+    local FADE_IN  = 0.18
+    local HOLD     = 0.12
+    local FADE_OUT = 0.28
+    local GAP      = 0.05
+
     task.spawn(function()
         while BrandCard.Parent do
-            Tween(BrandStroke, {Color = Colors.BorderLight, Transparency = 0.2}, 1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-            task.wait(1.2)
-            Tween(BrandStroke, {Color = Colors.Border, Transparency = 0.6}, 1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-            task.wait(1.2)
+            for _, seg in ipairs(segments) do
+                if not BrandCard.Parent then break end
+                -- light up
+                Tween(seg, {BackgroundTransparency = 0.05}, FADE_IN, Enum.EasingStyle.Sine)
+                task.wait(FADE_IN + HOLD)
+                -- fade out
+                Tween(seg, {BackgroundTransparency = 1}, FADE_OUT, Enum.EasingStyle.Sine)
+                task.wait(GAP)
+            end
+            task.wait(0.1)
         end
     end)
 
