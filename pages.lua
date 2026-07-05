@@ -692,8 +692,6 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end)
         end
-        CreateSlider(buyContent, "Delay Between Purchases (s)", 0, 2, "buyDelay")
-        CreateSlider(buyContent, "Loop Delay (s)", 0, 10, "shopLoopDelay")
         CreateToggle(buyContent, "Notify on Purchase", "notifyBuy", "Show a notification each time a seed is bought")
 
         -- Predict Next Stock
