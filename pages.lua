@@ -825,26 +825,70 @@ CreateInfoText(plantContent, "How It Works",
         -- Auto Buy Gear
         local gearCard, gearContent = CreateSectionCard("\226\154\153\239\184\143 Auto Buy Gear", 3, Colors.Electric)
         CreateInfoText(gearContent, "How To Use", "Select gear in 'Choose Target Gear', then enable the toggle. Purchases one gear per cycle while in stock.")
-        CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear", "Rapidly buys selected gear, stops when out of stock", function(newVal, revert)
-            if newVal and not States.autoBuyGearAll then
-                local targets = States.autoBuyGearTargets or {}
-                if #targets == 0 then
-                    revert()
-                    Notify("Auto Buy Gear", "\226\154\160\239\184\143 Select gear below before enabling!", Colors.Warning, 5)
-                    return
+
+        local autoBuyGearToggleBg, autoBuyGearKnob
+        local _msGearControl = { SetDisabled = nil }
+
+        local autoBuyGearContainer = CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear",
+            "Rapidly buys selected gear, stops when out of stock",
+            function(newVal, revert)
+                if newVal and not States.autoBuyGearAll then
+                    local targets = States.autoBuyGearTargets or {}
+                    if #targets == 0 then
+                        revert()
+                        Notify("Auto Buy Gear", "\226\154\160\239\184\143 Select gear below before enabling!", Colors.Warning, 5)
+                        return
+                    end
+                end
+                if newVal then
+                    pcall(function() Logic.ResetNotifiedEmptyGear() end)
+                    pcall(MuteSFX_Failed)
                 end
             end
-            if newVal then
-                pcall(function() Logic.ResetNotifiedEmptyGear() end)
-                pcall(MuteSFX_Failed)
+        )
+        pcall(function()
+            for _, ch in ipairs(autoBuyGearContainer:GetChildren()) do
+                if ch:IsA("Frame") and ch.Size == UDim2.new(0, 48, 0, 26) then
+                    autoBuyGearToggleBg = ch
+                    autoBuyGearKnob = ch:FindFirstChildWhichIsA("Frame")
+                    break
+                end
             end
         end)
-        CreateToggle(gearContent, "Buy ALL available gear", "autoBuyGearAll", "ON: buys every gear that has stock | OFF: only selected gear", function()
-            pcall(function() Logic.ResetNotifiedEmptyGear() end)
-        end)
+        local function ForceOffAutoBuyGear()
+            States.autoBuyGear = false
+            pcall(function() SaveState("autoBuyGear", false) end)
+            if autoBuyGearToggleBg then Tween(autoBuyGearToggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2) end
+            if autoBuyGearKnob then Tween(autoBuyGearKnob, {Position = UDim2.new(0, 3, 0.5, -10)}, 0.2) end
+        end
+
+        CreateToggle(gearContent, "Buy ALL available gear", "autoBuyGearAll",
+            "ON: buys every gear that has stock | OFF: only selected gear",
+            function(newVal)
+                pcall(function() Logic.ResetNotifiedEmptyGear() end)
+                if _msGearControl.SetDisabled then
+                    pcall(function() _msGearControl.SetDisabled(newVal) end)
+                end
+                if not newVal then
+                    local targets = States.autoBuyGearTargets or {}
+                    if #targets == 0 and States.autoBuyGear then
+                        ForceOffAutoBuyGear()
+                        Notify("Auto Buy Gear", "Buy ALL dimatikan & tidak ada gear dipilih \226\128\148 Auto Buy Gear dinonaktifkan.", Colors.Warning, 5)
+                    end
+                end
+            end
+        )
         do
             local _prevGearCount = #(States.autoBuyGearTargets or {})
-            CreateMultiSelect(gearContent, "\226\154\153\239\184\143Choose Target Gear", GEARS, "autoBuyGearTargets")
+            local msGearResult = CreateMultiSelect(gearContent, "\226\154\153\239\184\143Choose Target Gear", GEARS, "autoBuyGearTargets")
+            _msGearControl.SetDisabled = msGearResult.SetDisabled
+            if States.autoBuyGearAll then
+                task.defer(function()
+                    if _msGearControl.SetDisabled then
+                        pcall(function() _msGearControl.SetDisabled(true) end)
+                    end
+                end)
+            end
             task.spawn(function()
                 while true do
                     task.wait(0.3)
@@ -852,6 +896,10 @@ CreateInfoText(plantContent, "How It Works",
                     if cur ~= _prevGearCount then
                         _prevGearCount = cur
                         pcall(function() Logic.ResetNotifiedEmptyGear() end)
+                        if cur == 0 and not States.autoBuyGearAll and States.autoBuyGear then
+                            ForceOffAutoBuyGear()
+                            Notify("Auto Buy Gear", "Semua gear di-deselect \226\128\148 Auto Buy Gear dinonaktifkan.", Colors.Warning, 4)
+                        end
                     end
                 end
             end)
@@ -863,26 +911,70 @@ CreateInfoText(plantContent, "How It Works",
         -- Auto Buy Crate
         local crateCard, crateContent = CreateSectionCard("\240\159\147\166 Auto Buy Crate", 4, Colors.Warning)
         CreateInfoText(crateContent, "How To Use", "Select crates in 'Choose Target Crates', then enable the toggle. Automatically purchases while crates are in stock.")
-        CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate", "Rapidly buys selected crates, stops when out of stock", function(newVal, revert)
-            if newVal and not States.autoBuyCrateAll then
-                local targets = States.autoBuyCrateTargets or {}
-                if #targets == 0 then
-                    revert()
-                    Notify("Auto Buy Crate", "\226\154\160\239\184\143 Select crates below before enabling!", Colors.Warning, 5)
-                    return
+
+        local autoBuyCrateToggleBg, autoBuyCrateKnob
+        local _msCrateControl = { SetDisabled = nil }
+
+        local autoBuyCrateContainer = CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate",
+            "Rapidly buys selected crates, stops when out of stock",
+            function(newVal, revert)
+                if newVal and not States.autoBuyCrateAll then
+                    local targets = States.autoBuyCrateTargets or {}
+                    if #targets == 0 then
+                        revert()
+                        Notify("Auto Buy Crate", "\226\154\160\239\184\143 Select crates below before enabling!", Colors.Warning, 5)
+                        return
+                    end
+                end
+                if newVal then
+                    pcall(function() Logic.ResetNotifiedEmptyCrate() end)
+                    pcall(MuteSFX_Failed)
                 end
             end
-            if newVal then
-                pcall(function() Logic.ResetNotifiedEmptyCrate() end)
-                pcall(MuteSFX_Failed)
+        )
+        pcall(function()
+            for _, ch in ipairs(autoBuyCrateContainer:GetChildren()) do
+                if ch:IsA("Frame") and ch.Size == UDim2.new(0, 48, 0, 26) then
+                    autoBuyCrateToggleBg = ch
+                    autoBuyCrateKnob = ch:FindFirstChildWhichIsA("Frame")
+                    break
+                end
             end
         end)
-        CreateToggle(crateContent, "Buy ALL available crates", "autoBuyCrateAll", "ON: buys every crate that has stock | OFF: only selected crates", function()
-            pcall(function() Logic.ResetNotifiedEmptyCrate() end)
-        end)
+        local function ForceOffAutoBuyCrate()
+            States.autoBuyCrate = false
+            pcall(function() SaveState("autoBuyCrate", false) end)
+            if autoBuyCrateToggleBg then Tween(autoBuyCrateToggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2) end
+            if autoBuyCrateKnob then Tween(autoBuyCrateKnob, {Position = UDim2.new(0, 3, 0.5, -10)}, 0.2) end
+        end
+
+        CreateToggle(crateContent, "Buy ALL available crates", "autoBuyCrateAll",
+            "ON: buys every crate that has stock | OFF: only selected crates",
+            function(newVal)
+                pcall(function() Logic.ResetNotifiedEmptyCrate() end)
+                if _msCrateControl.SetDisabled then
+                    pcall(function() _msCrateControl.SetDisabled(newVal) end)
+                end
+                if not newVal then
+                    local targets = States.autoBuyCrateTargets or {}
+                    if #targets == 0 and States.autoBuyCrate then
+                        ForceOffAutoBuyCrate()
+                        Notify("Auto Buy Crate", "Buy ALL dimatikan & tidak ada crate dipilih \226\128\148 Auto Buy Crate dinonaktifkan.", Colors.Warning, 5)
+                    end
+                end
+            end
+        )
         do
             local _prevCrateCount = #(States.autoBuyCrateTargets or {})
-            CreateMultiSelect(crateContent, "\240\159\147\166Choose Target Crates", CRATES, "autoBuyCrateTargets")
+            local msCrateResult = CreateMultiSelect(crateContent, "\240\159\147\166Choose Target Crates", CRATES, "autoBuyCrateTargets")
+            _msCrateControl.SetDisabled = msCrateResult.SetDisabled
+            if States.autoBuyCrateAll then
+                task.defer(function()
+                    if _msCrateControl.SetDisabled then
+                        pcall(function() _msCrateControl.SetDisabled(true) end)
+                    end
+                end)
+            end
             task.spawn(function()
                 while true do
                     task.wait(0.3)
@@ -890,6 +982,10 @@ CreateInfoText(plantContent, "How It Works",
                     if cur ~= _prevCrateCount then
                         _prevCrateCount = cur
                         pcall(function() Logic.ResetNotifiedEmptyCrate() end)
+                        if cur == 0 and not States.autoBuyCrateAll and States.autoBuyCrate then
+                            ForceOffAutoBuyCrate()
+                            Notify("Auto Buy Crate", "Semua crate di-deselect \226\128\148 Auto Buy Crate dinonaktifkan.", Colors.Warning, 4)
+                        end
                     end
                 end
             end)
