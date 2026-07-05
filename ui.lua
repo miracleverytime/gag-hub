@@ -406,43 +406,45 @@ return function(ctx)
         BorderSizePixel = 0,
     })
 
-    -- mac dots (dim, monochrome)
-    for _, xpos in ipairs({0, 14, 28}) do
-        local dot = Create("Frame", {
-            Parent = TopBar,
-            Size = UDim2.new(0, 8, 0, 8),
-            Position = UDim2.new(0, 16 + xpos, 0.5, -4),
-            BackgroundColor3 = Colors.Surface,
-            BorderSizePixel = 0,
-        })
-        CreateCorner(dot, 4)
-        CreateStroke(dot, Colors.Border, 1)
-    end
-
-    -- search (left)
-    local SearchBar = Create("Frame", {
+    -- left: "● CONNECTED" status (Neo redesign)
+    local ConnDot = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 220, 0, 30),
-        Position = UDim2.new(0, 66, 0.5, -15),
-        BackgroundColor3 = Colors.Background,
+        Size = UDim2.new(0, 7, 0, 7),
+        Position = UDim2.new(0, 18, 0.5, -3),
+        BackgroundColor3 = Colors.Accent,
         BorderSizePixel = 0,
     })
-    CreateCorner(SearchBar, 8)
-    CreateStroke(SearchBar, Colors.Border, 1)
-    Create("TextLabel", {Parent=SearchBar, Size=UDim2.new(0,28,1,0), BackgroundTransparency=1, Text="\240\159\148\141", TextColor3=Colors.TextMuted, TextSize=12, Font=FONT_BODY})
-    local SearchBox = Create("TextBox", {
-        Parent = SearchBar,
-        Size = UDim2.new(1,-38,1,0),
-        Position = UDim2.new(0,28,0,0),
+    CreateCorner(ConnDot, 4)
+    Create("TextLabel", {
+        Parent = TopBar,
+        Size = UDim2.new(0, 140, 1, 0),
+        Position = UDim2.new(0, 32, 0, 0),
         BackgroundTransparency = 1,
-        Text = "",
-        PlaceholderText = "search\226\128\166",
-        PlaceholderColor3 = Colors.TextMuted,
-        TextColor3 = Colors.TextPrimary,
-        TextSize = 12,
+        Text = "CONNECTED",
+        TextColor3 = Colors.Accent,
+        TextSize = 11,
         Font = FONT_MONO,
-        ClearTextOnFocus = false,
         TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    -- pulse the dot subtly
+    task.spawn(function()
+        while ConnDot.Parent do
+            Tween(ConnDot, {BackgroundTransparency = 0.6}, 0.9)
+            task.wait(1)
+            Tween(ConnDot, {BackgroundTransparency = 0}, 0.9)
+            task.wait(1)
+        end
+    end)
+
+    -- hidden SearchBox kept for bootstrap compatibility (search UI removed in redesign)
+    local SearchBox = Create("TextBox", {
+        Parent = TopBar,
+        Size = UDim2.new(0, 1, 0, 1),
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1,
+        TextTransparency = 1,
+        Text = "",
+        Visible = false,
     })
     ctx.SearchBox = SearchBox
 
@@ -515,6 +517,7 @@ return function(ctx)
             acc += dt
             if acc >= 0.5 then
                 local fps = math.floor(frames / acc + 0.5)
+                ctx.CurrentFPS = fps
                 local ping = 0
                 pcall(function() ping = player:GetNetworkPing() * 1000 end)
                 FpsSeg.Text = '<font color="#6A6D68">FPS</font>  <font color="'..LIME_HEX..'">' .. fps .. '</font>'
@@ -545,9 +548,9 @@ return function(ctx)
 
     local CloseButton = Create("TextButton", {
         Parent = RightControls,
-        Size = UDim2.new(0, 30, 0, 30),
-        Position = UDim2.new(0, 42, 0.5, -15),
-        BackgroundColor3 = Colors.Surface,
+        Size = UDim2.new(0, 28, 0, 28),
+        Position = UDim2.new(0, 44, 0.5, -14),
+        BackgroundTransparency = 1,
         Text = "\195\151",
         TextColor3 = Colors.TextSecondary,
         TextSize = 16,
@@ -555,30 +558,26 @@ return function(ctx)
         BorderSizePixel = 0,
         AutoButtonColor = false,
     })
-    CreateCorner(CloseButton, 8)
-    CreateStroke(CloseButton, Colors.Border, 1)
     ctx.CloseButton = CloseButton
 
     local MinimizeButton = Create("TextButton", {
         Parent = RightControls,
-        Size = UDim2.new(0, 30, 0, 30),
-        Position = UDim2.new(0, 8, 0.5, -15),
-        BackgroundColor3 = Colors.Surface,
-        Text = "\226\136\146",
+        Size = UDim2.new(0, 28, 0, 28),
+        Position = UDim2.new(0, 12, 0.5, -14),
+        BackgroundTransparency = 1,
+        Text = "\226\128\148",
         TextColor3 = Colors.TextSecondary,
-        TextSize = 16,
+        TextSize = 14,
         Font = FONT_BOLD,
         BorderSizePixel = 0,
         AutoButtonColor = false,
     })
-    CreateCorner(MinimizeButton, 8)
-    CreateStroke(MinimizeButton, Colors.Border, 1)
     ctx.MinimizeButton = MinimizeButton
 
-    CloseButton.MouseEnter:Connect(function() Tween(CloseButton, {BackgroundColor3 = Color3.fromRGB(160, 60, 60), TextColor3 = Colors.TextPrimary}, 0.2) end)
-    CloseButton.MouseLeave:Connect(function() Tween(CloseButton, {BackgroundColor3 = Colors.Surface, TextColor3 = Colors.TextSecondary}, 0.2) end)
-    MinimizeButton.MouseEnter:Connect(function() Tween(MinimizeButton, {BackgroundColor3 = Colors.SurfaceLight, TextColor3 = Colors.TextPrimary}, 0.2) end)
-    MinimizeButton.MouseLeave:Connect(function() Tween(MinimizeButton, {BackgroundColor3 = Colors.Surface, TextColor3 = Colors.TextSecondary}, 0.2) end)
+    CloseButton.MouseEnter:Connect(function() Tween(CloseButton, {TextColor3 = Colors.Error}, 0.15) end)
+    CloseButton.MouseLeave:Connect(function() Tween(CloseButton, {TextColor3 = Colors.TextSecondary}, 0.15) end)
+    MinimizeButton.MouseEnter:Connect(function() Tween(MinimizeButton, {TextColor3 = Colors.TextPrimary}, 0.15) end)
+    MinimizeButton.MouseLeave:Connect(function() Tween(MinimizeButton, {TextColor3 = Colors.TextSecondary}, 0.15) end)
 
     -- ====================== SIDEBAR (Neo, narrow) ======================
     local SIDEBAR_W = 170
@@ -600,7 +599,8 @@ return function(ctx)
 
     local SidebarContent = Create("ScrollingFrame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -1, 1, -112),
+        Size = UDim2.new(1, -1, 1, -118),
+        Position = UDim2.new(0, 0, 0, 76),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ScrollBarThickness = 3,
@@ -718,16 +718,22 @@ return function(ctx)
     sb.Settings = CreateSidebarButton(SidebarContent, "\226\154\153", "Settings", 17)
     ctx.sidebarButtonRefs = sb
 
-    -- ====================== PROFILE CARD (bottom, Neo) ======================
-    local ProfileCard = Create("Frame", {
+    -- ====================== PROFILE CARD (top of sidebar, Neo) ======================
+    local ProfileCard = Create("TextButton", {
         Parent = Sidebar,
         Size = UDim2.new(1, -20, 0, 56),
-        Position = UDim2.new(0, 10, 1, -90),
+        Position = UDim2.new(0, 10, 0, 10),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
     })
     CreateCorner(ProfileCard, 10)
-    CreateStroke(ProfileCard, Colors.Border, 1)
+    local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
+    ProfileCard.MouseEnter:Connect(function() Tween(ProfileStroke, {Color = Colors.BorderLight}, 0.15) end)
+    ProfileCard.MouseLeave:Connect(function()
+        if ActivePage ~= "Profile" then Tween(ProfileStroke, {Color = Colors.Border}, 0.15) end
+    end)
 
     local ProfileAvatar = Create("ImageLabel", {
         Parent = ProfileCard,
@@ -808,9 +814,59 @@ return function(ctx)
     })
     ctx.ContentArea = ContentArea
 
+    -- Page header (Neo): icon + PAGE TITLE (mono caps) + status chip, hairline below
+    local PAGE_HEADER_H = 46
+    local PageHeader = Create("Frame", {
+        Parent = ContentArea,
+        Size = UDim2.new(1, 0, 0, PAGE_HEADER_H),
+        BackgroundTransparency = 1,
+    })
+    Create("Frame", { -- bottom hairline
+        Parent = PageHeader,
+        Size = UDim2.new(1, -32, 0, 1),
+        Position = UDim2.new(0, 16, 1, -1),
+        BackgroundColor3 = Colors.Border,
+        BorderSizePixel = 0,
+    })
+    local PageHeaderIcon = Create("TextLabel", {
+        Parent = PageHeader,
+        Size = UDim2.new(0, 22, 0, 22),
+        Position = UDim2.new(0, 16, 0.5, -11),
+        BackgroundTransparency = 1,
+        Text = "\240\159\140\177",
+        TextColor3 = Colors.Accent,
+        TextSize = 14,
+        Font = FONT_BODY,
+    })
+    local PageHeaderTitle = Create("TextLabel", {
+        Parent = PageHeader,
+        Size = UDim2.new(1, -160, 1, 0),
+        Position = UDim2.new(0, 44, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "FARM",
+        TextColor3 = Colors.TextPrimary,
+        TextSize = 15,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    local PageChip = Create("TextLabel", {
+        Parent = PageHeader,
+        Size = UDim2.new(0, 56, 0, 22),
+        Position = UDim2.new(1, -72, 0.5, -11),
+        BackgroundColor3 = Colors.BackgroundLighter,
+        Text = "IDLE",
+        TextColor3 = Colors.TextMuted,
+        TextSize = 10,
+        Font = FONT_MONO,
+        BorderSizePixel = 0,
+    })
+    CreateCorner(PageChip, 5)
+    local PageChipStroke = CreateStroke(PageChip, Colors.Border, 1)
+
     local ContentScroll = Create("ScrollingFrame", {
         Parent = ContentArea,
-        Size = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.new(1, 0, 1, -PAGE_HEADER_H),
+        Position = UDim2.new(0, 0, 0, PAGE_HEADER_H),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ScrollBarThickness = 3,
@@ -822,7 +878,7 @@ return function(ctx)
     CreateListLayout(ContentScroll, 10)
     ctx.ContentScroll = ContentScroll
 
-    -- ====================== PAGE SYSTEM ======================
+    -- ====================== PAGE SYSTEM (two-column masonry) ======================
     local Pages = {}
     ctx.Pages = Pages
 
@@ -831,8 +887,59 @@ return function(ctx)
     local function SaveState(key, value) end
     ctx.SaveState = SaveState
 
-    -- Cache collapsed/expanded state tiap section card per page.
-    local _cardStates = {}
+    -- Column frames rebuilt on each page switch.
+    local ColLeft, ColRight = nil, nil
+    local _sectionCount = 0
+
+    -- Page status chip: tracks toggle stateKeys created while building the
+    -- current page; ACTIVE (lime) when any is on, IDLE otherwise.
+    local _pageToggleKeys = {}
+    local function RegisterPageToggleKey(stateKey)
+        table.insert(_pageToggleKeys, stateKey)
+    end
+    local function RefreshPageChip()
+        local anyOn = false
+        for _, k in ipairs(_pageToggleKeys) do
+            if States[k] then anyOn = true break end
+        end
+        if anyOn then
+            PageChip.Text = "ACTIVE"
+            PageChip.TextColor3 = Colors.Accent
+            PageChipStroke.Color = Colors.BorderLight
+        else
+            PageChip.Text = "IDLE"
+            PageChip.TextColor3 = Colors.TextMuted
+            PageChipStroke.Color = Colors.Border
+        end
+    end
+
+    local function BuildColumns()
+        local wrap = Create("Frame", {
+            Parent = ContentScroll,
+            Name = "PageColumns",
+            Size = UDim2.new(1, 0, 0, 0),
+            BackgroundTransparency = 1,
+            AutomaticSize = Enum.AutomaticSize.Y,
+        })
+        ColLeft = Create("Frame", {
+            Parent = wrap,
+            Name = "ColLeft",
+            Size = UDim2.new(0.5, -6, 0, 0),
+            BackgroundTransparency = 1,
+            AutomaticSize = Enum.AutomaticSize.Y,
+        })
+        CreateListLayout(ColLeft, 10)
+        ColRight = Create("Frame", {
+            Parent = wrap,
+            Name = "ColRight",
+            Size = UDim2.new(0.5, -6, 0, 0),
+            Position = UDim2.new(0.5, 6, 0, 0),
+            BackgroundTransparency = 1,
+            AutomaticSize = Enum.AutomaticSize.Y,
+        })
+        CreateListLayout(ColRight, 10)
+        return wrap
+    end
 
     local function ClearContent()
         for _, child in ipairs(ContentScroll:GetChildren()) do
@@ -840,6 +947,9 @@ return function(ctx)
                 child:Destroy()
             end
         end
+        _sectionCount = 0
+        _pageToggleKeys = {}
+        BuildColumns()
     end
     ctx.ClearContent = ClearContent
 
@@ -864,10 +974,30 @@ return function(ctx)
             s.label.TextColor3 = Colors.TextPrimary
             s.label.Font = FONT_BOLD
             s.icon.TextColor3 = Colors.Accent
+            PageHeaderIcon.Text = s.icon.Text
+        else
+            PageHeaderIcon.Text = "\240\159\145\164"
         end
+        ProfileStroke.Color = (pageName == "Profile") and Colors.BorderLight or Colors.Border
+        PageHeaderTitle.Text = string.upper(pageName)
 
         ClearContent()
         if Pages[pageName] then Pages[pageName]() end
+        RefreshPageChip()
+
+        -- Single-column fallback: if the page only filled the left column,
+        -- let it span the full width.
+        if ColLeft and ColRight then
+            local rightHasChildren = false
+            for _, ch in ipairs(ColRight:GetChildren()) do
+                if ch:IsA("GuiObject") then rightHasChildren = true break end
+            end
+            if not rightHasChildren then
+                ColLeft.Size = UDim2.new(1, 0, 0, 0)
+                ColRight.Visible = false
+            end
+        end
+
         ContentScroll.CanvasPosition = Vector2.new(0, 0)
     end
     ctx.SetActivePage = SetActivePage
@@ -877,91 +1007,239 @@ return function(ctx)
     end
     ctx.registerPage = registerPage
 
-    -- ====================== UI COMPONENT BUILDERS ======================
+    -- ====================== BUILT-IN PROFILE PAGE (Neo redesign) ======================
+    local sessionStart = os.clock()
+    registerPage("Profile", function()
+        -- full-width single column
+        local col = ColLeft
 
-    local function CreateSectionCard(title, layoutOrder, accentColor)
-        local card = Create("Frame", {
-            Parent = ContentScroll,
-            Size = UDim2.new(1, 0, 0, 0),
+        -- identity card
+        local idCard = Create("Frame", {
+            Parent = col,
+            Size = UDim2.new(1, 0, 0, 96),
             BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
-            LayoutOrder = layoutOrder,
+            LayoutOrder = 1,
+        })
+        CreateCorner(idCard, 12)
+        CreateStroke(idCard, Colors.Border, 1)
+        local av = Create("ImageLabel", {
+            Parent = idCard,
+            Size = UDim2.new(0, 64, 0, 64),
+            Position = UDim2.new(0, 16, 0.5, -32),
+            BackgroundColor3 = Colors.Surface,
+            Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
+            BorderSizePixel = 0,
+        })
+        CreateCorner(av, 10)
+        CreateStroke(av, Colors.BorderLight, 1)
+        Create("TextLabel", {
+            Parent = idCard,
+            Size = UDim2.new(1, -220, 0, 22),
+            Position = UDim2.new(0, 96, 0, 24),
+            BackgroundTransparency = 1,
+            Text = player.DisplayName or player.Name,
+            TextColor3 = Colors.TextPrimary,
+            TextSize = 17,
+            Font = FONT_BOLD,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        })
+        Create("TextLabel", {
+            Parent = idCard,
+            Size = UDim2.new(1, -220, 0, 16),
+            Position = UDim2.new(0, 96, 0, 50),
+            BackgroundTransparency = 1,
+            Text = "@" .. player.Name,
+            TextColor3 = Colors.TextMuted,
+            TextSize = 11,
+            Font = FONT_MONO,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        })
+        local isPrime = player:GetAttribute("PrimeEnabled") and true or false
+        local badge = Create("TextLabel", {
+            Parent = idCard,
+            Size = UDim2.new(0, 66, 0, 20),
+            Position = UDim2.new(1, -82, 0, 26),
+            BackgroundColor3 = Colors.Background,
+            Text = isPrime and "\226\152\133 PRIME" or "FREE",
+            TextColor3 = isPrime and Colors.Accent or Colors.TextMuted,
+            TextSize = 10,
+            Font = FONT_MONO,
+            BorderSizePixel = 0,
+        })
+        CreateCorner(badge, 5)
+        CreateStroke(badge, isPrime and Colors.BorderLight or Colors.Border, 1)
+
+        -- 4-stat grid row
+        local statRow = Create("Frame", {
+            Parent = col,
+            Size = UDim2.new(1, 0, 0, 78),
+            BackgroundTransparency = 1,
+            LayoutOrder = 2,
+        })
+        local function statCell(i, icon, valueText, labelText)
+            local cell = Create("Frame", {
+                Parent = statRow,
+                Size = UDim2.new(0.25, -8, 1, 0),
+                Position = UDim2.new(0.25 * (i - 1), (i - 1) * 2, 0, 0),
+                BackgroundColor3 = Colors.BackgroundLighter,
+                BorderSizePixel = 0,
+            })
+            CreateCorner(cell, 10)
+            CreateStroke(cell, Colors.Border, 1)
+            Create("TextLabel", {Parent=cell, Size=UDim2.new(0,18,0,18), Position=UDim2.new(0,12,0,10), BackgroundTransparency=1, Text=icon, TextColor3=Colors.Accent, TextSize=12, Font=FONT_BODY})
+            local v = Create("TextLabel", {
+                Parent = cell,
+                Size = UDim2.new(1, -24, 0, 20),
+                Position = UDim2.new(0, 12, 0, 30),
+                BackgroundTransparency = 1,
+                Text = valueText,
+                TextColor3 = Colors.TextPrimary,
+                TextSize = 15,
+                Font = FONT_MONO,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            Create("TextLabel", {
+                Parent = cell,
+                Size = UDim2.new(1, -24, 0, 12),
+                Position = UDim2.new(0, 12, 0, 52),
+                BackgroundTransparency = 1,
+                Text = labelText,
+                TextColor3 = Colors.TextMuted,
+                TextSize = 9,
+                Font = FONT_MONO,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            return v
+        end
+        local sessionVal = statCell(1, "\226\143\177", "00:00:00", "SESSION")
+        statCell(2, "\226\154\161", tostring(States.ActionsRun or 0), "ACTIONS RUN")
+        local fpsVal = statCell(3, "\226\151\148", "60", "AVG FPS")
+        statCell(4, "\226\136\191", "99.8%", "UPTIME")
+
+        -- live session clock + fps
+        task.spawn(function()
+            while sessionVal.Parent do
+                local el = os.clock() - sessionStart
+                sessionVal.Text = string.format("%02d:%02d:%02d", math.floor(el/3600), math.floor(el%3600/60), math.floor(el%60))
+                if ctx.CurrentFPS then fpsVal.Text = tostring(ctx.CurrentFPS) end
+                task.wait(1)
+            end
+        end)
+
+        -- ACCOUNT section
+        local _, accountContent = CreateSectionCard("ACCOUNT", 3)
+        local function accountRow(icon, labelText, valueText)
+            local r = Create("Frame", {
+                Parent = accountContent,
+                Size = UDim2.new(1, 0, 0, 44),
+                BackgroundColor3 = Colors.BackgroundLighter,
+                BorderSizePixel = 0,
+            })
+            CreateCorner(r, 10)
+            CreateStroke(r, Colors.Border, 1)
+            Create("TextLabel", {Parent=r, Size=UDim2.new(0,18,1,0), Position=UDim2.new(0,14,0,0), BackgroundTransparency=1, Text=icon, TextColor3=Colors.TextMuted, TextSize=12, Font=FONT_BODY})
+            Create("TextLabel", {
+                Parent = r,
+                Size = UDim2.new(0.5, -40, 1, 0),
+                Position = UDim2.new(0, 40, 0, 0),
+                BackgroundTransparency = 1,
+                Text = labelText,
+                TextColor3 = Colors.TextPrimary,
+                TextSize = 13,
+                Font = FONT_BODY,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            Create("TextLabel", {
+                Parent = r,
+                Size = UDim2.new(0.5, -14, 1, 0),
+                Position = UDim2.new(0.5, 0, 0, 0),
+                BackgroundTransparency = 1,
+                Text = valueText,
+                TextColor3 = Colors.Accent,
+                TextSize = 12,
+                Font = FONT_MONO,
+                TextXAlignment = Enum.TextXAlignment.Right,
+            })
+        end
+        accountRow("\226\151\136", "Plan", isPrime and "Prime \194\183 Lifetime" or "Free")
+        accountRow("\226\143\177", "Member Since", os.date("%b %Y"))
+        accountRow("\226\154\161", "Hub Version", ctx.HubVersion or "v3.2.1")
+        accountRow("\240\159\140\177", "Game", "Grow A Garden 2")
+    end)
+
+    ProfileCard.MouseButton1Click:Connect(function()
+        SetActivePage("Profile")
+    end)
+
+    -- ====================== UI COMPONENT BUILDERS ======================
+
+    -- Neo redesign: a "section card" is no longer a bordered collapsible box.
+    -- Each section becomes a column block: a small mono divider header
+    -- (like SHARED / ACCOUNT in the redesign) + a stack of control cards.
+    -- Sections alternate between the two masonry columns.
+    local function CreateSectionCard(title, layoutOrder, accentColor)
+        _sectionCount = _sectionCount + 1
+        local col = (_sectionCount % 2 == 1) and ColLeft or ColRight
+
+        local block = Create("Frame", {
+            Parent = col,
+            Size = UDim2.new(1, 0, 0, 0),
+            BackgroundTransparency = 1,
+            LayoutOrder = _sectionCount,
             AutomaticSize = Enum.AutomaticSize.Y,
         })
-        CreateCorner(card, 10)
-        CreateStroke(card, Colors.Border, 1)
-        CreatePadding(card, 14)
-        CreateListLayout(card, 8)
+        CreateListLayout(block, 8)
+
+        -- strip leading emoji from title (Neo uses clean mono headers)
+        local cleanTitle = title:gsub("^[%z\1-\127\194-\244][\128-\191]*%s*", "")
+        if cleanTitle == "" then cleanTitle = title end
 
         local header = Create("Frame", {
-            Parent = card,
-            Size = UDim2.new(1, 0, 0, 26),
+            Parent = block,
+            Size = UDim2.new(1, 0, 0, 22),
             BackgroundTransparency = 1,
             LayoutOrder = 0,
         })
-
-        if accentColor then
-            local accentBar = Create("Frame", {
-                Parent = header,
-                Size = UDim2.new(0, 2, 0, 16),
-                Position = UDim2.new(0, 0, 0.5, -8),
-                BackgroundColor3 = accentColor,
-                BorderSizePixel = 0,
-            })
-            CreateCorner(accentBar, 1)
-        end
-
-        Create("TextLabel", {
+        local titleLbl = Create("TextLabel", {
             Parent = header,
-            Size = UDim2.new(1, -44, 1, 0),
-            Position = UDim2.new(0, accentColor and 10 or 0, 0, 0),
+            Size = UDim2.new(0, 0, 1, 0),
             BackgroundTransparency = 1,
-            Text = title,
-            TextColor3 = Colors.TextPrimary,
-            TextSize = 14,
-            Font = FONT_BOLD,
+            Text = string.upper(cleanTitle),
+            TextColor3 = accentColor or Colors.Accent,
+            TextSize = 10,
+            Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
+            AutomaticSize = Enum.AutomaticSize.X,
         })
-
-        local dropBtn = Create("TextButton", {
+        -- divider line fills the remaining width
+        local divider = Create("Frame", {
             Parent = header,
-            Size = UDim2.new(0, 26, 0, 26),
-            Position = UDim2.new(1, -28, 0.5, -13),
-            BackgroundColor3 = Colors.Surface,
-            Text = "\226\150\188",
-            TextColor3 = accentColor or Colors.TextSecondary,
-            TextSize = 12,
-            Font = FONT_BOLD,
+            Size = UDim2.new(1, 0, 0, 1),
+            Position = UDim2.new(0, 0, 0.5, 0),
+            BackgroundColor3 = Colors.Border,
             BorderSizePixel = 0,
-            AutoButtonColor = false,
         })
-        CreateCorner(dropBtn, 6)
-        CreateStroke(dropBtn, Colors.Border, 1)
+        task.defer(function()
+            if titleLbl.Parent and divider.Parent then
+                local w = titleLbl.AbsoluteSize.X + 10
+                divider.Position = UDim2.new(0, w, 0.5, 0)
+                divider.Size = UDim2.new(1, -w, 0, 1)
+            end
+        end)
 
         local content = Create("Frame", {
-            Parent = card,
+            Parent = block,
             Size = UDim2.new(1, 0, 0, 0),
             BackgroundTransparency = 1,
             LayoutOrder = 1,
             AutomaticSize = Enum.AutomaticSize.Y,
-            Visible = false,
         })
         CreateListLayout(content, 8)
 
-        -- Baca state card dari cache; default collapsed jika belum pernah di-set
-        local cardKey = ActivePage .. "|" .. title
-        local collapsed = (_cardStates[cardKey] ~= false)
-        content.Visible = not collapsed
-        dropBtn.Rotation = collapsed and -90 or 0
-
-        dropBtn.MouseButton1Click:Connect(function()
-            collapsed = not collapsed
-            _cardStates[cardKey] = collapsed
-            content.Visible = not collapsed
-            Tween(dropBtn, {Rotation = collapsed and -90 or 0}, 0.25)
-        end)
-
-        return card, content
+        return block, content
     end
 
     local function CreateSubHeader(parent, text)
@@ -995,24 +1273,24 @@ return function(ctx)
     -- CreateInfoText "How It Works" blocks for explanations).
     local function CreateToggle(parent, text, stateKey, description, onToggle)
         local defaultState = States[stateKey] or false
+        RegisterPageToggleKey(stateKey)
         local container = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 36),
-            BackgroundColor3 = Colors.Background,
-            BackgroundTransparency = 0.35,
+            Size = UDim2.new(1, 0, 0, 44),
+            BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
         })
-        CreateCorner(container, 8)
+        CreateCorner(container, 10)
         CreateStroke(container, Colors.Border, 1)
 
         Create("TextLabel", {
             Parent = container,
-            Size = UDim2.new(1, -70, 1, 0),
-            Position = UDim2.new(0, 12, 0, 0),
+            Size = UDim2.new(1, -74, 1, 0),
+            Position = UDim2.new(0, 14, 0, 0),
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextPrimary,
-            TextSize = 12,
+            TextSize = 13,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1058,8 +1336,10 @@ return function(ctx)
                     SaveState(stateKey, false)
                     Tween(toggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2)
                     Tween(knob, {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Colors.TextSecondary}, 0.2)
+                    RefreshPageChip()
                 end)
             end
+            RefreshPageChip()
         end)
         return container, function() return state end
     end
@@ -1068,28 +1348,28 @@ return function(ctx)
         local defaultVal = States[stateKey] or minVal
         local container = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 50),
-            BackgroundColor3 = Colors.Background,
-            BackgroundTransparency = 0.35,
+            Size = UDim2.new(1, 0, 0, 62),
+            BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
         })
-        CreateCorner(container, 8)
+        CreateCorner(container, 10)
         CreateStroke(container, Colors.Border, 1)
         Create("TextLabel", {
             Parent = container,
-            Size = UDim2.new(0, 200, 0, 18),
-            Position = UDim2.new(0, 12, 0, 6),
+            Size = UDim2.new(1, -90, 0, 20),
+            Position = UDim2.new(0, 14, 0, 8),
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextPrimary,
-            TextSize = 12,
+            TextSize = 13,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
         })
         local valLabel = Create("TextLabel", {
             Parent = container,
-            Size = UDim2.new(0, 56, 0, 22),
-            Position = UDim2.new(1, -66, 0, 5),
+            Size = UDim2.new(0, 58, 0, 24),
+            Position = UDim2.new(1, -70, 0, 7),
             BackgroundColor3 = Colors.Background,
             Text = tostring(defaultVal) .. (suffix or ""),
             TextColor3 = Colors.Accent,
@@ -1102,8 +1382,8 @@ return function(ctx)
 
         local track = Create("Frame", {
             Parent = container,
-            Size = UDim2.new(1, -90, 0, 4),
-            Position = UDim2.new(0, 12, 0, 36),
+            Size = UDim2.new(1, -28, 0, 4),
+            Position = UDim2.new(0, 14, 0, 44),
             BackgroundColor3 = Colors.SliderTrack,
             BorderSizePixel = 0,
         })
@@ -1128,8 +1408,8 @@ return function(ctx)
         local dragging = false
         local trackBtn = Create("TextButton", {
             Parent = container,
-            Size = UDim2.new(1, -90, 0, 24),
-            Position = UDim2.new(0, 12, 0, 26),
+            Size = UDim2.new(1, -28, 0, 24),
+            Position = UDim2.new(0, 14, 0, 34),
             BackgroundTransparency = 1,
             Text = "",
         })
@@ -1170,47 +1450,47 @@ return function(ctx)
     local function CreateActionButton(parent, text, callback, accentColor)
         local container = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 36),
+            Size = UDim2.new(1, 0, 0, 44),
             BackgroundTransparency = 1,
         })
         local btn = Create("TextButton", {
             Parent = container,
             Size = UDim2.new(1, 0, 1, 0),
-            BackgroundColor3 = Colors.Background,
-            BackgroundTransparency = 0.35,
+            BackgroundColor3 = Colors.BackgroundLighter,
             Text = "",
             BorderSizePixel = 0,
             AutoButtonColor = false,
         })
-        CreateCorner(btn, 8)
+        CreateCorner(btn, 10)
         CreateStroke(btn, accentColor or Colors.Border, 1)
         Create("TextLabel", {
             Parent = btn,
-            Size = UDim2.new(1, -44, 1, 0),
-            Position = UDim2.new(0, 12, 0, 0),
+            Size = UDim2.new(1, -48, 1, 0),
+            Position = UDim2.new(0, 14, 0, 0),
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = accentColor or Colors.TextPrimary,
-            TextSize = 12,
+            TextSize = 13,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
         })
         Create("TextLabel", {
             Parent = btn,
             Size = UDim2.new(0, 20, 1, 0),
-            Position = UDim2.new(1, -26, 0, 0),
+            Position = UDim2.new(1, -28, 0, 0),
             BackgroundTransparency = 1,
             Text = "\226\128\186",
-            TextColor3 = accentColor or Colors.TextMuted,
+            TextColor3 = accentColor or Colors.Accent,
             TextSize = 16,
             Font = FONT_BOLD,
         })
-        btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface, BackgroundTransparency = 0}, 0.15) end)
-        btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Background, BackgroundTransparency = 0.35}, 0.15) end)
+        btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface}, 0.15) end)
+        btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15) end)
         btn.MouseButton1Click:Connect(function()
-            Tween(btn, {BackgroundColor3 = Colors.SurfaceLight, BackgroundTransparency = 0}, 0.05)
+            Tween(btn, {BackgroundColor3 = Colors.SurfaceLight}, 0.05)
             task.wait(0.1)
-            Tween(btn, {BackgroundColor3 = Colors.Background, BackgroundTransparency = 0.35}, 0.1)
+            Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter}, 0.1)
             if callback then callback() end
         end)
         return container
@@ -1220,29 +1500,28 @@ return function(ctx)
         local currentVal = States[stateKey] or options[1]
         local container = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 38),
+            Size = UDim2.new(1, 0, 0, 44),
             BackgroundTransparency = 1,
         })
         local btn = Create("TextButton", {
             Parent = container,
             Size = UDim2.new(1, 0, 1, 0),
-            BackgroundColor3 = Colors.Background,
-            BackgroundTransparency = 0.35,
+            BackgroundColor3 = Colors.BackgroundLighter,
             Text = "",
             BorderSizePixel = 0,
             AutoButtonColor = false,
         })
-        CreateCorner(btn, 8)
+        CreateCorner(btn, 10)
         CreateStroke(btn, Colors.Border, 1)
         local lbl = Create("TextLabel", {
             Parent = btn,
             Size = UDim2.new(1, -56, 1, 0),
-            Position = UDim2.new(0, 12, 0, 0),
+            Position = UDim2.new(0, 14, 0, 0),
             BackgroundTransparency = 1,
             RichText = true,
             Text = label .. '  <font color="#6A6D68">\194\183 ' .. tostring(currentVal) .. '</font>',
             TextColor3 = Colors.TextPrimary,
-            TextSize = 12,
+            TextSize = 13,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1397,18 +1676,17 @@ return function(ctx)
         local wrapper = Create("Frame", {
             Parent = parent,
             Size = UDim2.new(1, 0, 0, 0),
-            BackgroundColor3 = Colors.Background,
-            BackgroundTransparency = 0.35,
+            BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
             AutomaticSize = Enum.AutomaticSize.Y,
         })
-        CreateCorner(wrapper, 8)
+        CreateCorner(wrapper, 10)
         local pillStroke = CreateStroke(wrapper, Colors.Border, 1)
         CreateListLayout(wrapper, 0)
 
         local pillOuter = Create("Frame", {
             Parent = wrapper,
-            Size = UDim2.new(1, 0, 0, 38),
+            Size = UDim2.new(1, 0, 0, 44),
             BackgroundTransparency = 1,
             LayoutOrder = 0,
         })
@@ -1424,12 +1702,12 @@ return function(ctx)
         local pillLabel = Create("TextLabel", {
             Parent = pill,
             Size = UDim2.new(1, -50, 1, 0),
-            Position = UDim2.new(0, 12, 0, 0),
+            Position = UDim2.new(0, 14, 0, 0),
             BackgroundTransparency = 1,
             RichText = true,
             Text = getShortText(),
             TextColor3 = Colors.TextPrimary,
-            TextSize = 12,
+            TextSize = 13,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1669,7 +1947,7 @@ return function(ctx)
             end
 
             local dimAlpha = disabled and 0.55 or 0
-            Tween(wrapper, {BackgroundTransparency = disabled and 0.7 or 0.35}, 0.18)
+            Tween(wrapper, {BackgroundTransparency = disabled and 0.5 or 0}, 0.18)
             Tween(pillLabel, {TextTransparency = dimAlpha}, 0.18)
             Tween(arrowLbl,  {TextTransparency = dimAlpha}, 0.18)
 
@@ -1692,15 +1970,14 @@ return function(ctx)
         local c = Create("Frame", {
             Parent = parent,
             Size = UDim2.new(1, 0, 0, 0),
-            BackgroundColor3 = Colors.Background,
-            BackgroundTransparency = 0.35,
+            BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
             AutomaticSize = Enum.AutomaticSize.Y,
         })
-        CreateCorner(c, 8)
+        CreateCorner(c, 10)
         CreateStroke(c, Colors.Border, 1)
-        CreatePadding(c, 10)
-        CreateListLayout(c, 4)
+        CreatePadding(c, 12)
+        CreateListLayout(c, 5)
         if title then
             Create("TextLabel", {
                 Parent = c,
@@ -1731,32 +2008,31 @@ return function(ctx)
     local function CreateStatRow(parent, label, value, valColor)
         local r = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 28),
-            BackgroundColor3 = Colors.Background,
-            BackgroundTransparency = 0.35,
+            Size = UDim2.new(1, 0, 0, 40),
+            BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
         })
-        CreateCorner(r, 6)
+        CreateCorner(r, 10)
         CreateStroke(r, Colors.Border, 1)
         Create("TextLabel", {
             Parent = r,
-            Size = UDim2.new(0.5, 0, 1, 0),
-            Position = UDim2.new(0, 12, 0, 0),
+            Size = UDim2.new(0.5, -14, 1, 0),
+            Position = UDim2.new(0, 14, 0, 0),
             BackgroundTransparency = 1,
             Text = label,
-            TextColor3 = Colors.TextMuted,
-            TextSize = 11,
-            Font = FONT_MONO,
+            TextColor3 = Colors.TextSecondary,
+            TextSize = 12,
+            Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
         local valLbl = Create("TextLabel", {
             Parent = r,
-            Size = UDim2.new(0.5, -12, 1, 0),
+            Size = UDim2.new(0.5, -14, 1, 0),
             Position = UDim2.new(0.5, 0, 0, 0),
             BackgroundTransparency = 1,
             Text = tostring(value),
-            TextColor3 = valColor or Colors.TextPrimary,
-            TextSize = 11,
+            TextColor3 = valColor or Colors.Accent,
+            TextSize = 12,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Right,
         })
