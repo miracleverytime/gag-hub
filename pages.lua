@@ -641,40 +641,16 @@ CreateInfoText(plantContent, "How It Works",
             "ON: buys every seed that has stock | OFF: only selected seeds",
             function(newVal)
                 pcall(function() Logic.ResetNotifiedEmpty() end)
-                if multiSelectWrapper then
-                    -- Grey-out MultiSelect saat Buy ALL aktif
-                    Tween(multiSelectWrapper, {BackgroundTransparency = newVal and 0 or 1}, 0.2)
-                    for _, desc in ipairs(multiSelectWrapper:GetDescendants()) do
-                        if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-                            pcall(function()
-                                Tween(desc, {TextTransparency = newVal and 0.6 or 0}, 0.2)
-                            end)
-                        end
-                        if desc:IsA("Frame") or desc:IsA("ScrollingFrame") then
-                            pcall(function()
-                                Tween(desc, {BackgroundTransparency = newVal and (desc.BackgroundTransparency == 0 and 0.6 or desc.BackgroundTransparency) or desc.BackgroundTransparency}, 0.2)
-                            end)
-                        end
-                    end
-                    -- Blokir interaksi dengan overlay transparan
-                    local overlay = multiSelectWrapper:FindFirstChild("_BuyAllOverlay")
-                    if newVal then
-                        if not overlay then
-                            overlay = Instance.new("Frame")
-                            overlay.Name = "_BuyAllOverlay"
-                            overlay.Size = UDim2.new(1, 0, 1, 0)
-                            overlay.BackgroundTransparency = 1
-                            overlay.ZIndex = 99
-                            overlay.Parent = multiSelectWrapper
-                        end
-                    else
-                        if overlay then overlay:Destroy() end
-                        -- Buy ALL dimatikan: cek apakah targets kosong → force off Auto Buy
-                        local targets = States.autoBuySeedTargets or {}
-                        if #targets == 0 and States.autoBuySeed then
-                            ForceOffAutoBuy()
-                            Notify("Auto Buy", "Buy ALL dimatikan & tidak ada seed dipilih — Auto Buy Seeds dinonaktifkan.", Colors.Warning, 5)
-                        end
+                -- Disable/enable MultiSelect secara langsung via API (bukan overlay)
+                if multiSelectWrapper and multiSelectWrapper.SetDisabled then
+                    pcall(function() multiSelectWrapper.SetDisabled(newVal) end)
+                end
+                -- Saat Buy ALL dimatikan: cek targets kosong → force off Auto Buy
+                if not newVal then
+                    local targets = States.autoBuySeedTargets or {}
+                    if #targets == 0 and States.autoBuySeed then
+                        ForceOffAutoBuy()
+                        Notify("Auto Buy", "Buy ALL dimatikan & tidak ada seed dipilih — Auto Buy Seeds dinonaktifkan.", Colors.Warning, 5)
                     end
                 end
             end
@@ -683,23 +659,16 @@ CreateInfoText(plantContent, "How It Works",
         -- MultiSelect wrapper dengan polling
         do
             local _prevTargetCount = #(States.autoBuySeedTargets or {})
-            local msContainer = Create("Frame", {
-                Parent = buyContent,
-                Size = UDim2.new(1, 0, 0, 0),
-                BackgroundTransparency = 1,
-                AutomaticSize = Enum.AutomaticSize.Y,
-            })
-            multiSelectWrapper = msContainer
-            CreateMultiSelect(msContainer, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
+            -- Simpan return value CreateMultiSelect — expose SetDisabled API
+            multiSelectWrapper = CreateMultiSelect(buyContent, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
 
-            -- Terapkan state grey-out awal jika Buy ALL sudah ON saat load
+            -- Terapkan disabled state awal jika Buy ALL sudah ON saat load
             if States.autoBuyAll then
-                local overlay = Instance.new("Frame")
-                overlay.Name = "_BuyAllOverlay"
-                overlay.Size = UDim2.new(1, 0, 1, 0)
-                overlay.BackgroundTransparency = 1
-                overlay.ZIndex = 99
-                overlay.Parent = msContainer
+                task.defer(function()
+                    if multiSelectWrapper and multiSelectWrapper.SetDisabled then
+                        pcall(function() multiSelectWrapper.SetDisabled(true) end)
+                    end
+                end)
             end
 
             task.spawn(function()
