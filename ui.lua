@@ -457,7 +457,17 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     CreateCorner(BrandCard, 8)
-    CreateStroke(BrandCard, Colors.Border, 1)
+    local BrandStroke = CreateStroke(BrandCard, Colors.Border, 1)
+
+    -- breathing outline: fades between dim border and lime-tinted border
+    task.spawn(function()
+        while BrandCard.Parent do
+            Tween(BrandStroke, {Color = Colors.BorderLight, Transparency = 0.2}, 1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.wait(1.2)
+            Tween(BrandStroke, {Color = Colors.Border, Transparency = 0.6}, 1.1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            task.wait(1.2)
+        end
+    end)
 
     local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
