@@ -582,38 +582,138 @@ CreateInfoText(plantContent, "How It Works",
         local buyCard, buyContent = CreateSectionCard("\240\159\155\146 Auto Buy Seeds", 1, Colors.Success)
         CreateInfoText(buyContent, "How To Use", "1. Select seeds in 'Choose Target Seeds'.\n2. Enable 'Auto Buy Seeds'.\n3. Seeds will be purchased automatically while they're in stock.\nUse 'Buy ALL available seeds' to buy everything in stock.")
 
-        CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed", "Rapidly buys selected seeds, stops when out of stock", function(newVal, revert)
-            if newVal and not States.autoBuyAll then
-                local targets = States.autoBuySeedTargets or {}
-                if #targets == 0 then
-                    revert()
-                    Notify("Auto Buy", "\226\154\160\239\184\143 Select seeds below before enabling Auto Buy!", Colors.Warning, 5)
-                    return
+        -- Guard: timestamp notif terakhir "no target" — rate-limit 5 detik
+        local _lastNoTargetNotifTime = 0
+        local NO_TARGET_NOTIF_COOLDOWN = 5
+
+        local autoBuyToggleBg, autoBuyKnob  -- referensi visual toggle Auto Buy Seeds
+        local multiSelectWrapper             -- referensi wrapper MultiSelect untuk grey-out
+
+        -- Toggle Auto Buy Seeds
+        local autoBuyContainer, getAutoBuyState = CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed",
+            "Rapidly buys selected seeds, stops when out of stock",
+            function(newVal, revert)
+                if newVal and not States.autoBuyAll then
+                    local targets = States.autoBuySeedTargets or {}
+                    if #targets == 0 then
+                        revert()
+                        -- Rate-limit notif "no target" supaya tidak spam
+                        local now = os.clock()
+                        if now - _lastNoTargetNotifTime >= NO_TARGET_NOTIF_COOLDOWN then
+                            _lastNoTargetNotifTime = now
+                            Notify("Auto Buy", "\226\154\160\239\184\143 Select seeds below before enabling Auto Buy!", Colors.Warning, 5)
+                        end
+                        return
+                    end
+                end
+                if newVal then
+                    pcall(function() Logic.ResetNotifiedEmpty() end)
+                    pcall(MuteSFX_Failed)
                 end
             end
-            if newVal then
-                -- Reset flag notif "stok habis" agar notif muncul lagi setelah toggle ON ulang
-                pcall(function() Logic.ResetNotifiedEmpty() end)
-                pcall(MuteSFX_Failed)
+        )
+
+        -- Simpan referensi visual toggle untuk force-off dari luar
+        -- (toggleBg = child Frame ke-3, knob = child-nya toggleBg)
+        pcall(function()
+            for _, ch in ipairs(autoBuyContainer:GetChildren()) do
+                if ch:IsA("Frame") and ch.Size == UDim2.new(0, 48, 0, 26) then
+                    autoBuyToggleBg = ch
+                    autoBuyKnob = ch:FindFirstChildWhichIsA("Frame")
+                    break
+                end
             end
         end)
-        CreateToggle(buyContent, "Buy ALL available seeds", "autoBuyAll", "ON: buys every seed that has stock | OFF: only selected seeds", function(newVal)
-            -- Saat mode beralih (all ↔ selected), reset flag agar notif fresh
-            pcall(function() Logic.ResetNotifiedEmpty() end)
-        end)
-        -- Wrapper MultiSelect: reset flag saat seed target berubah supaya notif muncul lagi
+
+        local function ForceOffAutoBuy()
+            States.autoBuySeed = false
+            pcall(function() SaveState("autoBuySeed", false) end)
+            if autoBuyToggleBg then
+                Tween(autoBuyToggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2)
+            end
+            if autoBuyKnob then
+                Tween(autoBuyKnob, {Position = UDim2.new(0, 3, 0.5, -10)}, 0.2)
+            end
+        end
+
+        -- Toggle Buy ALL available seeds
+        CreateToggle(buyContent, "Buy ALL available seeds", "autoBuyAll",
+            "ON: buys every seed that has stock | OFF: only selected seeds",
+            function(newVal)
+                pcall(function() Logic.ResetNotifiedEmpty() end)
+                if multiSelectWrapper then
+                    -- Grey-out MultiSelect saat Buy ALL aktif
+                    Tween(multiSelectWrapper, {BackgroundTransparency = newVal and 0 or 1}, 0.2)
+                    for _, desc in ipairs(multiSelectWrapper:GetDescendants()) do
+                        if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                            pcall(function()
+                                Tween(desc, {TextTransparency = newVal and 0.6 or 0}, 0.2)
+                            end)
+                        end
+                        if desc:IsA("Frame") or desc:IsA("ScrollingFrame") then
+                            pcall(function()
+                                Tween(desc, {BackgroundTransparency = newVal and (desc.BackgroundTransparency == 0 and 0.6 or desc.BackgroundTransparency) or desc.BackgroundTransparency}, 0.2)
+                            end)
+                        end
+                    end
+                    -- Blokir interaksi dengan overlay transparan
+                    local overlay = multiSelectWrapper:FindFirstChild("_BuyAllOverlay")
+                    if newVal then
+                        if not overlay then
+                            overlay = Instance.new("Frame")
+                            overlay.Name = "_BuyAllOverlay"
+                            overlay.Size = UDim2.new(1, 0, 1, 0)
+                            overlay.BackgroundTransparency = 1
+                            overlay.ZIndex = 99
+                            overlay.Parent = multiSelectWrapper
+                        end
+                    else
+                        if overlay then overlay:Destroy() end
+                        -- Buy ALL dimatikan: cek apakah targets kosong → force off Auto Buy
+                        local targets = States.autoBuySeedTargets or {}
+                        if #targets == 0 and States.autoBuySeed then
+                            ForceOffAutoBuy()
+                            Notify("Auto Buy", "Buy ALL dimatikan & tidak ada seed dipilih — Auto Buy Seeds dinonaktifkan.", Colors.Warning, 5)
+                        end
+                    end
+                end
+            end
+        )
+
+        -- MultiSelect wrapper dengan polling
         do
             local _prevTargetCount = #(States.autoBuySeedTargets or {})
-            CreateMultiSelect(buyContent, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
-            -- Pantau perubahan target via polling ringan (MultiSelect tidak expose onChange)
+            local msContainer = Create("Frame", {
+                Parent = buyContent,
+                Size = UDim2.new(1, 0, 0, 0),
+                BackgroundTransparency = 1,
+                AutomaticSize = Enum.AutomaticSize.Y,
+            })
+            multiSelectWrapper = msContainer
+            CreateMultiSelect(msContainer, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
+
+            -- Terapkan state grey-out awal jika Buy ALL sudah ON saat load
+            if States.autoBuyAll then
+                local overlay = Instance.new("Frame")
+                overlay.Name = "_BuyAllOverlay"
+                overlay.Size = UDim2.new(1, 0, 1, 0)
+                overlay.BackgroundTransparency = 1
+                overlay.ZIndex = 99
+                overlay.Parent = msContainer
+            end
+
             task.spawn(function()
                 while true do
                     task.wait(0.3)
                     local cur = #(States.autoBuySeedTargets or {})
                     if cur ~= _prevTargetCount then
                         _prevTargetCount = cur
-                        -- Target berubah → notif stok habis bisa muncul lagi untuk seed baru
                         pcall(function() Logic.ResetNotifiedEmpty() end)
+                        -- Jika target dikosongkan saat Buy ALL OFF & Auto Buy ON → force off
+                        if cur == 0 and not States.autoBuyAll and States.autoBuySeed then
+                            ForceOffAutoBuy()
+                            Notify("Auto Buy", "Semua seed di-deselect — Auto Buy Seeds dinonaktifkan.", Colors.Warning, 4)
+                        end
                     end
                 end
             end)
