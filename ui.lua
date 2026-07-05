@@ -1007,172 +1007,6 @@ return function(ctx)
     end
     ctx.registerPage = registerPage
 
-    -- ====================== BUILT-IN PROFILE PAGE (Neo redesign) ======================
-    local sessionStart = os.clock()
-    registerPage("Profile", function()
-        -- full-width single column
-        local col = ColLeft
-
-        -- identity card
-        local idCard = Create("Frame", {
-            Parent = col,
-            Size = UDim2.new(1, 0, 0, 96),
-            BackgroundColor3 = Colors.BackgroundLighter,
-            BorderSizePixel = 0,
-            LayoutOrder = 1,
-        })
-        CreateCorner(idCard, 12)
-        CreateStroke(idCard, Colors.Border, 1)
-        local av = Create("ImageLabel", {
-            Parent = idCard,
-            Size = UDim2.new(0, 64, 0, 64),
-            Position = UDim2.new(0, 16, 0.5, -32),
-            BackgroundColor3 = Colors.Surface,
-            Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
-            BorderSizePixel = 0,
-        })
-        CreateCorner(av, 10)
-        CreateStroke(av, Colors.BorderLight, 1)
-        Create("TextLabel", {
-            Parent = idCard,
-            Size = UDim2.new(1, -220, 0, 22),
-            Position = UDim2.new(0, 96, 0, 24),
-            BackgroundTransparency = 1,
-            Text = player.DisplayName or player.Name,
-            TextColor3 = Colors.TextPrimary,
-            TextSize = 17,
-            Font = FONT_BOLD,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-        })
-        Create("TextLabel", {
-            Parent = idCard,
-            Size = UDim2.new(1, -220, 0, 16),
-            Position = UDim2.new(0, 96, 0, 50),
-            BackgroundTransparency = 1,
-            Text = "@" .. player.Name,
-            TextColor3 = Colors.TextMuted,
-            TextSize = 11,
-            Font = FONT_MONO,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            TextTruncate = Enum.TextTruncate.AtEnd,
-        })
-        local isPrime = player:GetAttribute("PrimeEnabled") and true or false
-        local badge = Create("TextLabel", {
-            Parent = idCard,
-            Size = UDim2.new(0, 66, 0, 20),
-            Position = UDim2.new(1, -82, 0, 26),
-            BackgroundColor3 = Colors.Background,
-            Text = isPrime and "\226\152\133 PRIME" or "FREE",
-            TextColor3 = isPrime and Colors.Accent or Colors.TextMuted,
-            TextSize = 10,
-            Font = FONT_MONO,
-            BorderSizePixel = 0,
-        })
-        CreateCorner(badge, 5)
-        CreateStroke(badge, isPrime and Colors.BorderLight or Colors.Border, 1)
-
-        -- 4-stat grid row
-        local statRow = Create("Frame", {
-            Parent = col,
-            Size = UDim2.new(1, 0, 0, 78),
-            BackgroundTransparency = 1,
-            LayoutOrder = 2,
-        })
-        local function statCell(i, icon, valueText, labelText)
-            local cell = Create("Frame", {
-                Parent = statRow,
-                Size = UDim2.new(0.25, -8, 1, 0),
-                Position = UDim2.new(0.25 * (i - 1), (i - 1) * 2, 0, 0),
-                BackgroundColor3 = Colors.BackgroundLighter,
-                BorderSizePixel = 0,
-            })
-            CreateCorner(cell, 10)
-            CreateStroke(cell, Colors.Border, 1)
-            Create("TextLabel", {Parent=cell, Size=UDim2.new(0,18,0,18), Position=UDim2.new(0,12,0,10), BackgroundTransparency=1, Text=icon, TextColor3=Colors.Accent, TextSize=12, Font=FONT_BODY})
-            local v = Create("TextLabel", {
-                Parent = cell,
-                Size = UDim2.new(1, -24, 0, 20),
-                Position = UDim2.new(0, 12, 0, 30),
-                BackgroundTransparency = 1,
-                Text = valueText,
-                TextColor3 = Colors.TextPrimary,
-                TextSize = 15,
-                Font = FONT_MONO,
-                TextXAlignment = Enum.TextXAlignment.Left,
-            })
-            Create("TextLabel", {
-                Parent = cell,
-                Size = UDim2.new(1, -24, 0, 12),
-                Position = UDim2.new(0, 12, 0, 52),
-                BackgroundTransparency = 1,
-                Text = labelText,
-                TextColor3 = Colors.TextMuted,
-                TextSize = 9,
-                Font = FONT_MONO,
-                TextXAlignment = Enum.TextXAlignment.Left,
-            })
-            return v
-        end
-        local sessionVal = statCell(1, "\226\143\177", "00:00:00", "SESSION")
-        statCell(2, "\226\154\161", tostring(States.ActionsRun or 0), "ACTIONS RUN")
-        local fpsVal = statCell(3, "\226\151\148", "60", "AVG FPS")
-        statCell(4, "\226\136\191", "99.8%", "UPTIME")
-
-        -- live session clock + fps
-        task.spawn(function()
-            while sessionVal.Parent do
-                local el = os.clock() - sessionStart
-                sessionVal.Text = string.format("%02d:%02d:%02d", math.floor(el/3600), math.floor(el%3600/60), math.floor(el%60))
-                if ctx.CurrentFPS then fpsVal.Text = tostring(ctx.CurrentFPS) end
-                task.wait(1)
-            end
-        end)
-
-        -- ACCOUNT section
-        local _, accountContent = CreateSectionCard("ACCOUNT", 3)
-        local function accountRow(icon, labelText, valueText)
-            local r = Create("Frame", {
-                Parent = accountContent,
-                Size = UDim2.new(1, 0, 0, 44),
-                BackgroundColor3 = Colors.BackgroundLighter,
-                BorderSizePixel = 0,
-            })
-            CreateCorner(r, 10)
-            CreateStroke(r, Colors.Border, 1)
-            Create("TextLabel", {Parent=r, Size=UDim2.new(0,18,1,0), Position=UDim2.new(0,14,0,0), BackgroundTransparency=1, Text=icon, TextColor3=Colors.TextMuted, TextSize=12, Font=FONT_BODY})
-            Create("TextLabel", {
-                Parent = r,
-                Size = UDim2.new(0.5, -40, 1, 0),
-                Position = UDim2.new(0, 40, 0, 0),
-                BackgroundTransparency = 1,
-                Text = labelText,
-                TextColor3 = Colors.TextPrimary,
-                TextSize = 13,
-                Font = FONT_BODY,
-                TextXAlignment = Enum.TextXAlignment.Left,
-            })
-            Create("TextLabel", {
-                Parent = r,
-                Size = UDim2.new(0.5, -14, 1, 0),
-                Position = UDim2.new(0.5, 0, 0, 0),
-                BackgroundTransparency = 1,
-                Text = valueText,
-                TextColor3 = Colors.Accent,
-                TextSize = 12,
-                Font = FONT_MONO,
-                TextXAlignment = Enum.TextXAlignment.Right,
-            })
-        end
-        accountRow("\226\151\136", "Plan", isPrime and "Prime \194\183 Lifetime" or "Free")
-        accountRow("\226\143\177", "Member Since", os.date("%b %Y"))
-        accountRow("\226\154\161", "Hub Version", ctx.HubVersion or "v3.2.1")
-        accountRow("\240\159\140\177", "Game", "Grow A Garden 2")
-    end)
-
-    ProfileCard.MouseButton1Click:Connect(function()
-        SetActivePage("Profile")
-    end)
 
     -- ====================== UI COMPONENT BUILDERS ======================
 
@@ -2050,6 +1884,174 @@ return function(ctx)
     UI.CreateMultiSelect   = CreateMultiSelect
     UI.CreateInfoText      = CreateInfoText
     UI.CreateStatRow       = CreateStatRow
+
+
+    -- ====================== BUILT-IN PROFILE PAGE (Neo redesign) ======================
+    local sessionStart = os.clock()
+    registerPage("Profile", function()
+        -- full-width single column
+        local col = ColLeft
+
+        -- identity card
+        local idCard = Create("Frame", {
+            Parent = col,
+            Size = UDim2.new(1, 0, 0, 96),
+            BackgroundColor3 = Colors.BackgroundLighter,
+            BorderSizePixel = 0,
+            LayoutOrder = 1,
+        })
+        CreateCorner(idCard, 12)
+        CreateStroke(idCard, Colors.Border, 1)
+        local av = Create("ImageLabel", {
+            Parent = idCard,
+            Size = UDim2.new(0, 64, 0, 64),
+            Position = UDim2.new(0, 16, 0.5, -32),
+            BackgroundColor3 = Colors.Surface,
+            Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
+            BorderSizePixel = 0,
+        })
+        CreateCorner(av, 10)
+        CreateStroke(av, Colors.BorderLight, 1)
+        Create("TextLabel", {
+            Parent = idCard,
+            Size = UDim2.new(1, -220, 0, 22),
+            Position = UDim2.new(0, 96, 0, 24),
+            BackgroundTransparency = 1,
+            Text = player.DisplayName or player.Name,
+            TextColor3 = Colors.TextPrimary,
+            TextSize = 17,
+            Font = FONT_BOLD,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        })
+        Create("TextLabel", {
+            Parent = idCard,
+            Size = UDim2.new(1, -220, 0, 16),
+            Position = UDim2.new(0, 96, 0, 50),
+            BackgroundTransparency = 1,
+            Text = "@" .. player.Name,
+            TextColor3 = Colors.TextMuted,
+            TextSize = 11,
+            Font = FONT_MONO,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+        })
+        local isPrime = player:GetAttribute("PrimeEnabled") and true or false
+        local badge = Create("TextLabel", {
+            Parent = idCard,
+            Size = UDim2.new(0, 66, 0, 20),
+            Position = UDim2.new(1, -82, 0, 26),
+            BackgroundColor3 = Colors.Background,
+            Text = isPrime and "\226\152\133 PRIME" or "FREE",
+            TextColor3 = isPrime and Colors.Accent or Colors.TextMuted,
+            TextSize = 10,
+            Font = FONT_MONO,
+            BorderSizePixel = 0,
+        })
+        CreateCorner(badge, 5)
+        CreateStroke(badge, isPrime and Colors.BorderLight or Colors.Border, 1)
+
+        -- 4-stat grid row
+        local statRow = Create("Frame", {
+            Parent = col,
+            Size = UDim2.new(1, 0, 0, 78),
+            BackgroundTransparency = 1,
+            LayoutOrder = 2,
+        })
+        local function statCell(i, icon, valueText, labelText)
+            local cell = Create("Frame", {
+                Parent = statRow,
+                Size = UDim2.new(0.25, -8, 1, 0),
+                Position = UDim2.new(0.25 * (i - 1), (i - 1) * 2, 0, 0),
+                BackgroundColor3 = Colors.BackgroundLighter,
+                BorderSizePixel = 0,
+            })
+            CreateCorner(cell, 10)
+            CreateStroke(cell, Colors.Border, 1)
+            Create("TextLabel", {Parent=cell, Size=UDim2.new(0,18,0,18), Position=UDim2.new(0,12,0,10), BackgroundTransparency=1, Text=icon, TextColor3=Colors.Accent, TextSize=12, Font=FONT_BODY})
+            local v = Create("TextLabel", {
+                Parent = cell,
+                Size = UDim2.new(1, -24, 0, 20),
+                Position = UDim2.new(0, 12, 0, 30),
+                BackgroundTransparency = 1,
+                Text = valueText,
+                TextColor3 = Colors.TextPrimary,
+                TextSize = 15,
+                Font = FONT_MONO,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            Create("TextLabel", {
+                Parent = cell,
+                Size = UDim2.new(1, -24, 0, 12),
+                Position = UDim2.new(0, 12, 0, 52),
+                BackgroundTransparency = 1,
+                Text = labelText,
+                TextColor3 = Colors.TextMuted,
+                TextSize = 9,
+                Font = FONT_MONO,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            return v
+        end
+        local sessionVal = statCell(1, "\226\143\177", "00:00:00", "SESSION")
+        statCell(2, "\226\154\161", tostring(States.ActionsRun or 0), "ACTIONS RUN")
+        local fpsVal = statCell(3, "\226\151\148", "60", "AVG FPS")
+        statCell(4, "\226\136\191", "99.8%", "UPTIME")
+
+        -- live session clock + fps
+        task.spawn(function()
+            while sessionVal.Parent do
+                local el = os.clock() - sessionStart
+                sessionVal.Text = string.format("%02d:%02d:%02d", math.floor(el/3600), math.floor(el%3600/60), math.floor(el%60))
+                if ctx.CurrentFPS then fpsVal.Text = tostring(ctx.CurrentFPS) end
+                task.wait(1)
+            end
+        end)
+
+        -- ACCOUNT section
+        local _, accountContent = CreateSectionCard("ACCOUNT", 3)
+        local function accountRow(icon, labelText, valueText)
+            local r = Create("Frame", {
+                Parent = accountContent,
+                Size = UDim2.new(1, 0, 0, 44),
+                BackgroundColor3 = Colors.BackgroundLighter,
+                BorderSizePixel = 0,
+            })
+            CreateCorner(r, 10)
+            CreateStroke(r, Colors.Border, 1)
+            Create("TextLabel", {Parent=r, Size=UDim2.new(0,18,1,0), Position=UDim2.new(0,14,0,0), BackgroundTransparency=1, Text=icon, TextColor3=Colors.TextMuted, TextSize=12, Font=FONT_BODY})
+            Create("TextLabel", {
+                Parent = r,
+                Size = UDim2.new(0.5, -40, 1, 0),
+                Position = UDim2.new(0, 40, 0, 0),
+                BackgroundTransparency = 1,
+                Text = labelText,
+                TextColor3 = Colors.TextPrimary,
+                TextSize = 13,
+                Font = FONT_BODY,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+            Create("TextLabel", {
+                Parent = r,
+                Size = UDim2.new(0.5, -14, 1, 0),
+                Position = UDim2.new(0.5, 0, 0, 0),
+                BackgroundTransparency = 1,
+                Text = valueText,
+                TextColor3 = Colors.Accent,
+                TextSize = 12,
+                Font = FONT_MONO,
+                TextXAlignment = Enum.TextXAlignment.Right,
+            })
+        end
+        accountRow("\226\151\136", "Plan", isPrime and "Prime \194\183 Lifetime" or "Free")
+        accountRow("\226\143\177", "Member Since", os.date("%b %Y"))
+        accountRow("\226\154\161", "Hub Version", ctx.HubVersion or "v3.2.1")
+        accountRow("\240\159\140\177", "Game", "Grow A Garden 2")
+    end)
+
+    ProfileCard.MouseButton1Click:Connect(function()
+        SetActivePage("Profile")
+    end)
 
     ctx.UI = UI
     return ctx
