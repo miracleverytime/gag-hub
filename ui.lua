@@ -1419,7 +1419,10 @@ return function(ctx)
         end)
 
         local isOpen = false
+        local isDisabled = false
+
         pill.MouseButton1Click:Connect(function()
+            if isDisabled then return end
             isOpen = not isOpen
             Tween(arrowLbl, {Rotation = isOpen and 90 or 0}, 0.2)
             if isOpen then
@@ -1434,6 +1437,42 @@ return function(ctx)
                 end)
             end
         end)
+
+        -- Expose disable/enable API — dipanggil dari luar (e.g. Buy ALL toggle)
+        local function SetDisabled(disabled)
+            isDisabled = disabled
+
+            -- Tutup panel jika sedang terbuka
+            if disabled and isOpen then
+                isOpen = false
+                Tween(arrowLbl, {Rotation = 0}, 0.18)
+                Tween(panel, {Size = UDim2.new(1, 0, 0, 0)}, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+                task.delay(0.19, function()
+                    if not isOpen then panel.Visible = false end
+                end)
+            end
+
+            -- Grey-out visual pill
+            local dimAlpha = disabled and 0.55 or 0
+            Tween(pill, {BackgroundColor3 = disabled and Colors.Background or Colors.BackgroundLighter}, 0.18)
+            Tween(pillLabel, {TextTransparency = dimAlpha}, 0.18)
+            Tween(arrowLbl,  {TextTransparency = dimAlpha}, 0.18)
+
+            -- Blokir / aktifkan interaksi item rows
+            selAllBtn.Active  = not disabled
+            clearBtn.Active   = not disabled
+            selAllBtn.TextTransparency = dimAlpha
+            clearBtn.TextTransparency  = dimAlpha
+            for _, t in ipairs(itemFrames) do
+                t.nameLbl.TextTransparency  = dimAlpha
+                t.checkLbl.TextTransparency = dimAlpha
+                -- hitBtn.Active=false mencegah MouseButton1Click tetap trigger
+                local hb = t.frame:FindFirstChildWhichIsA("TextButton")
+                if hb then hb.Active = not disabled end
+            end
+        end
+
+        wrapper.SetDisabled = SetDisabled
 
         return wrapper
     end
