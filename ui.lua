@@ -685,7 +685,8 @@ return function(ctx)
                 Position = UDim2.new(0, 11, 0.5, -8),
                 BackgroundTransparency = 1,
                 Image = assetId,
-                ImageColor3 = Colors.TextMuted,    -- muted saat inactive
+                ImageColor3 = Color3.new(1, 1, 1),  -- putih
+                ImageTransparency = 0.5,             -- redup saat inactive
                 ScaleType = Enum.ScaleType.Fit,
             })
         else
@@ -723,7 +724,7 @@ return function(ctx)
                 Tween(button, {BackgroundTransparency = 0.6}, 0.15)
                 Tween(textLabel, {TextColor3 = Colors.TextPrimary}, 0.15)
                 if assetId then
-                    Tween(iconLabel, {ImageColor3 = Colors.TextSecondary}, 0.15)
+                    Tween(iconLabel, {ImageTransparency = 0.2}, 0.15)  -- lebih terang saat hover
                 else
                     Tween(iconLabel, {TextColor3 = Colors.TextSecondary}, 0.15)
                 end
@@ -734,7 +735,7 @@ return function(ctx)
                 Tween(button, {BackgroundTransparency = 1}, 0.15)
                 Tween(textLabel, {TextColor3 = Colors.TextSecondary}, 0.15)
                 if assetId then
-                    Tween(iconLabel, {ImageColor3 = Colors.TextMuted}, 0.15)
+                    Tween(iconLabel, {ImageTransparency = 0.5}, 0.15)  -- redup lagi
                 else
                     Tween(iconLabel, {TextColor3 = Colors.TextMuted}, 0.15)
                 end
@@ -1001,7 +1002,7 @@ return function(ctx)
             s.label.Font = FONT_BODY
             -- Handle ImageLabel vs TextLabel icon
             if s.isImage then
-                Tween(s.icon, {ImageColor3 = Colors.TextMuted}, 0.15)
+                Tween(s.icon, {ImageTransparency = 0.5}, 0.15)  -- redup saat inactive
             else
                 s.icon.TextColor3 = Colors.TextPrimary
                 s.icon.TextTransparency = 0.55
@@ -1020,11 +1021,10 @@ return function(ctx)
             s.label.Font = FONT_BOLD
             -- Handle ImageLabel vs TextLabel icon
             if s.isImage then
-                Tween(s.icon, {ImageColor3 = Colors.Accent}, 0.15)
-                -- Update PageHeaderIcon (ImageLabel)
+                Tween(s.icon, {ImageTransparency = 0}, 0.15)  -- full visible saat active
                 PageHeaderIcon.Image = s.icon.Image
-                PageHeaderIcon.ImageColor3 = Colors.TextPrimary
-                PageHeaderIcon.ImageTransparency = 0.15
+                PageHeaderIcon.ImageColor3 = Color3.new(1, 1, 1)
+                PageHeaderIcon.ImageTransparency = 0
             else
                 s.icon.TextColor3 = Colors.TextPrimary
                 s.icon.TextTransparency = 0
