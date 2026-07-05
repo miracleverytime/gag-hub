@@ -630,6 +630,26 @@ return function(ctx)
         })
     end
 
+    -- ====================== LUCIDE ICON ASSET IDs ======================
+    -- Lucide Icons diupload sebagai Decal ke Roblox, lalu dipakai via ImageLabel.
+    -- ImageColor3 diubah saat active/hover untuk tinting effect.
+    local LUCIDE_ICONS = {
+        Farm     = "rbxassetid://134115519233870",  -- Sprout / Leaf
+        Plot     = "rbxassetid://76789237534566",   -- LayoutGrid
+        Shop     = "rbxassetid://104300038597474",  -- ShoppingCart
+        Sell     = "rbxassetid://75596437649553",   -- CircleDollarSign
+        Pets     = "rbxassetid://118034926649278",  -- PawPrint
+        Eggs     = "rbxassetid://121199559213525",  -- Egg
+        Player   = "rbxassetid://126508148620789",  -- CircleUser
+        Visuals  = "rbxassetid://97477648649891",   -- Eye
+        Teleport = "rbxassetid://137340980049553",  -- MapPin
+        Utility  = "rbxassetid://131869456427540",  -- Wrench
+        Mailer   = "rbxassetid://121003777497678",  -- Mail
+        Info     = "rbxassetid://121199559213525",  -- Info
+        Server   = "rbxassetid://72463296893753",   -- Server
+        Settings = "rbxassetid://77269573762745",   -- Settings
+    }
+
     local function CreateSidebarButton(parent, icon, text, layoutOrder)
         local button = Create("TextButton", {
             Parent = parent,
@@ -654,17 +674,35 @@ return function(ctx)
         })
         CreateCorner(indicator, 1)
 
-        local iconLabel = Create("TextLabel", {
-            Parent = button,
-            Size = UDim2.new(0, 20, 0, 20),
-            Position = UDim2.new(0, 10, 0.5, -10),
-            BackgroundTransparency = 1,
-            Text = icon,
-            TextColor3 = Colors.TextPrimary,
-            TextTransparency = 0.15,
-            TextSize = 15,
-            Font = FONT_BODY,
-        })
+        -- Coba pakai ImageLabel dulu (Lucide asset), fallback ke TextLabel
+        local assetId = LUCIDE_ICONS[text]
+        local iconLabel
+
+        if assetId then
+            iconLabel = Create("ImageLabel", {
+                Parent = button,
+                Size = UDim2.new(0, 16, 0, 16),
+                Position = UDim2.new(0, 11, 0.5, -8),
+                BackgroundTransparency = 1,
+                Image = assetId,
+                ImageColor3 = Colors.TextMuted,    -- muted saat inactive
+                ScaleType = Enum.ScaleType.Fit,
+            })
+        else
+            -- fallback: TextLabel unicode seperti sebelumnya
+            iconLabel = Create("TextLabel", {
+                Parent = button,
+                Size = UDim2.new(0, 20, 0, 20),
+                Position = UDim2.new(0, 10, 0.5, -10),
+                BackgroundTransparency = 1,
+                Text = icon,
+                TextColor3 = Colors.TextMuted,
+                TextTransparency = 0.15,
+                TextSize = 15,
+                Font = FONT_BODY,
+            })
+        end
+
         local textLabel = Create("TextLabel", {
             Parent = button,
             Size = UDim2.new(1, -38, 1, 0),
@@ -677,19 +715,29 @@ return function(ctx)
             TextXAlignment = Enum.TextXAlignment.Left,
         })
 
-        SidebarButtons[text] = {button=button, indicator=indicator, icon=iconLabel, label=textLabel}
+        SidebarButtons[text] = {button=button, indicator=indicator, icon=iconLabel, label=textLabel, isImage=(assetId ~= nil)}
 
         button.MouseEnter:Connect(function()
             if ActivePage ~= text then
                 button.BackgroundColor3 = Colors.Surface
                 Tween(button, {BackgroundTransparency = 0.6}, 0.15)
                 Tween(textLabel, {TextColor3 = Colors.TextPrimary}, 0.15)
+                if assetId then
+                    Tween(iconLabel, {ImageColor3 = Colors.TextSecondary}, 0.15)
+                else
+                    Tween(iconLabel, {TextColor3 = Colors.TextSecondary}, 0.15)
+                end
             end
         end)
         button.MouseLeave:Connect(function()
             if ActivePage ~= text then
                 Tween(button, {BackgroundTransparency = 1}, 0.15)
                 Tween(textLabel, {TextColor3 = Colors.TextSecondary}, 0.15)
+                if assetId then
+                    Tween(iconLabel, {ImageColor3 = Colors.TextMuted}, 0.15)
+                else
+                    Tween(iconLabel, {TextColor3 = Colors.TextMuted}, 0.15)
+                end
             end
         end)
 
@@ -817,16 +865,17 @@ return function(ctx)
         BackgroundColor3 = Colors.Border,
         BorderSizePixel = 0,
     })
-    local PageHeaderIcon = Create("TextLabel", {
+    -- PageHeaderIcon: ImageLabel yang support ImageColor3 tinting
+    -- (bisa tampil gambar Lucide atau Unicode teks sebagai fallback)
+    local PageHeaderIcon = Create("ImageLabel", {
         Parent = PageHeader,
-        Size = UDim2.new(0, 22, 0, 22),
-        Position = UDim2.new(0, 16, 0.5, -11),
+        Size = UDim2.new(0, 18, 0, 18),
+        Position = UDim2.new(0, 16, 0.5, -9),
         BackgroundTransparency = 1,
-        Text = "\226\151\139",
-        TextColor3 = Colors.TextPrimary,
-        TextTransparency = 0.15,
-        TextSize = 15,
-        Font = FONT_BODY,
+        Image = LUCIDE_ICONS["Farm"] or "",  -- default ke Farm icon
+        ImageColor3 = Colors.TextPrimary,
+        ImageTransparency = 0.15,
+        ScaleType = Enum.ScaleType.Fit,
     })
     local PageHeaderTitle = Create("TextLabel", {
         Parent = PageHeader,
@@ -950,8 +999,13 @@ return function(ctx)
             Tween(s.button, {BackgroundTransparency = 1}, 0.15)
             s.label.TextColor3 = Colors.TextSecondary
             s.label.Font = FONT_BODY
-            s.icon.TextColor3 = Colors.TextPrimary
-            s.icon.TextTransparency = 0.55
+            -- Handle ImageLabel vs TextLabel icon
+            if s.isImage then
+                Tween(s.icon, {ImageColor3 = Colors.TextMuted}, 0.15)
+            else
+                s.icon.TextColor3 = Colors.TextPrimary
+                s.icon.TextTransparency = 0.55
+            end
         end
 
         ActivePage = pageName
@@ -964,13 +1018,25 @@ return function(ctx)
             Tween(s.button, {BackgroundTransparency = 0.9}, 0.15)
             s.label.TextColor3 = Colors.TextPrimary
             s.label.Font = FONT_BOLD
-            s.icon.TextColor3 = Colors.TextPrimary
-            s.icon.TextTransparency = 0
-            PageHeaderIcon.Text = s.icon.Text
-            PageHeaderIcon.TextColor3 = Colors.TextPrimary
-            PageHeaderIcon.TextTransparency = 0.15
+            -- Handle ImageLabel vs TextLabel icon
+            if s.isImage then
+                Tween(s.icon, {ImageColor3 = Colors.Accent}, 0.15)
+                -- Update PageHeaderIcon (ImageLabel)
+                PageHeaderIcon.Image = s.icon.Image
+                PageHeaderIcon.ImageColor3 = Colors.TextPrimary
+                PageHeaderIcon.ImageTransparency = 0.15
+            else
+                s.icon.TextColor3 = Colors.TextPrimary
+                s.icon.TextTransparency = 0
+                -- Fallback: tunjukkan ikon default Farm jika tidak ada asset
+                PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
+                PageHeaderIcon.ImageColor3 = Colors.TextPrimary
+                PageHeaderIcon.ImageTransparency = 0.15
+            end
         else
-            PageHeaderIcon.Text = "\226\151\139"
+            -- Profile atau page tanpa sidebar button
+            PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
+            PageHeaderIcon.ImageTransparency = 0.5
         end
         ProfileStroke.Color = (pageName == "Profile") and Colors.BorderLight or Colors.Border
         PageHeaderTitle.Text = string.upper(pageName)
