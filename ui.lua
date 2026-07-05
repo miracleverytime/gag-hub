@@ -460,71 +460,83 @@ return function(ctx)
     -- base border (always visible, dim)
     CreateStroke(BrandCard, Colors.Border, 1)
 
-    -- Snake/chaser effect: 4 glow segments that light up sequentially
-    -- Each segment is a thin lime Frame clipped to the card edges
-    local R = 8  -- corner radius, matches CreateCorner above
-    local W, H = 300, 30
-    local T = 2  -- glow thickness
+    -- Smooth snake/comet: a series of dots moving around the perimeter
+    -- using RunService.Heartbeat for pixel-perfect smooth animation
+    local CW, CH = 300, 30
+    local CR = 8  -- corner radius
 
-    -- Top edge
-    local snakeTop = Create("Frame", {
-        Parent = BrandCard,
-        Size = UDim2.new(0, W - R*2, 0, T),
-        Position = UDim2.new(0, R, 0, 0),
-        BackgroundColor3 = Colors.Accent,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 5,
-    })
-    -- Right edge
-    local snakeRight = Create("Frame", {
-        Parent = BrandCard,
-        Size = UDim2.new(0, T, 0, H - R*2),
-        Position = UDim2.new(1, -T, 0, R),
-        BackgroundColor3 = Colors.Accent,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 5,
-    })
-    -- Bottom edge
-    local snakeBottom = Create("Frame", {
-        Parent = BrandCard,
-        Size = UDim2.new(0, W - R*2, 0, T),
-        Position = UDim2.new(0, R, 1, -T),
-        BackgroundColor3 = Colors.Accent,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 5,
-    })
-    -- Left edge
-    local snakeLeft = Create("Frame", {
-        Parent = BrandCard,
-        Size = UDim2.new(0, T, 0, H - R*2),
-        Position = UDim2.new(0, 0, 0, R),
-        BackgroundColor3 = Colors.Accent,
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 5,
-    })
+    -- Perimeter path: top → right → bottom (reversed) → left (reversed)
+    -- Total perimeter = 2*(W-2R) + 2*(H-2R) + 2*pi*R (corners approximated as straight)
+    local PERIM = 2*(CW - 2*CR) + 2*(CH - 2*CR) + 2*math.pi*CR
+    local SPEED = 160  -- pixels per second around the perimeter
 
-    local segments = {snakeTop, snakeRight, snakeBottom, snakeLeft}
-    local FADE_IN  = 0.18
-    local HOLD     = 0.12
-    local FADE_OUT = 0.28
-    local GAP      = 0.05
+    -- Convert a perimeter distance [0, PERIM) to (x, y) on the card edge
+    local function perimToXY(d)
+        d = d % PERIM
 
-    task.spawn(function()
-        while BrandCard.Parent do
-            for _, seg in ipairs(segments) do
-                if not BrandCard.Parent then break end
-                -- light up
-                Tween(seg, {BackgroundTransparency = 0.05}, FADE_IN, Enum.EasingStyle.Sine)
-                task.wait(FADE_IN + HOLD)
-                -- fade out
-                Tween(seg, {BackgroundTransparency = 1}, FADE_OUT, Enum.EasingStyle.Sine)
-                task.wait(GAP)
+        local topW    = CW - 2*CR
+        local rightH  = CH - 2*CR
+        local botW    = CW - 2*CR
+        local leftH   = CH - 2*CR
+        local cornerL = math.pi * CR / 2  -- quarter-circle arc length
+
+        -- top-right corner arc
+        -- Segments in order: top → TR corner → right → BR corner → bottom (RTL) → BL corner → left → TL corner
+        local seg = {
+            {len = topW,    fn = function(t) return CR + t, 0 end},
+            {len = cornerL, fn = function(t) local a = t/CR; return CW-CR + math.sin(a)*CR, CR - math.cos(a)*CR end},
+            {len = rightH,  fn = function(t) return CW, CR + t end},
+            {len = cornerL, fn = function(t) local a = t/CR; return CW-CR + math.cos(a)*CR, CH-CR + math.sin(a)*CR end},
+            {len = botW,    fn = function(t) return CW-CR - t, CH end},
+            {len = cornerL, fn = function(t) local a = t/CR; return CR - math.sin(a)*CR, CH-CR + math.cos(a)*CR end},
+            {len = leftH,   fn = function(t) return 0, CH-CR - t end},
+            {len = cornerL, fn = function(t) local a = t/CR; return CR - math.cos(a)*CR, CR - math.sin(a)*CR end},
+        }
+
+        for _, s in ipairs(seg) do
+            if d <= s.len then
+                local x, y = s.fn(d)
+                return x, y
             end
-            task.wait(0.1)
+            d = d - s.len
+        end
+        return CR, 0
+    end
+
+    -- Comet: head dot + N tail dots with decreasing opacity
+    local DOT_SIZE = 3
+    local TAIL_COUNT = 28      -- number of tail dots
+    local TAIL_SPACING = 4.5   -- pixels apart along perimeter
+    local TAIL_MAX_ALPHA = 0.85 -- head opacity (0 = fully visible, 1 = transparent)
+
+    local dots = {}
+    for i = 0, TAIL_COUNT do
+        local dot = Create("Frame", {
+            Parent = BrandCard,
+            Size = UDim2.new(0, DOT_SIZE, 0, DOT_SIZE),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            BackgroundColor3 = Colors.Accent,
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 10,
+        })
+        CreateCorner(dot, DOT_SIZE)
+        dots[i] = dot
+    end
+
+    local perimPos = 0
+    RunService.Heartbeat:Connect(function(dt)
+        if not BrandCard.Parent then return end
+        perimPos = (perimPos + SPEED * dt) % PERIM
+
+        for i = 0, TAIL_COUNT do
+            local p = perimPos - i * TAIL_SPACING
+            local x, y = perimToXY(p)
+            local dot = dots[i]
+            -- head (i=0) is brightest, tail fades to transparent
+            local alpha = TAIL_MAX_ALPHA + (1 - TAIL_MAX_ALPHA) * (i / TAIL_COUNT)
+            dot.Position = UDim2.new(0, x, 0, y)
+            dot.BackgroundTransparency = alpha
         end
     end)
 
