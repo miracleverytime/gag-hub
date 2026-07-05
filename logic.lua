@@ -1545,28 +1545,28 @@ return function(ctx)
     end)
 
     -- ====================== AUTO BUY SEED LOOP ======================
-    -- _notifiedEmpty[seedName]  = true     → notif "stok habis" sudah dikirim di cycle ini
-    -- _notifEmptyTime[seedName] = number   → rate-limit notif "stok habis"
-    -- _notifBuySent[seedName]   = true     → notif "mulai beli" sudah dikirim di cycle restock ini
-    --                             nil/false → belum dikirim, siap kirim saat pertama kali beli
-    -- _notifBuySent hanya di-reset oleh Changed event (restock baru dari server),
-    -- bukan oleh toggle ON — agar benar-benar 1 notif per cycle restock.
+    -- _notifiedEmpty[seedName]  = true     → "out of stock" notif already sent this cycle
+    -- _notifEmptyTime[seedName] = number   → rate-limit timestamp for "out of stock" notif
+    -- _notifBuySent[seedName]   = true     → "buying" notif already sent this restock cycle
+    --                             nil/false → not yet sent, will fire on first purchase
+    -- _notifBuySent is reset ONLY by the Changed event (new restock from server),
+    -- not by toggle ON — guaranteeing exactly 1 notif per restock cycle.
     local _notifiedEmpty  = {}
     local _notifEmptyTime = {}
     local _notifBuySent   = {}
-    local NOTIF_EMPTY_COOLDOWN = 3  -- detik minimum antara dua notif "stok habis" untuk seed yang sama
+    local NOTIF_EMPTY_COOLDOWN = 3  -- minimum seconds between two "out of stock" notifs for the same seed
 
-    -- Dipanggil saat toggle ON atau targets berubah.
-    -- Hanya reset flag "stok habis" agar notif habis bisa muncul lagi.
-    -- _notifBuySent TIDAK di-clear — reset hanya via restock event dari server.
+    -- Called when toggle is turned ON or targets change.
+    -- Only resets the "out of stock" flag so that notif can fire again.
+    -- _notifBuySent is NOT cleared here — only reset via restock event from server.
     local function ResetNotifiedEmpty()
         table.clear(_notifiedEmpty)
-        -- _notifEmptyTime & _notifBuySent sengaja TIDAK di-clear
+        -- _notifEmptyTime & _notifBuySent intentionally NOT cleared
     end
     Logic.ResetNotifiedEmpty = ResetNotifiedEmpty
 
-    -- Pantau restock dari server: saat stock berubah > 0 (restock baru),
-    -- reset semua flag seed itu agar notif beli & habis bisa muncul fresh di cycle baru.
+    -- Watch for restocks from server: when stock changes to > 0 (new restock),
+    -- reset all flags for that seed so buy & out-of-stock notifs fire fresh next cycle.
     pcall(function()
         local sv = ReplicatedStorage:WaitForChild("StockValues", 10)
         if not sv then return end
@@ -1578,7 +1578,7 @@ return function(ctx)
             if not child:IsA("NumberValue") then return end
             child.Changed:Connect(function(newVal)
                 if newVal > 0 then
-                    -- Restock baru → reset semua flag, notif beli & habis siap muncul lagi
+                    -- New restock → reset all flags, buy & out-of-stock notifs ready to fire again
                     _notifiedEmpty[child.Name]  = nil
                     _notifEmptyTime[child.Name] = nil
                     _notifBuySent[child.Name]   = nil
@@ -1615,25 +1615,25 @@ return function(ctx)
                         if States.autoBuySeed then
                             local stock = GetSeedStock(seedName)
                             if stock > 0 then
-                                -- Ada stok → clear flag notif habis, beli
+                                -- Stock available → clear out-of-stock flag, buy
                                 _notifiedEmpty[seedName] = false
                                 _notifEmptyTime[seedName] = nil
-                                -- Notif sekali di awal sesi beli, reset hanya saat restock baru
+                                -- Notify once at start of buy session, resets only on new restock
                                 if States.notifyBuy and not _notifBuySent[seedName] then
                                     _notifBuySent[seedName] = true
-                                    Notify("Auto Buy \226\156\133", "Beli: " .. seedName .. " (stok: " .. stock .. ")", Colors.Success, 4)
+                                    Notify("Auto Buy", "Buying: " .. seedName .. " (stock: " .. stock .. ")", Colors.Success, 4)
                                 end
                                 BuySeedPacket(seedName, 1)
                                 task.wait(States.buyDelay or 0.05)
                             else
-                                -- Stok habis → kirim notif sekali, dengan rate-limit anti-spam
+                                -- Out of stock → send notif once, with anti-spam rate-limit
                                 if States.notifyBuy and not _notifiedEmpty[seedName] then
                                     local now = os.clock()
                                     local lastT = _notifEmptyTime[seedName] or 0
                                     if now - lastT >= NOTIF_EMPTY_COOLDOWN then
                                         _notifiedEmpty[seedName] = true
                                         _notifEmptyTime[seedName] = now
-                                        Notify("Auto Buy", seedName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                        Notify("Auto Buy", seedName .. " out of stock, waiting for restock...", Colors.TextMuted, 4)
                                     end
                                 end
                             end
