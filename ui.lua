@@ -634,20 +634,20 @@ return function(ctx)
     -- Lucide Icons diupload sebagai Decal ke Roblox, lalu dipakai via ImageLabel.
     -- ImageColor3 diubah saat active/hover untuk tinting effect.
     local LUCIDE_ICONS = {
-        Farm     = "rbxassetid://134115519233870",  -- Sprout / Leaf
-        Plot     = "rbxassetid://76789237534566",   -- LayoutGrid
-        Shop     = "rbxassetid://104300038597474",  -- ShoppingCart
-        Sell     = "rbxassetid://75596437649553",   -- CircleDollarSign
-        Pets     = "rbxassetid://118034926649278",  -- PawPrint
-        Eggs     = "rbxassetid://121199559213525",  -- Egg
-        Player   = "rbxassetid://126508148620789",  -- CircleUser
-        Visuals  = "rbxassetid://97477648649891",   -- Eye
-        Teleport = "rbxassetid://137340980049553",  -- MapPin
-        Utility  = "rbxassetid://131869456427540",  -- Wrench
-        Mailer   = "rbxassetid://121003777497678",  -- Mail
-        Info     = "rbxassetid://121199559213525",  -- Info
-        Server   = "rbxassetid://72463296893753",   -- Server
-        Settings = "rbxassetid://77269573762745",   -- Settings
+        Farm     = "rbxassetid://16898674337",  -- Leaf
+        Plot     = "rbxassetid://16898674182",  -- Grid
+        Shop     = "rbxassetid://16898734664",  -- ShoppingCart
+        Sell     = "rbxassetid://16898669433",  -- Dollar
+        Pets     = "rbxassetid://16898731301",  -- PawPrint
+        Eggs     = "rbxassetid://16898669689",  -- Egg
+        Player   = "rbxassetid://16898790259",  -- User
+        Visuals  = "rbxassetid://16898669897",  -- Eye
+        Teleport = "rbxassetid://16898675359",  -- MapPin
+        Utility  = "rbxassetid://16898791187",  -- Wrench
+        Mailer   = "rbxassetid://16898675156",  -- Mail
+        Info     = "rbxassetid://16898673523",  -- Info
+        Server   = "rbxassetid://16898729141",  -- Server
+        Settings = "rbxassetid://16898619015",  -- Cog
     }
 
     local function CreateSidebarButton(parent, icon, text, layoutOrder)
