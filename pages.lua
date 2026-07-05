@@ -760,10 +760,28 @@ CreateInfoText(plantContent, "How It Works",
                     return
                 end
             end
-            if newVal then pcall(MuteSFX_Failed) end
+            if newVal then
+                pcall(function() Logic.ResetNotifiedEmptyGear() end)
+                pcall(MuteSFX_Failed)
+            end
         end)
-        CreateToggle(gearContent, "Buy ALL available gear", "autoBuyGearAll", "ON: buys every gear that has stock | OFF: only selected gear")
-        CreateMultiSelect(gearContent, "\226\154\153\239\184\143Choose Target Gear", GEARS, "autoBuyGearTargets")
+        CreateToggle(gearContent, "Buy ALL available gear", "autoBuyGearAll", "ON: buys every gear that has stock | OFF: only selected gear", function()
+            pcall(function() Logic.ResetNotifiedEmptyGear() end)
+        end)
+        do
+            local _prevGearCount = #(States.autoBuyGearTargets or {})
+            CreateMultiSelect(gearContent, "\226\154\153\239\184\143Choose Target Gear", GEARS, "autoBuyGearTargets")
+            task.spawn(function()
+                while true do
+                    task.wait(0.3)
+                    local cur = #(States.autoBuyGearTargets or {})
+                    if cur ~= _prevGearCount then
+                        _prevGearCount = cur
+                        pcall(function() Logic.ResetNotifiedEmptyGear() end)
+                    end
+                end
+            end)
+        end
         CreateSlider(gearContent, "Delay Between Purchases (s)", 0, 2, "gearBuyDelay")
         CreateSlider(gearContent, "Loop Delay (s)", 0, 10, "gearShopLoopDelay")
         CreateToggle(gearContent, "Notify on Purchase", "notifyBuyGear", "Show a notification each time a gear is bought")
@@ -780,10 +798,28 @@ CreateInfoText(plantContent, "How It Works",
                     return
                 end
             end
-            if newVal then pcall(MuteSFX_Failed) end
+            if newVal then
+                pcall(function() Logic.ResetNotifiedEmptyCrate() end)
+                pcall(MuteSFX_Failed)
+            end
         end)
-        CreateToggle(crateContent, "Buy ALL available crates", "autoBuyCrateAll", "ON: buys every crate that has stock | OFF: only selected crates")
-        CreateMultiSelect(crateContent, "\240\159\147\166Choose Target Crates", CRATES, "autoBuyCrateTargets")
+        CreateToggle(crateContent, "Buy ALL available crates", "autoBuyCrateAll", "ON: buys every crate that has stock | OFF: only selected crates", function()
+            pcall(function() Logic.ResetNotifiedEmptyCrate() end)
+        end)
+        do
+            local _prevCrateCount = #(States.autoBuyCrateTargets or {})
+            CreateMultiSelect(crateContent, "\240\159\147\166Choose Target Crates", CRATES, "autoBuyCrateTargets")
+            task.spawn(function()
+                while true do
+                    task.wait(0.3)
+                    local cur = #(States.autoBuyCrateTargets or {})
+                    if cur ~= _prevCrateCount then
+                        _prevCrateCount = cur
+                        pcall(function() Logic.ResetNotifiedEmptyCrate() end)
+                    end
+                end
+            end)
+        end
         CreateSlider(crateContent, "Delay Between Purchases (s)", 0, 2, "crateBuyDelay")
         CreateSlider(crateContent, "Loop Delay (s)", 0, 10, "crateShopLoopDelay")
         CreateToggle(crateContent, "Notify on Purchase", "notifyBuyCrate", "Show a notification each time a crate is bought")

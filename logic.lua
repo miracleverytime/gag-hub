@@ -1648,6 +1648,46 @@ return function(ctx)
 
     -- ====================== AUTO BUY GEAR LOOP ======================
     local _notifiedEmptyGear = {}
+    local _notifEmptyTimeGear = {}
+    local NOTIF_GEAR_COOLDOWN = 3
+
+    local function ResetNotifiedEmptyGear()
+        table.clear(_notifiedEmptyGear)
+        -- _notifEmptyTimeGear TIDAK di-clear (cooldown anti-spam tetap berlaku)
+    end
+    Logic.ResetNotifiedEmptyGear = ResetNotifiedEmptyGear
+
+    pcall(function()
+        local sv = ReplicatedStorage:WaitForChild("StockValues", 10)
+        if not sv then return end
+        local gs = sv:WaitForChild("GearShop", 10)
+        if not gs then return end
+        local items = gs:WaitForChild("Items", 10)
+        if not items then return end
+        items.ChildAdded:Connect(function(child)
+            if child:IsA("NumberValue") then
+                _notifiedEmptyGear[child.Name] = nil
+                _notifEmptyTimeGear[child.Name] = nil
+                child.Changed:Connect(function(newVal)
+                    if newVal > 0 then
+                        _notifiedEmptyGear[child.Name] = nil
+                        _notifEmptyTimeGear[child.Name] = nil
+                    end
+                end)
+            end
+        end)
+        for _, child in ipairs(items:GetChildren()) do
+            if child:IsA("NumberValue") then
+                child.Changed:Connect(function(newVal)
+                    if newVal > 0 then
+                        _notifiedEmptyGear[child.Name] = nil
+                        _notifEmptyTimeGear[child.Name] = nil
+                    end
+                end)
+            end
+        end
+    end)
+
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(math.max(States.gearShopLoopDelay or 0.5, 0.1))
@@ -1673,6 +1713,7 @@ return function(ctx)
                             local stock = GetGearStock(gearName)
                             if stock > 0 then
                                 _notifiedEmptyGear[gearName] = false
+                                _notifEmptyTimeGear[gearName] = nil
                                 BuyGearPacket(gearName, 1)
                                 if States.notifyBuyGear then
                                     Notify("Auto Buy Gear", "\226\156\133 Beli: " .. gearName .. " (stok: " .. stock .. ")", Colors.Electric, 3)
@@ -1680,8 +1721,13 @@ return function(ctx)
                                 task.wait(States.gearBuyDelay or 0.05)
                             else
                                 if States.notifyBuyGear and not _notifiedEmptyGear[gearName] then
-                                    _notifiedEmptyGear[gearName] = true
-                                    Notify("Auto Buy Gear", gearName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                    local now = os.clock()
+                                    local lastT = _notifEmptyTimeGear[gearName] or 0
+                                    if now - lastT >= NOTIF_GEAR_COOLDOWN then
+                                        _notifiedEmptyGear[gearName] = true
+                                        _notifEmptyTimeGear[gearName] = now
+                                        Notify("Auto Buy Gear", gearName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                    end
                                 end
                             end
                         end
@@ -1693,6 +1739,46 @@ return function(ctx)
 
     -- ====================== AUTO BUY CRATE LOOP ======================
     local _notifiedEmptyCrate = {}
+    local _notifEmptyTimeCrate = {}
+    local NOTIF_CRATE_COOLDOWN = 3
+
+    local function ResetNotifiedEmptyCrate()
+        table.clear(_notifiedEmptyCrate)
+        -- _notifEmptyTimeCrate TIDAK di-clear (cooldown anti-spam tetap berlaku)
+    end
+    Logic.ResetNotifiedEmptyCrate = ResetNotifiedEmptyCrate
+
+    pcall(function()
+        local sv = ReplicatedStorage:WaitForChild("StockValues", 10)
+        if not sv then return end
+        local cs = sv:WaitForChild("CrateShop", 10)
+        if not cs then return end
+        local items = cs:WaitForChild("Items", 10)
+        if not items then return end
+        items.ChildAdded:Connect(function(child)
+            if child:IsA("NumberValue") then
+                _notifiedEmptyCrate[child.Name] = nil
+                _notifEmptyTimeCrate[child.Name] = nil
+                child.Changed:Connect(function(newVal)
+                    if newVal > 0 then
+                        _notifiedEmptyCrate[child.Name] = nil
+                        _notifEmptyTimeCrate[child.Name] = nil
+                    end
+                end)
+            end
+        end)
+        for _, child in ipairs(items:GetChildren()) do
+            if child:IsA("NumberValue") then
+                child.Changed:Connect(function(newVal)
+                    if newVal > 0 then
+                        _notifiedEmptyCrate[child.Name] = nil
+                        _notifEmptyTimeCrate[child.Name] = nil
+                    end
+                end)
+            end
+        end
+    end)
+
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
             task.wait(math.max(States.crateShopLoopDelay or 0.5, 0.1))
@@ -1721,6 +1807,7 @@ return function(ctx)
                             local stock = GetCrateStock(crateName)
                             if stock > 0 then
                                 _notifiedEmptyCrate[crateName] = false
+                                _notifEmptyTimeCrate[crateName] = nil
                                 BuyCratePacket(crateName, 1)
                                 if States.notifyBuyCrate then
                                     Notify("Auto Buy Crate", "\226\156\133 Beli: " .. crateName .. " (stok: " .. stock .. ")", Colors.Warning, 3)
@@ -1728,8 +1815,13 @@ return function(ctx)
                                 task.wait(States.crateBuyDelay or 0.05)
                             else
                                 if States.notifyBuyCrate and not _notifiedEmptyCrate[crateName] then
-                                    _notifiedEmptyCrate[crateName] = true
-                                    Notify("Auto Buy Crate", crateName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                    local now = os.clock()
+                                    local lastT = _notifEmptyTimeCrate[crateName] or 0
+                                    if now - lastT >= NOTIF_CRATE_COOLDOWN then
+                                        _notifiedEmptyCrate[crateName] = true
+                                        _notifEmptyTimeCrate[crateName] = now
+                                        Notify("Auto Buy Crate", crateName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                    end
                                 end
                             end
                         end
