@@ -415,7 +415,7 @@ return function(ctx)
             Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
             task.wait(0.3)
-            SetActivePage("Farm")
+            SetActivePage("Profile")
 
             task.wait(0.8)
             local remoteStatus = ctx.PacketRemote and "Remote" or "Remote \226\154\160 (check console)"
