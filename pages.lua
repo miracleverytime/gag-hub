@@ -902,8 +902,6 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end)
         end
-        CreateSlider(gearContent, "Delay Between Purchases (s)", 0, 2, "gearBuyDelay")
-        CreateSlider(gearContent, "Loop Delay (s)", 0, 10, "gearShopLoopDelay")
         CreateToggle(gearContent, "Notify on Purchase", "notifyBuyGear", "Show a notification each time a gear is bought")
 
         -- Auto Buy Crate
@@ -988,8 +986,6 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end)
         end
-        CreateSlider(crateContent, "Delay Between Purchases (s)", 0, 2, "crateBuyDelay")
-        CreateSlider(crateContent, "Loop Delay (s)", 0, 10, "crateShopLoopDelay")
         CreateToggle(crateContent, "Notify on Purchase", "notifyBuyCrate", "Show a notification each time a crate is bought")
         CreateActionButton(crateContent, "\240\159\155\146 Buy Selected Crates Now", function()
             local targets = States.autoBuyCrateTargets or {}

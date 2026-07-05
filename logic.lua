@@ -1621,7 +1621,7 @@ return function(ctx)
                                 -- Notify once at start of buy session, resets only on new restock
                                 if States.notifyBuy and not _notifBuySent[seedName] then
                                     _notifBuySent[seedName] = true
-                                    Notify("Auto Buy", "Buying: " .. seedName .. " (stock: " .. stock .. ")", Colors.Success, 4)
+                                    Notify("Auto Buy \226\156\133", "Buying: " .. seedName .. " (stock: " .. stock .. ")", Colors.Success, 4)
                                 end
                                 BuySeedPacket(seedName, 1)
                                 task.wait(States.buyDelay or 0.05)
@@ -1645,16 +1645,29 @@ return function(ctx)
     end)
 
     -- ====================== AUTO BUY GEAR LOOP ======================
-    local _notifiedEmptyGear = {}
+    -- ====================== AUTO BUY GEAR LOOP ======================
+    -- _notifiedEmptyGear[gearName]  = true     → "out of stock" notif already sent this cycle
+    -- _notifEmptyTimeGear[gearName] = number   → rate-limit timestamp for "out of stock" notif
+    -- _notifBuySentGear[gearName]   = true     → "buying" notif already sent this restock cycle
+    --                                 nil/false → not yet sent, will fire on first purchase
+    -- _notifBuySentGear is reset ONLY by the Changed event (new restock from server),
+    -- not by toggle ON — guaranteeing exactly 1 notif per restock cycle.
+    local _notifiedEmptyGear  = {}
     local _notifEmptyTimeGear = {}
-    local NOTIF_GEAR_COOLDOWN = 3
+    local _notifBuySentGear   = {}
+    local NOTIF_GEAR_COOLDOWN = 3  -- minimum seconds between two "out of stock" notifs for the same gear
 
+    -- Called when toggle is turned ON or targets change.
+    -- Only resets the "out of stock" flag so that notif can fire again.
+    -- _notifBuySentGear is NOT cleared here — only reset via restock event from server.
     local function ResetNotifiedEmptyGear()
         table.clear(_notifiedEmptyGear)
-        -- _notifEmptyTimeGear TIDAK di-clear (cooldown anti-spam tetap berlaku)
+        -- _notifEmptyTimeGear & _notifBuySentGear intentionally NOT cleared
     end
     Logic.ResetNotifiedEmptyGear = ResetNotifiedEmptyGear
 
+    -- Watch for restocks from server: when stock changes to > 0 (new restock),
+    -- reset all flags for that gear so buy & out-of-stock notifs fire fresh next cycle.
     pcall(function()
         local sv = ReplicatedStorage:WaitForChild("StockValues", 10)
         if not sv then return end
@@ -1662,33 +1675,26 @@ return function(ctx)
         if not gs then return end
         local items = gs:WaitForChild("Items", 10)
         if not items then return end
-        items.ChildAdded:Connect(function(child)
-            if child:IsA("NumberValue") then
-                _notifiedEmptyGear[child.Name] = nil
-                _notifEmptyTimeGear[child.Name] = nil
-                child.Changed:Connect(function(newVal)
-                    if newVal > 0 then
-                        _notifiedEmptyGear[child.Name] = nil
-                        _notifEmptyTimeGear[child.Name] = nil
-                    end
-                end)
-            end
-        end)
+        local function watchChild(child)
+            if not child:IsA("NumberValue") then return end
+            child.Changed:Connect(function(newVal)
+                if newVal > 0 then
+                    -- New restock → reset all flags, buy & out-of-stock notifs ready to fire again
+                    _notifiedEmptyGear[child.Name]  = nil
+                    _notifEmptyTimeGear[child.Name] = nil
+                    _notifBuySentGear[child.Name]   = nil
+                end
+            end)
+        end
+        items.ChildAdded:Connect(function(child) watchChild(child) end)
         for _, child in ipairs(items:GetChildren()) do
-            if child:IsA("NumberValue") then
-                child.Changed:Connect(function(newVal)
-                    if newVal > 0 then
-                        _notifiedEmptyGear[child.Name] = nil
-                        _notifEmptyTimeGear[child.Name] = nil
-                    end
-                end)
-            end
+            watchChild(child)
         end
     end)
 
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
-            task.wait(math.max(States.gearShopLoopDelay or 0.5, 0.1))
+            task.wait(math.max(States.shopLoopDelay or 0.5, 0.1))
             if States.autoBuyGear then
                 pcall(function()
                     local items = ReplicatedStorage:FindFirstChild("StockValues")
@@ -1710,21 +1716,25 @@ return function(ctx)
                         if States.autoBuyGear then
                             local stock = GetGearStock(gearName)
                             if stock > 0 then
+                                -- Stock available → clear out-of-stock flag, buy
                                 _notifiedEmptyGear[gearName] = false
                                 _notifEmptyTimeGear[gearName] = nil
-                                BuyGearPacket(gearName, 1)
-                                if States.notifyBuyGear then
-                                    Notify("Auto Buy Gear", "\226\156\133 Beli: " .. gearName .. " (stok: " .. stock .. ")", Colors.Electric, 3)
+                                -- Notify once at start of buy session, resets only on new restock
+                                if States.notifyBuyGear and not _notifBuySentGear[gearName] then
+                                    _notifBuySentGear[gearName] = true
+                                    Notify("Auto Buy Gear \226\156\133", "Buying: " .. gearName .. " (stock: " .. stock .. ")", Colors.Electric, 4)
                                 end
-                                task.wait(States.gearBuyDelay or 0.05)
+                                BuyGearPacket(gearName, 1)
+                                task.wait(States.buyDelay or 0.05)
                             else
+                                -- Out of stock → send notif once, with anti-spam rate-limit
                                 if States.notifyBuyGear and not _notifiedEmptyGear[gearName] then
                                     local now = os.clock()
                                     local lastT = _notifEmptyTimeGear[gearName] or 0
                                     if now - lastT >= NOTIF_GEAR_COOLDOWN then
                                         _notifiedEmptyGear[gearName] = true
                                         _notifEmptyTimeGear[gearName] = now
-                                        Notify("Auto Buy Gear", gearName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                        Notify("Auto Buy Gear", gearName .. " out of stock, waiting for restock...", Colors.TextMuted, 4)
                                     end
                                 end
                             end
@@ -1736,16 +1746,28 @@ return function(ctx)
     end)
 
     -- ====================== AUTO BUY CRATE LOOP ======================
-    local _notifiedEmptyCrate = {}
+    -- _notifiedEmptyCrate[crateName]  = true     → "out of stock" notif already sent this cycle
+    -- _notifEmptyTimeCrate[crateName] = number   → rate-limit timestamp for "out of stock" notif
+    -- _notifBuySentCrate[crateName]   = true     → "buying" notif already sent this restock cycle
+    --                                   nil/false → not yet sent, will fire on first purchase
+    -- _notifBuySentCrate is reset ONLY by the Changed event (new restock from server),
+    -- not by toggle ON — guaranteeing exactly 1 notif per restock cycle.
+    local _notifiedEmptyCrate  = {}
     local _notifEmptyTimeCrate = {}
-    local NOTIF_CRATE_COOLDOWN = 3
+    local _notifBuySentCrate   = {}
+    local NOTIF_CRATE_COOLDOWN = 3  -- minimum seconds between two "out of stock" notifs for the same crate
 
+    -- Called when toggle is turned ON or targets change.
+    -- Only resets the "out of stock" flag so that notif can fire again.
+    -- _notifBuySentCrate is NOT cleared here — only reset via restock event from server.
     local function ResetNotifiedEmptyCrate()
         table.clear(_notifiedEmptyCrate)
-        -- _notifEmptyTimeCrate TIDAK di-clear (cooldown anti-spam tetap berlaku)
+        -- _notifEmptyTimeCrate & _notifBuySentCrate intentionally NOT cleared
     end
     Logic.ResetNotifiedEmptyCrate = ResetNotifiedEmptyCrate
 
+    -- Watch for restocks from server: when stock changes to > 0 (new restock),
+    -- reset all flags for that crate so buy & out-of-stock notifs fire fresh next cycle.
     pcall(function()
         local sv = ReplicatedStorage:WaitForChild("StockValues", 10)
         if not sv then return end
@@ -1753,33 +1775,26 @@ return function(ctx)
         if not cs then return end
         local items = cs:WaitForChild("Items", 10)
         if not items then return end
-        items.ChildAdded:Connect(function(child)
-            if child:IsA("NumberValue") then
-                _notifiedEmptyCrate[child.Name] = nil
-                _notifEmptyTimeCrate[child.Name] = nil
-                child.Changed:Connect(function(newVal)
-                    if newVal > 0 then
-                        _notifiedEmptyCrate[child.Name] = nil
-                        _notifEmptyTimeCrate[child.Name] = nil
-                    end
-                end)
-            end
-        end)
+        local function watchChild(child)
+            if not child:IsA("NumberValue") then return end
+            child.Changed:Connect(function(newVal)
+                if newVal > 0 then
+                    -- New restock → reset all flags, buy & out-of-stock notifs ready to fire again
+                    _notifiedEmptyCrate[child.Name]  = nil
+                    _notifEmptyTimeCrate[child.Name] = nil
+                    _notifBuySentCrate[child.Name]   = nil
+                end
+            end)
+        end
+        items.ChildAdded:Connect(function(child) watchChild(child) end)
         for _, child in ipairs(items:GetChildren()) do
-            if child:IsA("NumberValue") then
-                child.Changed:Connect(function(newVal)
-                    if newVal > 0 then
-                        _notifiedEmptyCrate[child.Name] = nil
-                        _notifEmptyTimeCrate[child.Name] = nil
-                    end
-                end)
-            end
+            watchChild(child)
         end
     end)
 
     task.spawn(function()
         while _G._MiracleHubSession == SESSION do
-            task.wait(math.max(States.crateShopLoopDelay or 0.5, 0.1))
+            task.wait(math.max(States.shopLoopDelay or 0.5, 0.1))
             if States.autoBuyCrate then
                 pcall(function()
                     local items = ReplicatedStorage:FindFirstChild("StockValues")
@@ -1804,21 +1819,25 @@ return function(ctx)
                         if States.autoBuyCrate then
                             local stock = GetCrateStock(crateName)
                             if stock > 0 then
+                                -- Stock available → clear out-of-stock flag, buy
                                 _notifiedEmptyCrate[crateName] = false
                                 _notifEmptyTimeCrate[crateName] = nil
-                                BuyCratePacket(crateName, 1)
-                                if States.notifyBuyCrate then
-                                    Notify("Auto Buy Crate", "\226\156\133 Beli: " .. crateName .. " (stok: " .. stock .. ")", Colors.Warning, 3)
+                                -- Notify once at start of buy session, resets only on new restock
+                                if States.notifyBuyCrate and not _notifBuySentCrate[crateName] then
+                                    _notifBuySentCrate[crateName] = true
+                                    Notify("Auto Buy Crate \226\156\133", "Buying: " .. crateName .. " (stock: " .. stock .. ")", Colors.Warning, 4)
                                 end
-                                task.wait(States.crateBuyDelay or 0.05)
+                                BuyCratePacket(crateName, 1)
+                                task.wait(States.buyDelay or 0.05)
                             else
+                                -- Out of stock → send notif once, with anti-spam rate-limit
                                 if States.notifyBuyCrate and not _notifiedEmptyCrate[crateName] then
                                     local now = os.clock()
                                     local lastT = _notifEmptyTimeCrate[crateName] or 0
                                     if now - lastT >= NOTIF_CRATE_COOLDOWN then
                                         _notifiedEmptyCrate[crateName] = true
                                         _notifEmptyTimeCrate[crateName] = now
-                                        Notify("Auto Buy Crate", crateName .. " stok habis, menunggu restock...", Colors.TextMuted, 4)
+                                        Notify("Auto Buy Crate", crateName .. " out of stock, waiting for restock...", Colors.TextMuted, 4)
                                     end
                                 end
                             end
