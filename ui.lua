@@ -389,8 +389,24 @@ return function(ctx)
     })
     CreateCorner(MainFrame, 14)
     CreateStroke(MainFrame, Colors.Border, 1)
+
+    -- Pixel snap: posisi Scale 0.5 bisa jatuh di setengah pixel (viewport ganjil,
+    -- mis. 1237px -> 168.5px) dan membuat SEMUA teks di window jadi blur.
+    -- Snap posisi center window ke pixel bulat berbasis ukuran ScreenGui.
+    local function SnapMainFramePosition()
+        local vp = ScreenGui.AbsoluteSize
+        if vp.X <= 0 or vp.Y <= 0 then return end
+        local x = math.floor((vp.X - MainFrame.AbsoluteSize.X) / 2 + 0.5)
+        local y = math.floor((vp.Y - MainFrame.AbsoluteSize.Y) / 2 + 0.5)
+        MainFrame.Position = UDim2.fromOffset(x, y)
+    end
+    ScreenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(SnapMainFramePosition)
+    MainFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(SnapMainFramePosition)
+    task.defer(SnapMainFramePosition)
+
     ctx.MainFrame    = MainFrame
     ctx.originalSize = originalSize
+    ctx.SnapMainFramePosition = SnapMainFramePosition
 
     -- ====================== TOP BAR (Neo) ======================
     local TopBar = Create("Frame", {
