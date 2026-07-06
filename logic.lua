@@ -172,7 +172,7 @@ return function(ctx)
                                 local harvested = DoHarvestAll(States.harvestFilterMutation)
                                 if harvested > 0 and States.notifyHarvest then
                                     local after = player:GetAttribute("FruitCount") or 0
-                                    Notify("Auto Harvest \226\156\133", harvested .. " buah | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Warning)
+                                    Notify("Auto Harvest", harvested .. " buah | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Warning)
                                 end
                             end)
                             _harvestCooldown = os.clock() + math.max(States.harvestLoopDelay or 2, 0.5)
@@ -1294,7 +1294,7 @@ return function(ctx)
             task.wait(States.sellLoopDelay or 3)
             if States.autoSell then
                 if not Networking then
-                    Notify("Auto Sell", "\226\157\140 Networking module tidak ditemukan!", Colors.Error)
+                    Notify("Auto Sell", "Networking module tidak ditemukan!", Colors.Error)
                     task.wait(5)
                 else
                     pcall(function()
@@ -1351,7 +1351,7 @@ return function(ctx)
                             local result = SellAllFruits()
                             if result and result.Success then
                                 if States.notifySell then
-                                    Notify("Auto Sell \226\156\133", "Sold " .. (result.SoldCount or #fruits) .. " buah = " .. tostring(result.SellPrice or 0) .. "\194\162", Colors.Gold, 10)
+                                    Notify("Auto Sell", "Sold " .. (result.SoldCount or #fruits) .. " buah = " .. tostring(result.SellPrice or 0) .. "\194\162", Colors.Gold, 10)
                                 end
                             elseif result then
                                 if States.notifySell then
@@ -1621,7 +1621,7 @@ return function(ctx)
                                 -- Notify once at start of buy session, resets only on new restock
                                 if States.notifyBuy and not _notifBuySent[seedName] then
                                     _notifBuySent[seedName] = true
-                                    Notify("Auto Buy \226\156\133", "Buying: " .. seedName .. " (stock: " .. stock .. ")", Colors.Success, 4)
+                                    Notify("Auto Buy", "Buying: " .. seedName .. " (stock: " .. stock .. ")", Colors.Success, 4)
                                 end
                                 BuySeedPacket(seedName, 1)
                                 task.wait(States.buyDelay or 0.05)
@@ -1722,7 +1722,7 @@ return function(ctx)
                                 -- Notify once at start of buy session, resets only on new restock
                                 if States.notifyBuyGear and not _notifBuySentGear[gearName] then
                                     _notifBuySentGear[gearName] = true
-                                    Notify("Auto Buy Gear \226\156\133", "Buying: " .. gearName .. " (stock: " .. stock .. ")", Colors.Electric, 4)
+                                    Notify("Auto Buy Gear", "Buying: " .. gearName .. " (stock: " .. stock .. ")", Colors.Electric, 4)
                                 end
                                 BuyGearPacket(gearName, 1)
                                 task.wait(States.buyDelay or 0.05)
@@ -1825,7 +1825,7 @@ return function(ctx)
                                 -- Notify once at start of buy session, resets only on new restock
                                 if States.notifyBuyCrate and not _notifBuySentCrate[crateName] then
                                     _notifBuySentCrate[crateName] = true
-                                    Notify("Auto Buy Crate \226\156\133", "Buying: " .. crateName .. " (stock: " .. stock .. ")", Colors.Warning, 4)
+                                    Notify("Auto Buy Crate", "Buying: " .. crateName .. " (stock: " .. stock .. ")", Colors.Warning, 4)
                                 end
                                 BuyCratePacket(crateName, 1)
                                 task.wait(States.buyDelay or 0.05)

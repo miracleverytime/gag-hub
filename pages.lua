@@ -117,7 +117,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateActionButton(plantContent, "Plant Now", function()
             local plantAreas = GetMyPlantAreas()
             if #plantAreas == 0 then
-                Notify("Farm", "\226\157\140 No plant areas found on your plot. Make sure you're on your plot", Colors.Error)
+                Notify("Farm", "No plant areas found on your plot. Make sure you're on your plot", Colors.Error)
                 return
             end
             local firstSeed = GetNextSeedFromBackpack()
@@ -233,7 +233,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateActionButton(harvestContent, "\226\154\161 Harvest All Now", function()
             local myPlot = GetMyPlot()
             if not myPlot then
-                Notify("Harvest", "\226\157\140 Your plot was not found!", Colors.Error)
+                Notify("Harvest", "Your plot was not found!", Colors.Error)
                 return
             end
             local currentCount = player:GetAttribute("FruitCount") or 0
@@ -252,12 +252,12 @@ CreateInfoText(plantContent, "How It Works",
             task.spawn(function()
                 local harvested = DoHarvestAll(States.harvestFilterMutation, MAX_FRUIT_CAP)
                 local after = player:GetAttribute("FruitCount") or 0
-                Notify("Harvest \226\156\133", "Harvested " .. harvested .. " fruits | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Success)
+                Notify("Harvest", "Harvested " .. harvested .. " fruits | Bag " .. after .. "/" .. MAX_FRUIT_CAP, Colors.Success)
             end)
         end, Colors.Warning)
         CreateActionButton(harvestContent, "\240\159\148\141 Scan Fruits Ready", function()
             local myPlot = GetMyPlot()
-            if not myPlot then Notify("Scan", "\226\157\140 Your plot was not found!", Colors.Error) return end
+            if not myPlot then Notify("Scan", "Your plot was not found!", Colors.Error) return end
             local readyList, total = {}, 0
             for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
                 if prompt:IsDescendantOf(myPlot) then
@@ -313,7 +313,7 @@ CreateInfoText(plantContent, "How It Works",
 
         CreateActionButton(waterContent, "\240\159\146\167 Water All Now", function()
             if not Networking then
-                Notify("Auto Water", "\226\157\140 Networking not available!", Colors.Error)
+                Notify("Auto Water", "Networking not available!", Colors.Error)
                 return
             end
             local selectedCans = States.wateringCanTargets or {}
@@ -323,12 +323,12 @@ CreateInfoText(plantContent, "How It Works",
             end
             local tool, canName = AcquireWateringCan()
             if not tool or not canName then
-                Notify("Auto Water", "\226\157\140 Selected Watering Can not found in backpack!", Colors.Error)
+                Notify("Auto Water", "Selected Watering Can not found in backpack!", Colors.Error)
                 return
             end
             local plants = GetPlantsFolder()
             if not plants then
-                Notify("Auto Water", "\226\157\140 No plants found on your plot!", Colors.Error)
+                Notify("Auto Water", "No plants found on your plot!", Colors.Error)
                 return
             end
             Notify("Auto Water \240\159\146\167", "Watering with " .. canName .. "...", Colors.Electric)
@@ -352,7 +352,7 @@ CreateInfoText(plantContent, "How It Works",
                         end
                     end
                 end
-                Notify("Auto Water \226\156\133", "Watered " .. watered .. " plants on Plot " .. MY_PLOT_ID, Colors.Success)
+                Notify("Auto Water", "Watered " .. watered .. " plants on Plot " .. MY_PLOT_ID, Colors.Success)
             end)
         end, Colors.Electric)
 
@@ -373,7 +373,7 @@ CreateInfoText(plantContent, "How It Works",
 
         CreateActionButton(waterContent, "\240\159\140\191 Place Sprinkler Now", function()
             if not Networking and not ctx.PacketRemote then
-                Notify("Sprinkler", "\226\157\140 Networking not available!", Colors.Error)
+                Notify("Sprinkler", "Networking not available!", Colors.Error)
                 return
             end
             local selectedTargets = States.sprinklerTargets or {}
@@ -383,7 +383,7 @@ CreateInfoText(plantContent, "How It Works",
             end
             local tool, sprinklerName = AcquireSprinklerTool()
             if not tool or not sprinklerName then
-                Notify("Sprinkler", "\226\157\140 Selected sprinkler not found in backpack!", Colors.Error)
+                Notify("Sprinkler", "Selected sprinkler not found in backpack!", Colors.Error)
                 return
             end
 
@@ -416,14 +416,14 @@ CreateInfoText(plantContent, "How It Works",
                     -- Re-acquire after each placement (tool is consumed by the server)
                     local t2, sn2 = AcquireSprinklerTool()
                     if not t2 then
-                        Notify("Sprinkler", "\226\157\140 Ran out of sprinklers in backpack!", Colors.Error)
+                        Notify("Sprinkler", "Ran out of sprinklers in backpack!", Colors.Error)
                         break
                     end
                     tool, sprinklerName = t2, sn2
                     task.wait(0.5)
                 end
                 if placed > 0 then
-                    Notify("Sprinkler \226\156\133",
+                    Notify("Sprinkler",
                         "Placed " .. placed .. "/" .. #positions .. " sprinklers on Plot " .. MY_PLOT_ID,
                         Colors.Success, 5)
                 else
@@ -435,7 +435,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateActionButton(waterContent, "\240\159\148\141 Scan Sprinklers on Plot", function()
             local myPlot = GetMyPlot()
             if not myPlot then
-                Notify("Scan", "\226\157\140 Your plot was not found!", Colors.Error)
+                Notify("Scan", "Your plot was not found!", Colors.Error)
                 return
             end
             local sprinklers = {}
@@ -789,18 +789,18 @@ CreateInfoText(plantContent, "How It Works",
             local sdata = SEED_RESTOCK_DATA[seedName]
             local sisa = math.max(0, data.nextRestock - os.time())
             if stock > 0 then
-                Notify("\240\159\140\177 " .. seedName, "\226\156\133 In stock: " .. stock, Colors.Success, 8)
+                Notify("\240\159\140\177 " .. seedName, "In stock: " .. stock, Colors.Success, 8)
                 task.wait(0.1)
                 Notify("\226\143\177 Next restock", FormatSeconds(sisa), Colors.Accent, 8)
                 return
             end
-            if not sdata then Notify("\240\159\140\177 " .. seedName, "\226\157\140 Out of stock, no chance data available", Colors.Warning, 6) return end
+            if not sdata then Notify("\240\159\140\177 " .. seedName, "Out of stock, no chance data available", Colors.Warning, 6) return end
             local meanN = ExpectedRestocksUntilAppear(sdata.chance)
             local n75 = RestocksFor75Pct(sdata.chance)
             local etaDetik = sisa + (data.interval * (meanN - 1))
             local eta75Detik = sisa + (data.interval * (n75 - 1))
             local col = RestockColor(meanN)
-            Notify("\240\159\140\177 " .. seedName, "\226\157\140 Out of stock | Chance: " .. sdata.chance .. "%", col, 10)
+            Notify("\240\159\140\177 " .. seedName, "Out of stock | Chance: " .. sdata.chance .. "%", col, 10)
             task.wait(0.1)
             Notify("\240\159\147\138 Expected to appear", "~" .. meanN .. " restocks away (~" .. FormatSeconds(etaDetik) .. ")", col, 10)
             task.wait(0.1)
@@ -1047,7 +1047,7 @@ CreateInfoText(plantContent, "How It Works",
     -- ====================== SELL PAGE ======================
     ctx.registerPage("Sell", function()
         local sellCard, sellContent = CreateSectionCard("\240\159\146\176 Auto Sell", 1, Colors.Gold)
-        local netStatus = Networking and "\226\156\133 Sell system ready." or "\226\157\140 Sell system unavailable \226\128\148 reload the hub if this persists."
+        local netStatus = Networking and "Sell system ready." or "Sell system unavailable \226\128\148 reload the hub if this persists."
         CreateInfoText(sellContent, "How It Works", netStatus .. "\nAuto Sell continuously sells all fruits in your backpack. Use filters below to keep specific mutations.")
         CreateToggle(sellContent, "Auto Sell Fruits", "autoSell", "Continuously sells all fruits in your backpack automatically")
         CreateToggle(sellContent, "Keep Mutated Fruits", "keepMutations", "Skip all fruits that have any mutation")
@@ -1057,7 +1057,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateToggle(sellContent, "Notify on Sell", "notifySell", "Show a notification with sell totals after each cycle")
 
         CreateActionButton(sellContent, "\240\159\148\141 Preview Inventory Value", function()
-            if not Networking then Notify("Preview", "\226\157\140 Sell system unavailable!", Colors.Error) return end
+            if not Networking then Notify("Preview", "Sell system unavailable!", Colors.Error) return end
             local ok, data = pcall(function() return Networking.NPCS.PreviewSellAll:Fire() end)
             if ok and data and data.FruitCount then
                 local ddok, dddata = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
@@ -1073,16 +1073,16 @@ CreateInfoText(plantContent, "How It Works",
             end
         end)
         CreateActionButton(sellContent, "\226\154\161 Sell All Now", function()
-            if not Networking then Notify("Sell", "\226\157\140 Sell system unavailable! Try reloading the hub.", Colors.Error) return end
+            if not Networking then Notify("Sell", "Sell system unavailable! Try reloading the hub.", Colors.Error) return end
             local ok, result = pcall(function() return Networking.NPCS.SellAll:Fire() end)
             if ok and result and result.Success then
-                Notify("Sell \226\156\133", "Sold " .. (result.SoldCount or "?") .. " fruits = " .. tostring(result.SellPrice or 0) .. "\194\162", Colors.Gold, 10)
+                Notify("Sell", "Sold " .. (result.SoldCount or "?") .. " fruits = " .. tostring(result.SellPrice or 0) .. "\194\162", Colors.Gold, 10)
             else
                 Notify("Sell", "Failed: " .. tostring(result and result.Reason or "Networking error"), Colors.Error)
             end
         end, Colors.Gold)
         CreateActionButton(sellContent, "\240\159\142\175 Sell with Filters", function()
-            if not Networking then Notify("Sell", "\226\157\140 Sell system unavailable!", Colors.Error) return end
+            if not Networking then Notify("Sell", "Sell system unavailable!", Colors.Error) return end
             local fruits = {}
             for _, tool in ipairs(player.Backpack:GetChildren()) do
                 if tool:GetAttribute("FruitName") or tool:GetAttribute("HarvestedFruit") then
@@ -1595,8 +1595,8 @@ CreateInfoText(plantContent, "How It Works",
         CreateStatRow(infoContent, "Player", player.DisplayName or player.Name, Colors.Accent)
         CreateStatRow(infoContent, "UserId", player.UserId, Colors.TextMuted)
         CreateStatRow(infoContent, "Plot ID", MY_PLOT_ID, Colors.Warning)
-        CreateStatRow(infoContent, "Prime Status", (player:GetAttribute("PrimeEnabled") and "\226\156\133 Enabled" or "\226\157\140 Disabled"), Colors.Warning)
-        CreateStatRow(infoContent, "Connection Status", ctx.PacketRemote and "\226\156\133 Connected" or "\226\154\160 Not Connected", ctx.PacketRemote and Colors.Success or Colors.Error)
+        CreateStatRow(infoContent, "Prime Status", (player:GetAttribute("PrimeEnabled") and "Enabled" or "Disabled"), Colors.Warning)
+        CreateStatRow(infoContent, "Connection Status", ctx.PacketRemote and "Connected" or "\226\154\160 Not Connected", ctx.PacketRemote and Colors.Success or Colors.Error)
 
     end)
 
