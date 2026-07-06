@@ -191,20 +191,31 @@ return function(ctx)
         local loading = opts.loading == true
 
         -- ---------- container ----------
+        -- Wrapper transparan + corner/stroke di notifBg child,
+        -- supaya ClipsDescendants tidak memotong rounded corner di sisi kiri.
         local notifFrame = Create("Frame", {
             Name = "TerminalToast",
             Parent = gui,
             Size = UDim2.new(0, NOTIF_W, 0, NOTIF_H),
             Position = UDim2.new(1, 10, 0, NotifSlotY(#activeNotifs + 1)),
-            BackgroundColor3 = Colors.BackgroundLighter,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            ClipsDescendants = true,
+            ClipsDescendants = false,
             ZIndex = 200,
         })
-        CreateCorner(notifFrame, 6)
-        local stroke = CreateStroke(notifFrame, NOTIF_BORDER, 1)
+        -- Background sebagai child frame supaya UICorner benar-benar clipping background
+        local notifBg = Create("Frame", {
+            Parent = notifFrame,
+            Size = UDim2.new(1, 0, 1, 0),
+            Position = UDim2.new(0, 0, 0, 0),
+            BackgroundColor3 = Colors.BackgroundLighter,
+            BorderSizePixel = 0,
+            ZIndex = 200,
+        })
+        CreateCorner(notifBg, 6)
+        local stroke = CreateStroke(notifBg, NOTIF_BORDER, 1)
 
-        -- soft drop shadow (shadow-[0_8px_30px] approximation)
+        -- soft drop shadow — invisible
         local shadow = Create("ImageLabel", {
             Parent = notifFrame,
             Size = UDim2.new(1, 40, 1, 40),
@@ -222,7 +233,7 @@ return function(ctx)
 
         -- ---------- 3px left accent bar (stops above the underline) ----------
         local accentBar = Create("Frame", {
-            Parent = notifFrame,
+            Parent = notifBg,
             Size = UDim2.new(0, 3, 1, -UNDERLINE_H),
             Position = UDim2.new(0, 0, 0, 0),
             BackgroundColor3 = accent,
@@ -232,7 +243,7 @@ return function(ctx)
 
         -- ---------- glyph (16px, mt-0.5) ----------
         local glyphLabel = Create("TextLabel", {
-            Parent = notifFrame,
+            Parent = notifBg,
             Size = UDim2.new(0, 16, 0, 16),
             Position = UDim2.new(0, 15, 0, 11),
             BackgroundTransparency = 1,
@@ -246,7 +257,7 @@ return function(ctx)
 
         -- ---------- title row: tracked uppercase title + optional spinner ----------
         local titleRow = Create("Frame", {
-            Parent = notifFrame,
+            Parent = notifBg,
             Size = UDim2.new(1, -(41 + 46), 0, 14),
             Position = UDim2.new(0, 41, 0, 9),
             BackgroundTransparency = 1,
@@ -280,7 +291,7 @@ return function(ctx)
 
         -- ---------- countdown (top-right, mono 10, white @25%) ----------
         local countLabel = Create("TextLabel", {
-            Parent = notifFrame,
+            Parent = notifBg,
             Size = UDim2.new(0, 34, 0, 12),
             Position = UDim2.new(1, -46, 0, 10),
             BackgroundTransparency = 1,
@@ -295,7 +306,7 @@ return function(ctx)
 
         -- ---------- message (12px mono muted, truncated) ----------
         local msgLabel = Create("TextLabel", {
-            Parent = notifFrame,
+            Parent = notifBg,
             Size = UDim2.new(1, -(41 + 14), 0, 16),
             Position = UDim2.new(0, 41, 0, 26),
             BackgroundTransparency = 1,
@@ -310,7 +321,7 @@ return function(ctx)
 
         -- ---------- 2px depleting underline ----------
         local track = Create("Frame", {
-            Parent = notifFrame,
+            Parent = notifBg,
             Size = UDim2.new(1, 0, 0, UNDERLINE_H),
             Position = UDim2.new(0, 0, 1, -UNDERLINE_H),
             BackgroundColor3 = NOTIF_TRACK,
@@ -412,7 +423,7 @@ return function(ctx)
 
         -- ---------- hover + click-to-dismiss (full-surface, invisible) ----------
         local hitArea = Create("TextButton", {
-            Parent = notifFrame,
+            Parent = notifBg,
             Size = UDim2.new(1, 0, 1, 0),
             BackgroundTransparency = 1,
             Text = "",
