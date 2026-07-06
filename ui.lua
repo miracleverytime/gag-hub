@@ -94,14 +94,23 @@ return function(ctx)
     end
 
     local function Tween(instance, properties, duration, easingStyle, easingDirection)
-        if not instance or not instance.Parent then return end
-        local tween = TweenService:Create(
-            instance,
-            TweenInfo.new(duration or 0.3, easingStyle or Enum.EasingStyle.Quad, easingDirection or Enum.EasingDirection.Out),
-            properties
-        )
-        tween:Play()
-        return tween
+        -- Guard berlapis: nil-check, Parent-check, dan IsDescendantOf(game) untuk
+        -- menangkap destroyed instances yang .Parent-nya sudah nil tapi reference masih ada.
+        -- TweenService:Create akan throw "Instance is null" jika instance sudah di-Destroy(),
+        -- jadi kita wrap dengan pcall sebagai last-resort safety net.
+        if not instance then return end
+        local ok, result = pcall(function()
+            if not instance.Parent then return end
+            local tween = TweenService:Create(
+                instance,
+                TweenInfo.new(duration or 0.3, easingStyle or Enum.EasingStyle.Quad, easingDirection or Enum.EasingDirection.Out),
+                properties
+            )
+            tween:Play()
+            return tween
+        end)
+        if ok then return result end
+        -- Instance sudah destroyed/null — silent fail, tidak perlu error
     end
 
     UI.Create           = Create
@@ -159,7 +168,18 @@ return function(ctx)
         return NOTIF_MARGIN + (index - 1) * (NOTIF_H + NOTIF_GAP)
     end
     local function ReflowNotifs()
-        for i, frame in ipairs(activeNotifs) do
+        -- Bersihkan entri nil/destroyed sebelum reflow untuk menghindari
+        -- Tween ke instance yang sudah tidak ada di DOM.
+        local alive = {}
+        for _, frame in ipairs(activeNotifs) do
+            if frame and frame.Parent then
+                alive[#alive + 1] = frame
+            end
+        end
+        -- Rebuild activeNotifs dengan hanya yang masih hidup
+        for i = #activeNotifs, 1, -1 do activeNotifs[i] = nil end
+        for i, frame in ipairs(alive) do
+            activeNotifs[i] = frame
             Tween(frame, {Position = UDim2.new(1, -(NOTIF_W + 10), 0, NotifSlotY(i))}, 0.25)
         end
     end
@@ -344,10 +364,18 @@ return function(ctx)
             if dismissed then return end
             dismissed = true
             Cleanup()
+            -- Hapus dari activeNotifs SEBELUM ReflowNotifs agar slot tidak dobel
             for i, f in ipairs(activeNotifs) do
-                if f == notifFrame then table.remove(activeNotifs, i) break end
+                if f == notifFrame then
+                    table.remove(activeNotifs, i)
+                    break
+                end
             end
-            Tween(notifFrame, {Position = UDim2.new(1, 10, 0, notifFrame.Position.Y.Offset)}, 0.28)
+            -- Slide out ke kanan; guard agar tidak crash kalau frame sudah nil
+            if notifFrame and notifFrame.Parent then
+                local slideY = notifFrame.Position.Y.Offset
+                Tween(notifFrame, {Position = UDim2.new(1, 10, 0, slideY)}, 0.28)
+            end
             ReflowNotifs()
             task.delay(0.32, function()
                 if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
