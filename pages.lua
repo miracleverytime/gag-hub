@@ -223,10 +223,6 @@ CreateInfoText(plantContent, "How It Works",
         end)
 
         local harvestCard, harvestContent = CreateSectionCard("\240\159\141\133 Auto Harvest", 2, Colors.Warning)
-        CreateInfoText(harvestContent, "How It Works",
-            "Automatically harvests all ready fruits on your plot. "
-            .. "Only mature fruits are collected \226\128\148 anything still growing is left alone."
-        )
         CreateToggle(harvestContent, "Auto Harvest", "autoHarvest", "Automatically harvest fruits on your plot")
         CreateToggle(harvestContent, "Notify After Harvest", "notifyHarvest", "Show a notification after each harvest cycle")
         CreateSubHeader(harvestContent, "Delay Settings")
@@ -286,10 +282,6 @@ CreateInfoText(plantContent, "How It Works",
         end)
 
         local waterCard, waterContent = CreateSectionCard("\240\159\146\167 Watering & Sprinklers", 3, Colors.Electric)
-        CreateInfoText(waterContent, "How It Works",
-            "Select the watering can or sprinkler you want to use from the lists below. "
-            .. "You must have the item in your backpack before enabling the toggle."
-        )
 
         local WATERING_CANS = {}
         for _, g in ipairs(GEARS) do
@@ -464,7 +456,6 @@ CreateInfoText(plantContent, "How It Works",
     -- ====================== PLOT PAGE ======================
     ctx.registerPage("Plot", function()
         local plotCard, plotContent = CreateSectionCard("\240\159\147\144 My Plot \226\128\148 Plot " .. MY_PLOT_ID, 1, Colors.Accent)
-        CreateInfoText(plotContent, "Your Plot", "Detected Plot ID: " .. MY_PLOT_ID .. ". Stats below update in real-time.")
 
         local statsGrid = Create("Frame", {
             Parent = plotContent,
@@ -563,7 +554,6 @@ CreateInfoText(plantContent, "How It Works",
         end, Colors.Success)
 
         local pottedCard, pottedContent = CreateSectionCard("\240\159\170\180 Potted Plants", 2, Colors.Rainbow)
-        CreateInfoText(pottedContent, "How It Works", "Scans for potted plants nearby and picks them all up automatically.")
         CreateActionButton(pottedContent, "Auto Pickup Potted Plants", function()
             local picked = 0
             for _, desc in ipairs(game:GetService("Workspace"):GetDescendants()) do
@@ -580,7 +570,6 @@ CreateInfoText(plantContent, "How It Works",
     -- ====================== SHOP PAGE ======================
     ctx.registerPage("Shop", function()
         local buyCard, buyContent = CreateSectionCard("\240\159\155\146 Auto Buy Seeds", 1, Colors.Success)
-        CreateInfoText(buyContent, "How To Use", "1. Select seeds in 'Choose Target Seeds'.\n2. Enable 'Auto Buy Seeds'.\n3. Seeds will be purchased automatically while they're in stock.\nUse 'Buy ALL available seeds' to buy everything in stock.")
 
         -- Guard: timestamp notif terakhir "no target" — rate-limit 5 detik
         local _lastNoTargetNotifTime = 0
@@ -696,8 +685,6 @@ CreateInfoText(plantContent, "How It Works",
 
         -- Predict Next Stock
         local predictCard, predictContent = CreateSectionCard("\240\159\148\174 Predict Next Stock", 2, Colors.Rainbow)
-        CreateInfoText(predictContent, "How It Works",
-            "Uses each seed's restock chance to estimate how many restocks until it appears in the shop.")
 
         local SEED_RESTOCK_DATA = {
             ["Carrot"]={chance=100,restockMin=3,restockMax=4},["Strawberry"]={chance=100,restockMin=4,restockMax=5},
@@ -822,7 +809,6 @@ CreateInfoText(plantContent, "How It Works",
 
         -- Auto Buy Gear
         local gearCard, gearContent = CreateSectionCard("\226\154\153\239\184\143 Auto Buy Gear", 3, Colors.Electric)
-        CreateInfoText(gearContent, "How To Use", "Select gear in 'Choose Target Gear', then enable the toggle. Purchases one gear per cycle while in stock.")
 
         local autoBuyGearToggleBg, autoBuyGearKnob
         local _msGearControl = { SetDisabled = nil }
@@ -906,7 +892,6 @@ CreateInfoText(plantContent, "How It Works",
 
         -- Auto Buy Crate
         local crateCard, crateContent = CreateSectionCard("\240\159\147\166 Auto Buy Crate", 4, Colors.Warning)
-        CreateInfoText(crateContent, "How To Use", "Select crates in 'Choose Target Crates', then enable the toggle. Automatically purchases while crates are in stock.")
 
         local autoBuyCrateToggleBg, autoBuyCrateKnob
         local _msCrateControl = { SetDisabled = nil }
@@ -1013,7 +998,6 @@ CreateInfoText(plantContent, "How It Works",
 
         -- Auto Open Crate
         local openCrateCard, openCrateContent = CreateSectionCard("\240\159\142\129 Auto Open Crate", 5, Colors.Gold)
-        CreateInfoText(openCrateContent, "How It Works", "Checks your backpack for crates and opens them automatically one by one.")
         CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Automatically opens all crates in your backpack")
         CreateSlider(openCrateContent, "Delay Between Opens (s)", 1, 30, "crateOpenDelay")
         CreateToggle(openCrateContent, "Notify on Open", "notifyOpenCrate", "Show what item you received when a crate is opened")
@@ -1239,7 +1223,6 @@ CreateInfoText(plantContent, "How It Works",
         end)
 
         local finderCard, finderContent = CreateSectionCard("\240\159\148\141 Pet Finder", 2, Colors.Warning)
-        CreateInfoText(finderContent, "How It Works", "Scans for unclaimed wild pets nearby. Click TP to move your character to them and attempt a catch.")
         local listContainer = Create("Frame", {Parent = finderContent, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y})
         CreateListLayout(listContainer, 4)
 
@@ -1333,7 +1316,6 @@ CreateInfoText(plantContent, "How It Works",
         task.defer(RebuildPetList)
 
         local wildCard, wildContent = CreateSectionCard("\240\159\142\175 Auto Catch Wild", 3, Colors.Warning)
-        CreateInfoText(wildContent, "How It Works", "Automatically moves to wild pets and catches them. Leave selection empty to catch all pets, or pick specific ones below.")
         local WILD_PET_NAMES = {"Frog", "Bunny", "Owl", "Deer", "Turtle", "Robin", "Bee", "Monkey", "Bear", "Unicorn", "Golden Dragonfly", "Raccoon", "Black Dragon", "Ice Serpent"}
         CreateMultiSelect(wildContent, "\240\159\144\190Choose Target Pets", WILD_PET_NAMES, "wildCatchTargets")
         CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild",
@@ -1397,7 +1379,6 @@ CreateInfoText(plantContent, "How It Works",
     -- ====================== VISUALS PAGE ======================
     ctx.registerPage("Visuals", function()
         local espCard, espContent = CreateSectionCard("\240\159\145\129 ESP & Highlights", 1, Colors.Electric)
-        CreateInfoText(espContent, "ESP System", "Displays labels above players, pets, fruits, and mutated plants. Toggles update in real-time.")
         CreateToggle(espContent, "ESP Players", "espPlayers", "Shows player names/tags above heads")
         CreateToggle(espContent, "ESP Wild Pets", "espItems", "Highlights wild pets in workspace")
         CreateToggle(espContent, "ESP Fruits", "espFruits", "Highlights harvestable fruits on the plot")
@@ -1446,7 +1427,6 @@ CreateInfoText(plantContent, "How It Works",
     -- ====================== TELEPORT PAGE ======================
     ctx.registerPage("Teleport", function()
         local tpCard, tpContent = CreateSectionCard("\240\159\147\141 Quick Teleport", 1, Colors.Accent)
-        CreateInfoText(tpContent, "Quick Teleport", "Instantly move to key game locations or other players.")
         local gameTeleports = {
             {"\240\159\140\177 Seeds Shop", "Seeds", Colors.Success},
             {"\240\159\146\176 Sell Area", "Sell", Colors.Gold},
@@ -1505,7 +1485,6 @@ CreateInfoText(plantContent, "How It Works",
     -- ====================== UTILITY PAGE ======================
     ctx.registerPage("Utility", function()
         local worthCard, worthContent = CreateSectionCard("\240\159\146\142 Item Inspector", 1, Colors.Gold)
-        CreateInfoText(worthContent, "Item Inspector", "Inspect any item you're holding to see its weight, mutation, size multiplier, and decay.")
         local toolNameLbl
         do
             local currentTool = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
@@ -1577,7 +1556,6 @@ CreateInfoText(plantContent, "How It Works",
     -- ====================== MAILER PAGE ======================
     ctx.registerPage("Mailer", function()
         local mailerCard, mailerContent = CreateSectionCard("\226\156\137 Mailer System", 1, Colors.Accent)
-        CreateInfoText(mailerContent, "Mailer System", "Send and receive items via the mailbox on your plot.")
         CreateSubHeader(mailerContent, "Outbox")
         CreateActionButton(mailerContent, "Open My Mailbox", function()
             local plot = GetMyPlot()
