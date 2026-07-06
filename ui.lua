@@ -848,13 +848,17 @@ return function(ctx)
     })
     CreateCorner(ProfileCard, 10)
     local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
+    local ProfileAvatarStroke -- assigned after ProfileAvatar is created (forward decl for hover handlers)
     local profileHovered = false
 
     ProfileCard.MouseEnter:Connect(function()
         profileHovered = true
         if ActivePage ~= "Profile" then
             Tween(ProfileCard, {BackgroundTransparency = 0.25}, SIDE_TWEEN)
-            Tween(ProfileStroke, {Color = Colors.SurfaceLight}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.BorderLight}, SIDE_TWEEN)
+            if ProfileAvatarStroke then
+                Tween(ProfileAvatarStroke, {Color = Colors.BorderLight}, SIDE_TWEEN)
+            end
         end
     end)
     ProfileCard.MouseLeave:Connect(function()
@@ -862,6 +866,9 @@ return function(ctx)
         if ActivePage ~= "Profile" then
             Tween(ProfileCard, {BackgroundTransparency = 0.55}, SIDE_TWEEN)
             Tween(ProfileStroke, {Color = Colors.Border}, SIDE_TWEEN)
+            if ProfileAvatarStroke then
+                Tween(ProfileAvatarStroke, {Color = Colors.Border}, SIDE_TWEEN)
+            end
         end
     end)
     ProfileCard.MouseButton1Down:Connect(function()
@@ -885,7 +892,7 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     CreateCorner(ProfileAvatar, 7)
-    CreateStroke(ProfileAvatar, Colors.Border, 1)
+    ProfileAvatarStroke = CreateStroke(ProfileAvatar, Colors.Border, 1)
 
     Create("TextLabel", {
         Parent = ProfileCard,
@@ -1112,11 +1119,18 @@ return function(ctx)
         if pageName == "Profile" then
             ProfileCard.BackgroundColor3 = ACTIVE_BG_COLOR
             Tween(ProfileCard, {BackgroundTransparency = 0.15}, SIDE_TWEEN)
-            Tween(ProfileStroke, {Color = Colors.Accent, Transparency = 0.55}, SIDE_TWEEN)
+            -- Strong lime outline on both the card and the avatar border
+            Tween(ProfileStroke, {Color = Colors.Accent, Transparency = 0.1}, SIDE_TWEEN)
+            if ProfileAvatarStroke then
+                Tween(ProfileAvatarStroke, {Color = Colors.Accent, Transparency = 0.1}, SIDE_TWEEN)
+            end
         else
             ProfileCard.BackgroundColor3 = Colors.BackgroundLighter
             Tween(ProfileCard, {BackgroundTransparency = 0.55}, SIDE_TWEEN)
             Tween(ProfileStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
+            if ProfileAvatarStroke then
+                Tween(ProfileAvatarStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
+            end
         end
         PageHeaderTitle.Text = string.upper(pageName)
 
