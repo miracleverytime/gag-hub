@@ -215,10 +215,11 @@ return function(ctx)
         CreateCorner(notifBg, 6)
         local stroke = CreateStroke(notifBg, NOTIF_BORDER, 1)
 
-        -- soft drop shadow — invisible
+        -- soft drop shadow — kept as child of notifFrame with absolute size
+        -- so reparenting to gui doesn't make it fill the whole screen
         local shadow = Create("ImageLabel", {
             Parent = notifFrame,
-            Size = UDim2.new(1, 40, 1, 40),
+            Size = UDim2.new(0, NOTIF_W + 40, 0, NOTIF_H + 40),
             Position = UDim2.new(0, -20, 0, -12),
             BackgroundTransparency = 1,
             Image = "rbxassetid://1316045217",
@@ -228,8 +229,6 @@ return function(ctx)
             SliceCenter = Rect.new(10, 10, 118, 118),
             ZIndex = 199,
         })
-        shadow.Parent = gui -- behind the toast, outside clipping
-        shadow.Position = UDim2.new(1, 10 - 20, 0, NotifSlotY(#activeNotifs + 1) - 12)
 
         -- ---------- 3px left accent bar (stops above the underline) ----------
         local accentBar = Create("Frame", {
@@ -346,15 +345,8 @@ return function(ctx)
 
         table.insert(activeNotifs, notifFrame)
         -- slide in from the right (hub-in)
+        -- shadow is a child of notifFrame so it moves automatically with the parent
         Tween(notifFrame, {Position = UDim2.new(1, -(NOTIF_W + 10), 0, NotifSlotY(#activeNotifs))}, 0.32, Enum.EasingStyle.Back)
-        Tween(shadow, {Position = UDim2.new(1, -(NOTIF_W + 10) - 20, 0, NotifSlotY(#activeNotifs) - 12)}, 0.32, Enum.EasingStyle.Back)
-
-        -- keep the shadow glued to the toast during reflows
-        conns[#conns + 1] = notifFrame:GetPropertyChangedSignal("Position"):Connect(function()
-            shadow.Position = UDim2.new(
-                notifFrame.Position.X.Scale, notifFrame.Position.X.Offset - 20,
-                notifFrame.Position.Y.Scale, notifFrame.Position.Y.Offset - 12)
-        end)
 
         local function Cleanup()
             for _, c in ipairs(conns) do c:Disconnect() end
@@ -369,10 +361,8 @@ return function(ctx)
                 if f == notifFrame then table.remove(activeNotifs, i) break end
             end
             Tween(notifFrame, {Position = UDim2.new(1, 10, 0, notifFrame.Position.Y.Offset)}, 0.28)
-            Tween(shadow, {ImageTransparency = 1}, 0.2)
             ReflowNotifs()
             task.delay(0.32, function()
-                if shadow and shadow.Parent then shadow:Destroy() end
                 if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
             end)
         end
