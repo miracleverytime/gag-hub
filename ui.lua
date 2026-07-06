@@ -110,90 +110,363 @@ return function(ctx)
     UI.CreateListLayout = CreateListLayout
     UI.Tween            = Tween
 
-    -- ====================== NOTIFICATION SYSTEM ======================
-    local notifCount = 0
-    local function Notify(title, message, color, duration)
-        if not States.showNotifications then return end
-        duration = duration or 4
-        notifCount = notifCount + 1
-        local yOffset = (notifCount - 1) * 72
+    -- ============ NOTIFICATION SYSTEM — "TERMINAL LINE" ============
+    -- Faithful port of the Terminal Line toast reference:
+    --   • 340×54 panel, 6px radius, 1px white/10 border, subtle drop shadow
+    --   • 3px left accent bar (stops above the underline)
+    --   • 16px glyph in accent color, x=15
+    --   • 11px bold UPPERCASE letter-tracked title in accent color
+    --   • 12px mono muted message, truncated
+    --   • 10px mono countdown ("4s" → "0s") at top-right, white @25%
+    --   • 2px realtime depleting underline (RenderStepped, frame-accurate)
+    --   • loading state: "|/-\" spinner after title, ".." countdown,
+    --     shimmering 1/3-width sweep on the underline instead of drain
+    --   • hover: timer pauses + border brightens; click anywhere dismisses
+    -- Signature is backwards compatible: Notify(title, message, color, duration)
+    -- New optional 5th arg: opts = { loading = true, glyph = "..." }
+    -- Returns a handle: { Complete = fn, SetMessage = fn, Dismiss = fn }
 
+    local NOTIF_W      = 340
+    local NOTIF_H      = 54
+    local NOTIF_GAP    = 8
+    local NOTIF_MARGIN = 16
+    local UNDERLINE_H  = 2
+
+    local NOTIF_BORDER       = Color3.fromRGB(45, 47, 45)  -- white/10 over panel
+    local NOTIF_BORDER_HOVER = Colors.BorderLight          -- lime-tinted (hover)
+    local NOTIF_TRACK        = Color3.fromRGB(30, 32, 30)  -- white/5 over panel
+
+    local GLYPH_SUCCESS = utf8.char(0x2713) -- ✓
+    local GLYPH_WARN    = "!"
+    local GLYPH_ERROR   = "\195\151"        -- ×
+    local GLYPH_INFO    = "\226\128\162"    -- •
+    local SPIN_FRAMES   = {"|", "/", "-", "\\"}
+
+    -- letter tracking ≈ tracking-[0.14em]: hair spaces between characters
+    local HAIR = utf8.char(0x200A)
+    local function TrackText(s)
+        local out = {}
+        for _, cp in utf8.codes(s) do
+            out[#out + 1] = utf8.char(cp)
+        end
+        return table.concat(out, HAIR)
+    end
+
+    -- vertical stack manager (re-flows remaining toasts on dismiss)
+    local activeNotifs = {}
+    local function NotifSlotY(index)
+        return NOTIF_MARGIN + (index - 1) * (NOTIF_H + NOTIF_GAP)
+    end
+    local function ReflowNotifs()
+        for i, frame in ipairs(activeNotifs) do
+            Tween(frame, {Position = UDim2.new(1, -(NOTIF_W + 10), 0, NotifSlotY(i))}, 0.25)
+        end
+    end
+
+    local function Notify(title, message, color, duration, opts)
+        if not States.showNotifications then return end
+        opts     = opts or {}
+        duration = duration or 4
+
+        local gui = playerGui:FindFirstChild("MiracleHub")
+        if not gui then return end
+
+        -- variant resolution (reference: success / warn / info / error)
+        local accent, glyph
+        if color == Colors.Warning then
+            accent, glyph = Colors.Warning, GLYPH_WARN
+        elseif color == Colors.Error then
+            accent, glyph = Colors.Error, GLYPH_ERROR
+        elseif color == Colors.TextMuted or color == Colors.TextSecondary then
+            accent, glyph = Colors.TextMuted, GLYPH_INFO
+        elseif color then
+            accent, glyph = color, GLYPH_INFO
+        else
+            accent, glyph = Colors.Accent, GLYPH_SUCCESS
+        end
+        if opts.glyph then glyph = opts.glyph end
+        -- info variant: muted bar/glyph but primary-white title (per reference)
+        local titleColor = (accent == Colors.TextMuted) and Colors.TextPrimary or accent
+
+        local loading = opts.loading == true
+
+        -- ---------- container ----------
         local notifFrame = Create("Frame", {
-            Parent = playerGui:FindFirstChild("MiracleHub"),
-            Size = UDim2.new(0, 280, 0, 60),
-            Position = UDim2.new(1, -290, 0, 16 + yOffset),
+            Name = "TerminalToast",
+            Parent = gui,
+            Size = UDim2.new(0, NOTIF_W, 0, NOTIF_H),
+            Position = UDim2.new(1, 10, 0, NotifSlotY(#activeNotifs + 1)),
             BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
+            ClipsDescendants = true,
             ZIndex = 200,
         })
-        CreateCorner(notifFrame, 10)
-        CreateStroke(notifFrame, color or Colors.Border, 1)
+        CreateCorner(notifFrame, 6)
+        local stroke = CreateStroke(notifFrame, NOTIF_BORDER, 1)
 
-        local bar = Create("Frame", {
+        -- soft drop shadow (shadow-[0_8px_30px] approximation)
+        local shadow = Create("ImageLabel", {
             Parent = notifFrame,
-            Size = UDim2.new(0, 2, 1, -16),
-            Position = UDim2.new(0, 0, 0, 8),
-            BackgroundColor3 = color or Colors.Success,
+            Size = UDim2.new(1, 40, 1, 40),
+            Position = UDim2.new(0, -20, 0, -12),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://1316045217",
+            ImageColor3 = Color3.new(0, 0, 0),
+            ImageTransparency = 0.55,
+            ScaleType = Enum.ScaleType.Slice,
+            SliceCenter = Rect.new(10, 10, 118, 118),
+            ZIndex = 199,
+        })
+        shadow.Parent = gui -- behind the toast, outside clipping
+        shadow.Position = UDim2.new(1, 10 - 20, 0, NotifSlotY(#activeNotifs + 1) - 12)
+
+        -- ---------- 3px left accent bar (stops above the underline) ----------
+        local accentBar = Create("Frame", {
+            Parent = notifFrame,
+            Size = UDim2.new(0, 3, 1, -UNDERLINE_H),
+            Position = UDim2.new(0, 0, 0, 0),
+            BackgroundColor3 = accent,
             BorderSizePixel = 0,
             ZIndex = 201,
         })
-        CreateCorner(bar, 1)
 
-        Create("TextLabel", {
+        -- ---------- glyph (16px, mt-0.5) ----------
+        local glyphLabel = Create("TextLabel", {
             Parent = notifFrame,
-            Size = UDim2.new(1, -44, 0, 20),
-            Position = UDim2.new(0, 12, 0, 8),
+            Size = UDim2.new(0, 16, 0, 16),
+            Position = UDim2.new(0, 15, 0, 11),
             BackgroundTransparency = 1,
-            Text = title,
-            TextColor3 = Colors.TextPrimary,
-            TextSize = 14,
+            Text = glyph,
+            TextColor3 = accent,
+            TextSize = 13,
             Font = FONT_BOLD,
-            TextXAlignment = Enum.TextXAlignment.Left,
+            TextXAlignment = Enum.TextXAlignment.Center,
             ZIndex = 201,
         })
-        Create("TextLabel", {
+
+        -- ---------- title row: tracked uppercase title + optional spinner ----------
+        local titleRow = Create("Frame", {
             Parent = notifFrame,
-            Size = UDim2.new(1, -20, 0, 18),
-            Position = UDim2.new(0, 12, 0, 29),
+            Size = UDim2.new(1, -(41 + 46), 0, 14),
+            Position = UDim2.new(0, 41, 0, 9),
+            BackgroundTransparency = 1,
+            ZIndex = 201,
+        })
+        CreateListLayout(titleRow, 6, Enum.FillDirection.Horizontal)
+        local titleLabel = Create("TextLabel", {
+            Parent = titleRow,
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
+            BackgroundTransparency = 1,
+            Text = TrackText(string.upper(title)),
+            TextColor3 = titleColor,
+            TextSize = 11,
+            Font = FONT_BOLD,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 201,
+        })
+        local spinnerLabel = Create("TextLabel", {
+            Parent = titleRow,
+            Size = UDim2.new(0, 12, 1, 0),
+            BackgroundTransparency = 1,
+            Text = SPIN_FRAMES[1],
+            TextColor3 = Colors.TextMuted,
+            TextSize = 11,
+            Font = FONT_MONO,
+            Visible = loading,
+            ZIndex = 201,
+        })
+
+        -- ---------- countdown (top-right, mono 10, white @25%) ----------
+        local countLabel = Create("TextLabel", {
+            Parent = notifFrame,
+            Size = UDim2.new(0, 34, 0, 12),
+            Position = UDim2.new(1, -46, 0, 10),
+            BackgroundTransparency = 1,
+            Text = loading and ".." or (tostring(duration) .. "s"),
+            TextColor3 = Color3.new(1, 1, 1),
+            TextTransparency = 0.75,
+            TextSize = 10,
+            Font = FONT_MONO,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            ZIndex = 201,
+        })
+
+        -- ---------- message (12px mono muted, truncated) ----------
+        local msgLabel = Create("TextLabel", {
+            Parent = notifFrame,
+            Size = UDim2.new(1, -(41 + 14), 0, 16),
+            Position = UDim2.new(0, 41, 0, 26),
             BackgroundTransparency = 1,
             Text = message,
             TextColor3 = Colors.TextMuted,
             TextSize = 12,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 201,
             TextTruncate = Enum.TextTruncate.AtEnd,
+            ZIndex = 201,
         })
 
-        local closeBtn = Create("TextButton", {
+        -- ---------- 2px depleting underline ----------
+        local track = Create("Frame", {
             Parent = notifFrame,
-            Size = UDim2.new(0, 20, 0, 20),
-            Position = UDim2.new(1, -26, 0, 6),
-            BackgroundTransparency = 1,
-            Text = "\195\151",
-            TextColor3 = Colors.TextMuted,
-            TextSize = 15,
-            Font = FONT_BOLD,
+            Size = UDim2.new(1, 0, 0, UNDERLINE_H),
+            Position = UDim2.new(0, 0, 1, -UNDERLINE_H),
+            BackgroundColor3 = NOTIF_TRACK,
+            BorderSizePixel = 0,
+            ClipsDescendants = true,
+            ZIndex = 201,
+        })
+        local fill = Create("Frame", {
+            Parent = track,
+            Size = UDim2.new(loading and 0.33 or 1, 0, 1, 0),
+            Position = UDim2.new(loading and -0.33 or 0, 0, 0, 0),
+            BackgroundColor3 = accent,
+            BackgroundTransparency = loading and 0.3 or 0,
             BorderSizePixel = 0,
             ZIndex = 202,
-            AutoButtonColor = false,
         })
 
-        notifFrame.Position = UDim2.new(1, 10, 0, 16 + yOffset)
-        Tween(notifFrame, {Position = UDim2.new(1, -290, 0, 16 + yOffset)}, 0.3, Enum.EasingStyle.Back)
-
+        -- ---------- state / lifecycle ----------
         local dismissed = false
+        local hovered   = false
+        local conns     = {}
+
+        table.insert(activeNotifs, notifFrame)
+        -- slide in from the right (hub-in)
+        Tween(notifFrame, {Position = UDim2.new(1, -(NOTIF_W + 10), 0, NotifSlotY(#activeNotifs))}, 0.32, Enum.EasingStyle.Back)
+        Tween(shadow, {Position = UDim2.new(1, -(NOTIF_W + 10) - 20, 0, NotifSlotY(#activeNotifs) - 12)}, 0.32, Enum.EasingStyle.Back)
+
+        -- keep the shadow glued to the toast during reflows
+        conns[#conns + 1] = notifFrame:GetPropertyChangedSignal("Position"):Connect(function()
+            shadow.Position = UDim2.new(
+                notifFrame.Position.X.Scale, notifFrame.Position.X.Offset - 20,
+                notifFrame.Position.Y.Scale, notifFrame.Position.Y.Offset - 12)
+        end)
+
+        local function Cleanup()
+            for _, c in ipairs(conns) do c:Disconnect() end
+            table.clear(conns)
+        end
+
         local function DismissNotif()
             if dismissed then return end
             dismissed = true
-            Tween(notifFrame, {Position = UDim2.new(1, 10, 0, 16 + yOffset)}, 0.3)
-            task.wait(0.35)
-            if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
-            notifCount = math.max(0, notifCount - 1)
+            Cleanup()
+            for i, f in ipairs(activeNotifs) do
+                if f == notifFrame then table.remove(activeNotifs, i) break end
+            end
+            Tween(notifFrame, {Position = UDim2.new(1, 10, 0, notifFrame.Position.Y.Offset)}, 0.28)
+            Tween(shadow, {ImageTransparency = 1}, 0.2)
+            ReflowNotifs()
+            task.delay(0.32, function()
+                if shadow and shadow.Parent then shadow:Destroy() end
+                if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
+            end)
         end
 
-        closeBtn.MouseButton1Click:Connect(DismissNotif)
-        task.delay(duration, DismissNotif)
+        -- ---------- realtime countdown (frame-accurate depleting underline) ----------
+        local remaining = duration
+        local function StartCountdown()
+            conns[#conns + 1] = RunService.RenderStepped:Connect(function(dt)
+                if hovered then return end -- hover pauses the timer
+                remaining = remaining - dt
+                if remaining <= 0 then
+                    fill.Size = UDim2.new(0, 0, 1, 0)
+                    countLabel.Text = "0s"
+                    DismissNotif()
+                    return
+                end
+                fill.Size = UDim2.new(remaining / duration, 0, 1, 0)
+                countLabel.Text = tostring(math.ceil(remaining)) .. "s"
+            end)
+        end
+
+        -- ---------- loading drivers: shimmer sweep + terminal spinner ----------
+        local loadingConns = {}
+        local function StartLoading()
+            local t = 0
+            loadingConns[#loadingConns + 1] = RunService.RenderStepped:Connect(function(dt)
+                t = (t + dt / 1.1) % 1
+                fill.Position = UDim2.new(-0.33 + t * 1.33, 0, 0, 0)
+            end)
+            local acc, fi = 0, 1
+            loadingConns[#loadingConns + 1] = RunService.RenderStepped:Connect(function(dt)
+                acc = acc + dt
+                if acc >= 0.09 then
+                    acc = 0
+                    fi = fi % #SPIN_FRAMES + 1
+                    spinnerLabel.Text = SPIN_FRAMES[fi]
+                end
+            end)
+            for _, c in ipairs(loadingConns) do conns[#conns + 1] = c end
+        end
+        local function StopLoading()
+            for _, c in ipairs(loadingConns) do c:Disconnect() end
+            table.clear(loadingConns)
+            spinnerLabel.Visible = false
+        end
+
+        if loading then StartLoading() else StartCountdown() end
+
+        -- ---------- hover + click-to-dismiss (full-surface, invisible) ----------
+        local hitArea = Create("TextButton", {
+            Parent = notifFrame,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            ZIndex = 203,
+            AutoButtonColor = false,
+        })
+        hitArea.MouseEnter:Connect(function()
+            hovered = true
+            Tween(stroke, {Color = NOTIF_BORDER_HOVER}, 0.15)
+        end)
+        hitArea.MouseLeave:Connect(function()
+            hovered = false
+            Tween(stroke, {Color = NOTIF_BORDER}, 0.15)
+        end)
+        hitArea.MouseButton1Click:Connect(DismissNotif)
+
+        -- ---------- handle (resolve loading toasts, live updates) ----------
+        local handle = {}
+
+        function handle.SetMessage(newMessage)
+            if dismissed then return end
+            msgLabel.Text = newMessage
+        end
+
+        -- Flip a loading toast into a resolved (counting-down) toast.
+        -- handle.Complete(newTitle?, newMessage?, newColor?, newDuration?)
+        function handle.Complete(newTitle, newMessage, newColor, newDuration)
+            if dismissed then return end
+            StopLoading()
+            local doneAccent = newColor or Colors.Accent
+            local doneTitleColor = (doneAccent == Colors.TextMuted) and Colors.TextPrimary or doneAccent
+            if newTitle then titleLabel.Text = TrackText(string.upper(newTitle)) end
+            if newMessage then msgLabel.Text = newMessage end
+            titleLabel.TextColor3 = doneTitleColor
+            glyphLabel.Text = (newColor == Colors.Error and GLYPH_ERROR)
+                or (newColor == Colors.Warning and GLYPH_WARN)
+                or GLYPH_SUCCESS
+            glyphLabel.TextColor3 = doneAccent
+            accentBar.BackgroundColor3 = doneAccent
+            fill.BackgroundColor3 = doneAccent
+            fill.BackgroundTransparency = 0
+            fill.Position = UDim2.new(0, 0, 0, 0)
+            fill.Size = UDim2.new(1, 0, 1, 0)
+            duration = newDuration or 4
+            remaining = duration
+            countLabel.Text = tostring(duration) .. "s"
+            StartCountdown()
+        end
+
+        function handle.Dismiss()
+            DismissNotif()
+        end
+
+        return handle
     end
 
     -- Notifikasi stok khusus: vertikal, scrollable, ada tombol close, durasi panjang
@@ -212,25 +485,28 @@ return function(ctx)
         local maxVisible = 8
         local visibleCount = math.min(#available, maxVisible)
         local listH      = visibleCount * lineH
-        local totalH     = headerH + listH + 16
+        local totalH     = headerH + listH + 16 + UNDERLINE_H
+
+        local accent = color or Colors.Accent
 
         local notifFrame = Create("Frame", {
             Parent = playerGui:FindFirstChild("MiracleHub"),
-            Size = UDim2.new(0, 290, 0, totalH),
+            Size = UDim2.new(0, NOTIF_W, 0, totalH),
             Position = UDim2.new(1, 10, 0, 16),
             BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
+            ClipsDescendants = true,
             ZIndex = 200,
         })
-        CreateCorner(notifFrame, 10)
-        CreateStroke(notifFrame, color or Colors.Success, 1)
+        CreateCorner(notifFrame, 6)
+        CreateStroke(notifFrame, NOTIF_BORDER, 1)
         _stockNotif = notifFrame
 
-        Create("Frame", {
+        Create("Frame", { -- 3px left accent bar (Terminal Line)
             Parent = notifFrame,
-            Size = UDim2.new(0, 2, 1, -16),
-            Position = UDim2.new(0, 0, 0, 8),
-            BackgroundColor3 = color or Colors.Success,
+            Size = UDim2.new(0, 3, 1, -UNDERLINE_H),
+            Position = UDim2.new(0, 0, 0, 0),
+            BackgroundColor3 = accent,
             BorderSizePixel = 0,
             ZIndex = 201,
         })
@@ -238,13 +514,14 @@ return function(ctx)
         Create("TextLabel", {
             Parent = notifFrame,
             Size = UDim2.new(1, -50, 0, 22),
-            Position = UDim2.new(0, 12, 0, 7),
+            Position = UDim2.new(0, 15, 0, 7),
             BackgroundTransparency = 1,
-            Text = title or ("\240\159\140\177 Stok Ada (" .. #available .. " seed)"),
-            TextColor3 = Colors.TextPrimary,
-            TextSize = 13,
+            Text = TrackText(string.upper(title or ("Stok Ada (" .. #available .. " seed)"))),
+            TextColor3 = accent,
+            TextSize = 11,
             Font = FONT_BOLD,
             TextXAlignment = Enum.TextXAlignment.Left,
+            TextTruncate = Enum.TextTruncate.AtEnd,
             ZIndex = 201,
         })
 
@@ -275,7 +552,7 @@ return function(ctx)
         local scrollFrame = Create("ScrollingFrame", {
             Parent = notifFrame,
             Size = UDim2.new(1, -18, 0, listH),
-            Position = UDim2.new(0, 12, 0, headerH),
+            Position = UDim2.new(0, 15, 0, headerH),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
@@ -299,20 +576,48 @@ return function(ctx)
             })
         end
 
-        Tween(notifFrame, {Position = UDim2.new(1, -300, 0, 16)}, 0.3, Enum.EasingStyle.Back)
+        -- 2px realtime depleting underline (Terminal Line)
+        local track = Create("Frame", {
+            Parent = notifFrame,
+            Size = UDim2.new(1, 0, 0, UNDERLINE_H),
+            Position = UDim2.new(0, 0, 1, -UNDERLINE_H),
+            BackgroundColor3 = NOTIF_TRACK,
+            BorderSizePixel = 0,
+            ZIndex = 201,
+        })
+        local fill = Create("Frame", {
+            Parent = track,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundColor3 = accent,
+            BorderSizePixel = 0,
+            ZIndex = 202,
+        })
+
+        Tween(notifFrame, {Position = UDim2.new(1, -(NOTIF_W + 10), 0, 16)}, 0.32, Enum.EasingStyle.Back)
 
         local dismissed = false
+        local timerConn = nil
         local function DismissStok()
             if dismissed then return end
             dismissed = true
+            if timerConn then timerConn:Disconnect() timerConn = nil end
             Tween(notifFrame, {Position = UDim2.new(1, 10, 0, 16)}, 0.3)
             task.wait(0.35)
             if notifFrame and notifFrame.Parent then notifFrame:Destroy() end
             _stockNotif = nil
         end
 
-        closeBtn.MouseButton1Click:Connect(DismissStok)
-        task.delay(duration, DismissStok)
+        local remaining = duration
+        timerConn = RunService.RenderStepped:Connect(function(dt)
+            remaining = remaining - dt
+            if remaining <= 0 then
+                task.spawn(DismissStok)
+                return
+            end
+            fill.Size = UDim2.new(remaining / duration, 0, 1, 0)
+        end)
+
+        closeBtn.MouseButton1Click:Connect(function() task.spawn(DismissStok) end)
     end
 
     local function GetMutationColor(mutation)
