@@ -2087,62 +2087,20 @@ return function(ctx)
             ClipsDescendants = true,
         })
 
-        -- top hairline separating header from list
-        local headerRow = Create("Frame", {
-            Parent = panel,
-            Size = UDim2.new(1, 0, 0, 30),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-        })
+        -- top hairline separating pill from list
         Create("Frame", {
-            Parent = headerRow,
+            Parent = panel,
             Size = UDim2.new(1, -16, 0, 1),
             Position = UDim2.new(0, 8, 0, 0),
             BackgroundColor3 = Colors.Border,
             BorderSizePixel = 0,
         })
 
-        local selAllBtn = Create("TextButton", {
-            Parent = headerRow,
-            Size = UDim2.new(0, 56, 0, 22),
-            Position = UDim2.new(0, 10, 0.5, -9),
-            BackgroundColor3 = Colors.Surface,
-            Text = "\226\156\148 All",
-            TextColor3 = Colors.Accent,
-            TextSize = 11,
-            Font = FONT_MONO,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            ZIndex = 3,
-        })
-        CreateCorner(selAllBtn, 5)
-        CreateStroke(selAllBtn, Colors.Border, 1)
-        selAllBtn.MouseEnter:Connect(function() Tween(selAllBtn, {BackgroundColor3 = Colors.SurfaceLight}, 0.1) end)
-        selAllBtn.MouseLeave:Connect(function() Tween(selAllBtn, {BackgroundColor3 = Colors.Surface}, 0.1) end)
-
-        local clearBtn = Create("TextButton", {
-            Parent = headerRow,
-            Size = UDim2.new(0, 60, 0, 22),
-            Position = UDim2.new(0, 72, 0.5, -9),
-            BackgroundColor3 = Colors.Surface,
-            Text = "\226\156\151 Clear",
-            TextColor3 = Colors.TextMuted,
-            TextSize = 11,
-            Font = FONT_MONO,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            ZIndex = 3,
-        })
-        CreateCorner(clearBtn, 5)
-        CreateStroke(clearBtn, Colors.Border, 1)
-        clearBtn.MouseEnter:Connect(function() Tween(clearBtn, {BackgroundColor3 = Colors.SurfaceLight}, 0.1) end)
-        clearBtn.MouseLeave:Connect(function() Tween(clearBtn, {BackgroundColor3 = Colors.Surface}, 0.1) end)
-
         local LIST_MAX_H = 190
         local scroll = Create("ScrollingFrame", {
             Parent = panel,
             Size = UDim2.new(1, 0, 0, math.min(#options * 28, LIST_MAX_H)),
-            Position = UDim2.new(0, 0, 0, 32),
+            Position = UDim2.new(0, 0, 0, 8),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ScrollBarThickness = 3,
@@ -2251,24 +2209,6 @@ return function(ctx)
             end)
         end
 
-        selAllBtn.MouseButton1Click:Connect(function()
-            if isDisabled then return end
-            table.clear(selected)
-            for _, opt in ipairs(options) do table.insert(selected, opt) end
-            States[stateKey] = selected
-            SaveState(stateKey, selected)
-            for _, t in ipairs(itemFrames) do updateRow(t) end
-            updatePill()
-        end)
-        clearBtn.MouseButton1Click:Connect(function()
-            if isDisabled then return end
-            table.clear(selected)
-            States[stateKey] = selected
-            SaveState(stateKey, selected)
-            for _, t in ipairs(itemFrames) do updateRow(t) end
-            updatePill()
-        end)
-
         pill.MouseButton1Click:Connect(function()
             if isDisabled then return end
             isOpen = not isOpen
@@ -2276,7 +2216,7 @@ return function(ctx)
             if isOpen then
                 panel.Visible = true
                 panel.Size = UDim2.new(1, 0, 0, 0)
-                local targetH = 32 + math.min(#options * 28, LIST_MAX_H) + 8
+                local targetH = 8 + math.min(#options * 28, LIST_MAX_H) + 8
                 Tween(panel, {Size = UDim2.new(1, 0, 0, targetH)}, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             else
                 Tween(panel, {Size = UDim2.new(1, 0, 0, 0)}, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
@@ -2304,10 +2244,6 @@ return function(ctx)
             Tween(pillLabel, {TextTransparency = dimAlpha}, 0.18)
             Tween(arrowLbl,  {TextTransparency = dimAlpha}, 0.18)
 
-            selAllBtn.Active  = not disabled
-            clearBtn.Active   = not disabled
-            selAllBtn.TextTransparency = dimAlpha
-            clearBtn.TextTransparency  = dimAlpha
             for _, t in ipairs(itemFrames) do
                 t.nameLbl.TextTransparency  = dimAlpha
                 t.checkLbl.TextTransparency = dimAlpha
