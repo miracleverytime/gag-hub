@@ -212,7 +212,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Image = "rbxassetid://1316045217",
             ImageColor3 = Color3.new(0, 0, 0),
-            ImageTransparency = 0.55,
+            ImageTransparency = 1,
             ScaleType = Enum.ScaleType.Slice,
             SliceCenter = Rect.new(10, 10, 118, 118),
             ZIndex = 199,
