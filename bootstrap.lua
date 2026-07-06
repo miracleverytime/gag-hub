@@ -101,28 +101,31 @@ return function(ctx)
     end)
 
     -- ====================== MINIMIZED M LOGO ======================
+    -- MinimizedLogo adalah container murni: TIDAK punya background, TIDAK punya
+    -- corner/stroke sendiri. Ini mencegah "ghost box" saat logo di-drag.
+    -- Semua visual (background, border, hover effect) ada di ShieldOuter.
     local MinimizedLogo = Create("Frame", {
         Parent = ScreenGui,
         Size = UDim2.new(0, 60, 0, 60),
         Position = UDim2.new(0.5, -30, 0.5, -30),
-        BackgroundColor3 = Colors.Background,
-        BackgroundTransparency = 1,
+        BackgroundTransparency = 1,  -- selalu transparan, TIDAK di-tween
         BorderSizePixel = 0,
         Visible = false,
         ZIndex = 50,
     })
-    CreateCorner(MinimizedLogo, 12)
+    -- TIDAK ada CreateCorner di sini — UICorner pada frame transparan
+    -- tetap merender outline yang menyebabkan "ghost box" saat drag.
 
     local ShieldOuter = Create("Frame", {
         Parent = MinimizedLogo,
         Size = UDim2.new(0, 44, 0, 44),
         Position = UDim2.new(0.5, -22, 0.5, -22),
-        BackgroundColor3 = Colors.BackgroundLight,
-        BackgroundTransparency = 1,
+        BackgroundColor3 = Colors.Background,  -- background ada di sini
+        BackgroundTransparency = 0,            -- selalu opak
         BorderSizePixel = 0,
         ZIndex = 51,
     })
-    CreateCorner(ShieldOuter, 4)
+    CreateCorner(ShieldOuter, 12)  -- rounded corner di ShieldOuter, bukan MinimizedLogo
     local ShieldStroke = CreateStroke(ShieldOuter, Color3.fromRGB(255, 255, 255), 1.5)
     ShieldStroke.Transparency = 0.4  -- selalu terlihat, warna senada M
 
@@ -180,7 +183,9 @@ return function(ctx)
     })
 
     local function AnimateLogoParts(alpha)
+        -- alpha=0: logo muncul (fade in), alpha=1: logo menghilang (fade out)
         Tween(ShieldStroke, {Transparency = alpha == 0 and 0.4 or 1}, 0.35)
+        Tween(ShieldOuter, {BackgroundTransparency = alpha}, 0.35)
         for _, p in ipairs(mParts) do
             Tween(p, {BackgroundTransparency = alpha}, 0.35)
         end
@@ -189,12 +194,14 @@ return function(ctx)
     LogoClick.MouseEnter:Connect(function()
         for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColorHover}, 0.2) end
         Tween(ShieldStroke, {Transparency = 0.6, Color = Color3.fromRGB(255, 255, 255)}, 0.2)
-        Tween(MinimizedLogo, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
+        -- Hover effect di ShieldOuter (bukan MinimizedLogo yang harus selalu transparan)
+        Tween(ShieldOuter, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
     end)
     LogoClick.MouseLeave:Connect(function()
         for _, p in ipairs(mParts) do Tween(p, {BackgroundColor3 = LogoColor}, 0.2) end
         Tween(ShieldStroke, {Transparency = 0.4, Color = Color3.fromRGB(255, 255, 255)}, 0.2)
-        Tween(MinimizedLogo, {BackgroundColor3 = Colors.Background}, 0.2)
+        -- Restore background di ShieldOuter
+        Tween(ShieldOuter, {BackgroundColor3 = Colors.Background}, 0.2)
     end)
 
     local logoDragging, logoDragStart, logoStartPos, logoHasMoved = false, nil, nil, false
@@ -265,8 +272,11 @@ return function(ctx)
         end)
         task.delay(0.4, function()
             MainFrame.BackgroundTransparency = 1
+            -- Reset semua parts ke transparan sebelum fade-in
+            ShieldOuter.BackgroundTransparency = 1
+            ShieldStroke.Transparency = 1
+            for _, p in ipairs(mParts) do p.BackgroundTransparency = 1 end
             MinimizedLogo.Visible = true
-            Tween(MinimizedLogo, {BackgroundTransparency = 0}, 0.3)
             AnimateLogoParts(0)
         end)
     end
@@ -276,7 +286,7 @@ return function(ctx)
         -- Simpan posisi logo saat ini sebelum disembunyikan (termasuk hasil drag terakhir)
         lastLogoPosition = MinimizedLogo.Position
         AnimateLogoParts(1)
-        Tween(MinimizedLogo, {BackgroundTransparency = 1}, 0.25)
+        -- MinimizedLogo selalu transparan — tidak perlu tween BackgroundTransparency
         task.delay(0.2, function()
             MinimizedLogo.Visible = false
             TopBar.Visible = true
