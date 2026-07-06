@@ -103,60 +103,12 @@ return function(ctx)
         return tween
     end
 
-    -- Faint blueprint-style grid overlay (Neo redesign background texture).
-    -- Renders behind sibling content via ZIndex 0; ~40px cells, very subtle
-    -- lime-tinted lines matching the reference screenshots.
-    local GRID_SPACING = 40
-    local GRID_COLOR   = Color3.fromRGB(163, 230, 53)
-    local GRID_ALPHA   = 0.965
-    local function CreateGridOverlay(parent)
-        local overlay = Create("Frame", {
-            Name = "GridOverlay",
-            Parent = parent,
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ZIndex = 0,
-        })
-        local function build()
-            for _, ch in ipairs(overlay:GetChildren()) do ch:Destroy() end
-            local w = overlay.AbsoluteSize.X
-            local h = overlay.AbsoluteSize.Y
-            for x = GRID_SPACING, w, GRID_SPACING do
-                Create("Frame", {
-                    Parent = overlay,
-                    Size = UDim2.new(0, 1, 1, 0),
-                    Position = UDim2.new(0, x, 0, 0),
-                    BackgroundColor3 = GRID_COLOR,
-                    BackgroundTransparency = GRID_ALPHA,
-                    BorderSizePixel = 0,
-                    ZIndex = 0,
-                })
-            end
-            for y = GRID_SPACING, h, GRID_SPACING do
-                Create("Frame", {
-                    Parent = overlay,
-                    Size = UDim2.new(1, 0, 0, 1),
-                    Position = UDim2.new(0, 0, 0, y),
-                    BackgroundColor3 = GRID_COLOR,
-                    BackgroundTransparency = GRID_ALPHA,
-                    BorderSizePixel = 0,
-                    ZIndex = 0,
-                })
-            end
-        end
-        task.defer(build)
-        overlay:GetPropertyChangedSignal("AbsoluteSize"):Connect(build)
-        return overlay
-    end
-
-    UI.Create            = Create
-    UI.CreateCorner      = CreateCorner
-    UI.CreateStroke      = CreateStroke
-    UI.CreatePadding     = CreatePadding
-    UI.CreateListLayout  = CreateListLayout
-    UI.CreateGridOverlay = CreateGridOverlay
-    UI.Tween             = Tween
+    UI.Create           = Create
+    UI.CreateCorner     = CreateCorner
+    UI.CreateStroke     = CreateStroke
+    UI.CreatePadding    = CreatePadding
+    UI.CreateListLayout = CreateListLayout
+    UI.Tween            = Tween
 
     -- ====================== NOTIFICATION SYSTEM ======================
     local notifCount = 0
@@ -446,7 +398,6 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     ctx.TopBar = TopBar
-    CreateGridOverlay(TopBar)
     Create("Frame", { -- bottom hairline
         Parent = TopBar,
         Size = UDim2.new(1, 0, 0, 1),
@@ -533,7 +484,7 @@ return function(ctx)
         Position = UDim2.new(0, 117, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68">\226\151\148 FPS</font>  <font color="#F0F1EE"><b>--</b></font>',
+        Text = '<font color="#6A6D68">FPS</font>  <font color="'..LIME_HEX..'">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
@@ -552,7 +503,7 @@ return function(ctx)
         Position = UDim2.new(0, 210, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68">\226\136\191 MS</font>  <font color="#F0F1EE"><b>--</b></font>',
+        Text = '<font color="#6A6D68">MS</font>  --',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
@@ -570,8 +521,8 @@ return function(ctx)
                 ctx.CurrentFPS = fps
                 local ping = 0
                 pcall(function() ping = player:GetNetworkPing() * 1000 end)
-                FpsSeg.Text = '<font color="#6A6D68">\226\151\148 FPS</font>  <font color="#F0F1EE"><b>' .. fps .. '</b></font>'
-                MsSeg.Text  = '<font color="#6A6D68">\226\136\191 MS</font>  <font color="#F0F1EE"><b>' .. string.format("%.1f", ping) .. '</b></font>'
+                FpsSeg.Text = '<font color="#6A6D68">FPS</font>  <font color="'..LIME_HEX..'">' .. fps .. '</font>'
+                MsSeg.Text  = '<font color="#6A6D68">MS</font>  ' .. string.format("%.1f", ping)
                 frames, acc = 0, 0
             end
         end)
@@ -639,7 +590,6 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     ctx.Sidebar = Sidebar
-    CreateGridOverlay(Sidebar)
     Create("Frame", { -- right hairline
         Parent = Sidebar,
         Size = UDim2.new(0, 1, 1, 0),
@@ -650,7 +600,7 @@ return function(ctx)
 
     local SidebarContent = Create("ScrollingFrame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -1, 1, -136),
+        Size = UDim2.new(1, -1, 1, -118),
         Position = UDim2.new(0, 0, 0, 76),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -701,12 +651,23 @@ return function(ctx)
         Settings = "rbxassetid://16898619015",  -- Cog
     }
 
+    -- =============== UNIFIED SIDEBAR INTERACTION SYSTEM ===============
+    -- Every nav item shares the exact same states (matches redesign):
+    --   Idle    : no bg, no glow, gray icon + gray text (low emphasis)
+    --   Hover   : soft bg fade-in w/ slight green tint, brighter icon/text
+    --   Pressed : slightly deeper bg
+    --   Active  : dark translucent green bg + soft lime glow + left accent
+    --             bar, lime icon and bright text (integrated, not a block)
+    local SIDE_TWEEN      = 0.18                          -- premium, subtle
+    local ACTIVE_BG_COLOR = Color3.fromRGB(38, 50, 20)    -- dark green surface
+    local HOVER_BG_COLOR  = Color3.fromRGB(31, 36, 27)    -- gray w/ green tint
+
     local function CreateSidebarButton(parent, icon, text, layoutOrder)
         local button = Create("TextButton", {
             Parent = parent,
             Size = UDim2.new(1, 0, 0, 36),
             BackgroundTransparency = 1,
-            BackgroundColor3 = Colors.Accent,
+            BackgroundColor3 = HOVER_BG_COLOR,
             Text = "",
             BorderSizePixel = 0,
             LayoutOrder = layoutOrder,
@@ -714,14 +675,23 @@ return function(ctx)
         })
         CreateCorner(button, 7)
 
-        -- slim lime accent bar (left edge, vertically centered)
+        -- soft glow ring: invisible saat idle, lime lembut saat active
+        local glow = Create("UIStroke", {
+            Parent = button,
+            Color = Colors.Accent,
+            Thickness = 1,
+            Transparency = 1,
+        })
+
+        -- slim lime accent bar (left edge) — grows in when active
         local indicator = Create("Frame", {
             Parent = button,
-            Size = UDim2.new(0, 2, 0, 16),
-            Position = UDim2.new(0, 0, 0.5, -8),
+            Size = UDim2.new(0, 2, 0, 0),
+            Position = UDim2.new(0, 0, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
             BackgroundColor3 = Colors.Accent,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            Visible = false,
         })
         CreateCorner(indicator, 1)
 
@@ -736,8 +706,8 @@ return function(ctx)
                 Position = UDim2.new(0, 11, 0.5, -8),
                 BackgroundTransparency = 1,
                 Image = assetId,
-                ImageColor3 = Color3.new(1, 1, 1),  -- putih
-                ImageTransparency = 0.5,             -- redup saat inactive
+                ImageColor3 = Colors.TextMuted,      -- gray saat idle
+                ImageTransparency = 0.25,
                 ScaleType = Enum.ScaleType.Fit,
             })
         else
@@ -767,30 +737,74 @@ return function(ctx)
             TextXAlignment = Enum.TextXAlignment.Left,
         })
 
-        SidebarButtons[text] = {button=button, indicator=indicator, icon=iconLabel, label=textLabel, isImage=(assetId ~= nil)}
+        local ref = {
+            button = button, indicator = indicator, glow = glow,
+            icon = iconLabel, label = textLabel, isImage = (assetId ~= nil),
+            hovered = false,
+        }
+        SidebarButtons[text] = ref
+
+        -- ---- shared state applicators (identical for every nav item) ----
+        local function applyIdle(animate)
+            local d = animate and SIDE_TWEEN or 0
+            Tween(button, {BackgroundTransparency = 1}, d)
+            Tween(glow, {Transparency = 1}, d)
+            Tween(indicator, {Size = UDim2.new(0, 2, 0, 0), BackgroundTransparency = 1}, d)
+            Tween(textLabel, {TextColor3 = Colors.TextSecondary}, d)
+            textLabel.Font = FONT_BODY
+            if assetId then
+                Tween(iconLabel, {ImageColor3 = Colors.TextMuted, ImageTransparency = 0.25}, d)
+            else
+                Tween(iconLabel, {TextColor3 = Colors.TextMuted, TextTransparency = 0.15}, d)
+            end
+        end
+
+        local function applyHover()
+            button.BackgroundColor3 = HOVER_BG_COLOR
+            Tween(button, {BackgroundTransparency = 0.45}, SIDE_TWEEN)
+            Tween(textLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
+            if assetId then
+                Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.05}, SIDE_TWEEN)
+            else
+                Tween(iconLabel, {TextColor3 = Colors.TextSecondary, TextTransparency = 0}, SIDE_TWEEN)
+            end
+        end
+
+        local function applyPressed()
+            Tween(button, {BackgroundTransparency = 0.25}, 0.08)
+        end
+
+        local function applyActive(animate)
+            local d = animate and SIDE_TWEEN or 0
+            button.BackgroundColor3 = ACTIVE_BG_COLOR
+            Tween(button, {BackgroundTransparency = 0.15}, d)
+            Tween(glow, {Transparency = 0.7}, d)
+            Tween(indicator, {Size = UDim2.new(0, 2, 0, 16), BackgroundTransparency = 0}, d)
+            Tween(textLabel, {TextColor3 = Colors.Accent}, d)
+            textLabel.Font = FONT_BOLD
+            if assetId then
+                Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0}, d)
+            else
+                Tween(iconLabel, {TextColor3 = Colors.Accent, TextTransparency = 0}, d)
+            end
+        end
+
+        ref.applyIdle   = applyIdle
+        ref.applyActive = applyActive
 
         button.MouseEnter:Connect(function()
-            if ActivePage ~= text then
-                button.BackgroundColor3 = Colors.Surface
-                Tween(button, {BackgroundTransparency = 0.6}, 0.15)
-                Tween(textLabel, {TextColor3 = Colors.TextPrimary}, 0.15)
-                if assetId then
-                    Tween(iconLabel, {ImageTransparency = 0.2}, 0.15)  -- lebih terang saat hover
-                else
-                    Tween(iconLabel, {TextColor3 = Colors.TextSecondary}, 0.15)
-                end
-            end
+            ref.hovered = true
+            if ActivePage ~= text then applyHover() end
         end)
         button.MouseLeave:Connect(function()
-            if ActivePage ~= text then
-                Tween(button, {BackgroundTransparency = 1}, 0.15)
-                Tween(textLabel, {TextColor3 = Colors.TextSecondary}, 0.15)
-                if assetId then
-                    Tween(iconLabel, {ImageTransparency = 0.5}, 0.15)  -- redup lagi
-                else
-                    Tween(iconLabel, {TextColor3 = Colors.TextMuted}, 0.15)
-                end
-            end
+            ref.hovered = false
+            if ActivePage ~= text then applyIdle(true) end
+        end)
+        button.MouseButton1Down:Connect(function()
+            if ActivePage ~= text then applyPressed() end
+        end)
+        button.MouseButton1Up:Connect(function()
+            if ActivePage ~= text and ref.hovered then applyHover() end
         end)
 
         return button
@@ -820,29 +834,44 @@ return function(ctx)
     ctx.sidebarButtonRefs = sb
 
     -- ====================== PROFILE CARD (top of sidebar, Neo) ======================
+    -- Same interaction system as sidebar nav items:
+    -- Idle subtle, Hover slightly brighter, Pressed deeper, Active = lime glow
     local ProfileCard = Create("TextButton", {
         Parent = Sidebar,
         Size = UDim2.new(1, -20, 0, 60),
         Position = UDim2.new(0, 10, 0, 10),
-        BackgroundColor3 = Colors.BackgroundLight,
+        BackgroundColor3 = Colors.BackgroundLighter,
+        BackgroundTransparency = 0.55,
         BorderSizePixel = 0,
         Text = "",
         AutoButtonColor = false,
     })
     CreateCorner(ProfileCard, 10)
     local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
+    local profileHovered = false
 
-    -- Hover: sedikit terang, border lebih visible tapi tetap subtle
     ProfileCard.MouseEnter:Connect(function()
+        profileHovered = true
         if ActivePage ~= "Profile" then
-            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLighter}, 0.18)
-            Tween(ProfileStroke, {Color = Colors.SurfaceLight}, 0.18)
+            Tween(ProfileCard, {BackgroundTransparency = 0.25}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.SurfaceLight}, SIDE_TWEEN)
         end
     end)
     ProfileCard.MouseLeave:Connect(function()
+        profileHovered = false
         if ActivePage ~= "Profile" then
-            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLight}, 0.18)
-            Tween(ProfileStroke, {Color = Colors.Border}, 0.18)
+            Tween(ProfileCard, {BackgroundTransparency = 0.55}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.Border}, SIDE_TWEEN)
+        end
+    end)
+    ProfileCard.MouseButton1Down:Connect(function()
+        if ActivePage ~= "Profile" then
+            Tween(ProfileCard, {BackgroundTransparency = 0.1}, 0.08)
+        end
+    end)
+    ProfileCard.MouseButton1Up:Connect(function()
+        if ActivePage ~= "Profile" and profileHovered then
+            Tween(ProfileCard, {BackgroundTransparency = 0.25}, SIDE_TWEEN)
         end
     end)
 
@@ -884,38 +913,15 @@ return function(ctx)
         TextXAlignment = Enum.TextXAlignment.Left,
     })
 
-    -- footer (redesign): lime bolt icon above two centered mono lines
+    -- footer: Powered by Miracle Labs (single centered label, no icon)
     Create("TextLabel", {
         Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 14),
-        Position = UDim2.new(0, 0, 1, -52),
-        BackgroundTransparency = 1,
-        Text = "\226\154\161",
-        TextColor3 = Colors.Accent,
-        TextSize = 12,
-        Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-    Create("TextLabel", {
-        Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 14),
-        Position = UDim2.new(0, 0, 1, -36),
-        BackgroundTransparency = 1,
-        Text = "Powered by",
-        TextColor3 = Colors.TextMuted,
-        TextTransparency = 0.25,
-        TextSize = 11,
-        Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Center,
-    })
-    Create("TextLabel", {
-        Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 14),
+        Size = UDim2.new(1, 0, 0, 16),
         Position = UDim2.new(0, 0, 1, -22),
         BackgroundTransparency = 1,
-        Text = "Miracle Labs",
+        Text = "Powered by Miracle Labs",
         TextColor3 = Colors.TextMuted,
-        TextTransparency = 0.25,
+        TextTransparency = 0.3,
         TextSize = 11,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Center,
@@ -931,7 +937,6 @@ return function(ctx)
         ClipsDescendants = true,
     })
     ctx.ContentArea = ContentArea
-    CreateGridOverlay(ContentArea)
 
     -- Page header (Neo): icon + PAGE TITLE (mono caps) + status chip, hairline below
     local PAGE_HEADER_H = 46
@@ -955,8 +960,8 @@ return function(ctx)
         Position = UDim2.new(0, 16, 0.5, -9),
         BackgroundTransparency = 1,
         Image = LUCIDE_ICONS["Farm"] or "",  -- default ke Farm icon
-        ImageColor3 = Colors.Accent,         -- lime tint (redesign)
-        ImageTransparency = 0,
+        ImageColor3 = Colors.TextPrimary,
+        ImageTransparency = 0.15,
         ScaleType = Enum.ScaleType.Fit,
     })
     local PageHeaderTitle = Create("TextLabel", {
@@ -966,24 +971,23 @@ return function(ctx)
         BackgroundTransparency = 1,
         Text = "PROFILE",
         TextColor3 = Colors.TextPrimary,
-        TextSize = 15,
+        TextSize = 14,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    -- Status chip: lime text + lime-tinted border even when IDLE (redesign)
     local PageChip = Create("TextLabel", {
         Parent = PageHeader,
         Size = UDim2.new(0, 58, 0, 22),
         Position = UDim2.new(1, -74, 0.5, -11),
         BackgroundColor3 = Colors.BackgroundLighter,
         Text = "IDLE",
-        TextColor3 = Colors.Accent,
+        TextColor3 = Colors.TextMuted,
         TextSize = 11,
         Font = FONT_MONO,
         BorderSizePixel = 0,
     })
     CreateCorner(PageChip, 5)
-    local PageChipStroke = CreateStroke(PageChip, Colors.BorderLight, 1)
+    local PageChipStroke = CreateStroke(PageChip, Colors.Border, 1)
 
     local ContentScroll = Create("ScrollingFrame", {
         Parent = ContentArea,
@@ -1026,14 +1030,12 @@ return function(ctx)
         end
         if anyOn then
             PageChip.Text = "ACTIVE"
-            PageChip.BackgroundColor3 = Colors.Accent
-            PageChip.TextColor3 = Colors.Background
-            PageChipStroke.Color = Colors.Accent
-        else
-            PageChip.Text = "IDLE"
-            PageChip.BackgroundColor3 = Colors.BackgroundLighter
             PageChip.TextColor3 = Colors.Accent
             PageChipStroke.Color = Colors.BorderLight
+        else
+            PageChip.Text = "IDLE"
+            PageChip.TextColor3 = Colors.TextMuted
+            PageChipStroke.Color = Colors.Border
         end
     end
 
@@ -1078,19 +1080,9 @@ return function(ctx)
     ctx.ClearContent = ClearContent
 
     local function SetActivePage(pageName)
-        if SidebarButtons[ActivePage] then
-            local s = SidebarButtons[ActivePage]
-            s.indicator.Visible = false
-            Tween(s.button, {BackgroundTransparency = 1}, 0.15)
-            s.label.TextColor3 = Colors.TextSecondary
-            s.label.Font = FONT_BODY
-            -- Handle ImageLabel vs TextLabel icon
-            if s.isImage then
-                Tween(s.icon, {ImageColor3 = Color3.new(1, 1, 1), ImageTransparency = 0.5}, 0.15)  -- redup saat inactive
-            else
-                s.icon.TextColor3 = Colors.TextPrimary
-                s.icon.TextTransparency = 0.55
-            end
+        -- Deactivate previous item via the shared Idle applicator
+        if SidebarButtons[ActivePage] and SidebarButtons[ActivePage].applyIdle then
+            SidebarButtons[ActivePage].applyIdle(true)
         end
 
         ActivePage = pageName
@@ -1098,39 +1090,33 @@ return function(ctx)
 
         if SidebarButtons[pageName] then
             local s = SidebarButtons[pageName]
-            -- Redesign: active item is a clean lime-tinted pill (no left bar)
-            s.indicator.Visible = false
-            s.button.BackgroundColor3 = Colors.Accent
-            Tween(s.button, {BackgroundTransparency = 0.85}, 0.15)
-            s.label.TextColor3 = Colors.Accent
-            s.label.Font = FONT_BOLD
-            -- Handle ImageLabel vs TextLabel icon
+            -- Activate via the shared Active applicator (identical for all items)
+            s.applyActive(true)
             if s.isImage then
-                Tween(s.icon, {ImageColor3 = Colors.Accent, ImageTransparency = 0}, 0.15)  -- lime tint saat active
                 PageHeaderIcon.Image = s.icon.Image
-                PageHeaderIcon.ImageColor3 = Colors.Accent
+                PageHeaderIcon.ImageColor3 = Color3.new(1, 1, 1)
                 PageHeaderIcon.ImageTransparency = 0
             else
-                s.icon.TextColor3 = Colors.Accent
-                s.icon.TextTransparency = 0
                 -- Fallback: tunjukkan ikon default Farm jika tidak ada asset
                 PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
-                PageHeaderIcon.ImageColor3 = Colors.Accent
-                PageHeaderIcon.ImageTransparency = 0
+                PageHeaderIcon.ImageColor3 = Colors.TextPrimary
+                PageHeaderIcon.ImageTransparency = 0.15
             end
         else
             -- Profile atau page tanpa sidebar button
-            PageHeaderIcon.Image = LUCIDE_ICONS["Player"] or LUCIDE_ICONS["Farm"] or ""
-            PageHeaderIcon.ImageColor3 = Colors.Accent
-            PageHeaderIcon.ImageTransparency = 0
+            PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
+            PageHeaderIcon.ImageTransparency = 0.5
         end
-        -- Profile card: lime outline saat active, subtle border saat tidak
+        -- Profile card: exact same Active styling as nav items
+        -- (dark green translucent bg + lime glow border); subtle saat idle
         if pageName == "Profile" then
-            Tween(ProfileStroke, {Color = Colors.Accent}, 0.2)
-            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
+            ProfileCard.BackgroundColor3 = ACTIVE_BG_COLOR
+            Tween(ProfileCard, {BackgroundTransparency = 0.15}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.Accent, Transparency = 0.55}, SIDE_TWEEN)
         else
-            Tween(ProfileStroke, {Color = Colors.Border}, 0.2)
-            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLight}, 0.2)
+            ProfileCard.BackgroundColor3 = Colors.BackgroundLighter
+            Tween(ProfileCard, {BackgroundTransparency = 0.55}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
         end
         PageHeaderTitle.Text = string.upper(pageName)
 
@@ -1291,13 +1277,6 @@ return function(ctx)
             BorderSizePixel = 0,
         })
         CreateCorner(toggleBg, 11)
-        -- Lime glow halo around the ON state (redesign)
-        local glowStroke = Create("UIStroke", {
-            Parent = toggleBg,
-            Color = Colors.Accent,
-            Thickness = 3,
-            Transparency = defaultState and 0.72 or 1,
-        })
         local knob = Create("Frame", {
             Parent = toggleBg,
             Size = UDim2.new(0, 16, 0, 16),
@@ -1319,7 +1298,6 @@ return function(ctx)
             States[stateKey] = state
             SaveState(stateKey, state)
             Tween(toggleBg, {BackgroundColor3 = state and Colors.ToggleOn or Colors.ToggleOff}, 0.2)
-            Tween(glowStroke, {Transparency = state and 0.72 or 1}, 0.2)
             Tween(knob, {
                 Position = UDim2.new(0, state and 21 or 3, 0.5, -8),
                 BackgroundColor3 = state and Colors.ToggleKnob or Colors.TextSecondary,
@@ -1330,7 +1308,6 @@ return function(ctx)
                     States[stateKey] = false
                     SaveState(stateKey, false)
                     Tween(toggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2)
-                    Tween(glowStroke, {Transparency = 1}, 0.2)
                     Tween(knob, {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Colors.TextSecondary}, 0.2)
                     RefreshPageChip()
                 end)
@@ -1378,12 +1355,12 @@ return function(ctx)
 
         local track = Create("Frame", {
             Parent = container,
-            Size = UDim2.new(1, -28, 0, 6),
-            Position = UDim2.new(0, 14, 0, 43),
+            Size = UDim2.new(1, -28, 0, 4),
+            Position = UDim2.new(0, 14, 0, 44),
             BackgroundColor3 = Colors.SliderTrack,
             BorderSizePixel = 0,
         })
-        CreateCorner(track, 3)
+        CreateCorner(track, 2)
         local fillPct = (defaultVal - minVal) / math.max(maxVal - minVal, 1)
         local fill = Create("Frame", {
             Parent = track,
@@ -1391,22 +1368,15 @@ return function(ctx)
             BackgroundColor3 = Colors.SliderFill,
             BorderSizePixel = 0,
         })
-        CreateCorner(fill, 3)
+        CreateCorner(fill, 2)
         local sliderKnob = Create("Frame", {
             Parent = track,
-            Size = UDim2.new(0, 14, 0, 14),
-            Position = UDim2.new(fillPct, -7, 0.5, -7),
+            Size = UDim2.new(0, 12, 0, 12),
+            Position = UDim2.new(fillPct, -6, 0.5, -6),
             BackgroundColor3 = Colors.Accent,
             BorderSizePixel = 0,
         })
-        CreateCorner(sliderKnob, 7)
-        -- Lime glow halo around the knob (redesign)
-        Create("UIStroke", {
-            Parent = sliderKnob,
-            Color = Colors.Accent,
-            Thickness = 4,
-            Transparency = 0.72,
-        })
+        CreateCorner(sliderKnob, 6)
 
         local dragging = false
         local trackBtn = Create("TextButton", {
@@ -1416,25 +1386,17 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "",
         })
-        -- Fractional bounds (e.g. 0.05–1) keep 2-decimal precision like the
-        -- redesign's "0.05" badge; integer bounds keep the old floor behavior.
-        local isFractional = (minVal % 1 ~= 0) or (maxVal % 1 ~= 0)
         local function updateSlider(x, save)
             local trackAbsPos = track.AbsolutePosition.X
             local trackAbsSize = track.AbsoluteSize.X
             local pct = math.clamp((x - trackAbsPos) / math.max(trackAbsSize, 1), 0, 1)
-            local val
-            if isFractional then
-                val = math.floor((minVal + pct * (maxVal - minVal)) * 100 + 0.5) / 100
-            else
-                val = math.floor(minVal + pct * (maxVal - minVal))
-            end
+            local val = math.floor(minVal + pct * (maxVal - minVal))
             States[stateKey] = val
             if save then SaveState(stateKey, val) end
             valLabel.Text = tostring(val) .. (suffix or "")
             if onChange then onChange(val) end
             Tween(fill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
-            Tween(sliderKnob, {Position = UDim2.new(pct, -7, 0.5, -7)}, 0.05)
+            Tween(sliderKnob, {Position = UDim2.new(pct, -6, 0.5, -6)}, 0.05)
         end
         trackBtn.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -1548,7 +1510,7 @@ return function(ctx)
             Font = FONT_BOLD,
         })
         btn.MouseEnter:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Surface, BackgroundTransparency = 0}, 0.15) end)
-        btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.BackgroundLighter, BackgroundTransparency = 0}, 0.15) end)
+        btn.MouseLeave:Connect(function() Tween(btn, {BackgroundColor3 = Colors.Background, BackgroundTransparency = 0.35}, 0.15) end)
 
         local isOpen = false
         local dropPanel = nil
@@ -1796,16 +1758,15 @@ return function(ctx)
         clearBtn.MouseEnter:Connect(function() Tween(clearBtn, {BackgroundColor3 = Colors.SurfaceLight}, 0.1) end)
         clearBtn.MouseLeave:Connect(function() Tween(clearBtn, {BackgroundColor3 = Colors.Surface}, 0.1) end)
 
-        local ROW_H = 30
-        local LIST_MAX_H = 210
+        local LIST_MAX_H = 190
         local scroll = Create("ScrollingFrame", {
             Parent = panel,
-            Size = UDim2.new(1, 0, 0, math.min(#options * ROW_H, LIST_MAX_H)),
+            Size = UDim2.new(1, 0, 0, math.min(#options * 28, LIST_MAX_H)),
             Position = UDim2.new(0, 0, 0, 32),
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
-            ScrollBarThickness = 6,
-            ScrollBarImageColor3 = Colors.SurfaceLight,
+            ScrollBarThickness = 3,
+            ScrollBarImageColor3 = Colors.Border,
             CanvasSize = UDim2.new(0, 0, 0, 0),
             AutomaticCanvasSize = Enum.AutomaticSize.Y,
             ZIndex = 2,
@@ -1825,7 +1786,6 @@ return function(ctx)
             local sel = isSelected(t.opt)
             t.frame.BackgroundColor3 = Colors.Accent
             t.frame.BackgroundTransparency = sel and 0.92 or 1
-            t.stroke.Transparency = sel and 0.55 or 1  -- lime outline on selected row (redesign)
             t.checkLbl.Text = sel and "\226\156\147" or ""
             t.checkLbl.TextColor3 = Colors.Accent
             t.nameLbl.TextColor3 = sel and Colors.Accent or Colors.TextSecondary
@@ -1841,20 +1801,13 @@ return function(ctx)
             local sel = isSelected(opt)
             local row = Create("Frame", {
                 Parent = scroll,
-                Size = UDim2.new(1, 0, 0, ROW_H),
+                Size = UDim2.new(1, 0, 0, 28),
                 BackgroundColor3 = Colors.Accent,
                 BackgroundTransparency = sel and 0.92 or 1,
                 BorderSizePixel = 0,
                 ZIndex = 3,
             })
             CreateCorner(row, 6)
-            -- lime outline shown only while selected (redesign)
-            local rowStroke = Create("UIStroke", {
-                Parent = row,
-                Color = Colors.Accent,
-                Thickness = 1,
-                Transparency = sel and 0.55 or 1,
-            })
 
             local nameLbl = Create("TextLabel", {
                 Parent = row,
@@ -1889,7 +1842,7 @@ return function(ctx)
                 ZIndex = 5,
             })
 
-            local entry = {frame=row, stroke=rowStroke, checkLbl=checkLbl, nameLbl=nameLbl, opt=opt}
+            local entry = {frame=row, checkLbl=checkLbl, nameLbl=nameLbl, opt=opt}
             itemFrames[#itemFrames+1] = entry
 
             hitBtn.MouseEnter:Connect(function()
@@ -1943,7 +1896,7 @@ return function(ctx)
             if isOpen then
                 panel.Visible = true
                 panel.Size = UDim2.new(1, 0, 0, 0)
-                local targetH = 32 + math.min(#options * ROW_H, LIST_MAX_H) + 8
+                local targetH = 32 + math.min(#options * 28, LIST_MAX_H) + 8
                 Tween(panel, {Size = UDim2.new(1, 0, 0, targetH)}, 0.22, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
             else
                 Tween(panel, {Size = UDim2.new(1, 0, 0, 0)}, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
@@ -2231,38 +2184,18 @@ return function(ctx)
             end
         end)
 
-        -- ── ACCOUNT section label (lime + hairline divider, redesign) ──
-        local acctHeader = Create("Frame", {
+        -- ── ACCOUNT section label ──
+        Create("TextLabel", {
             Parent = col,
             Size = UDim2.new(1, 0, 0, 20),
             BackgroundTransparency = 1,
-            LayoutOrder = 3,
-        })
-        local acctLbl = Create("TextLabel", {
-            Parent = acctHeader,
-            Size = UDim2.new(0, 0, 1, 0),
-            BackgroundTransparency = 1,
             Text = "ACCOUNT",
-            TextColor3 = Colors.Accent,
+            TextColor3 = Colors.TextMuted,
             TextSize = 11,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
-            AutomaticSize = Enum.AutomaticSize.X,
+            LayoutOrder = 3,
         })
-        local acctDivider = Create("Frame", {
-            Parent = acctHeader,
-            Size = UDim2.new(1, 0, 0, 1),
-            Position = UDim2.new(0, 0, 0.5, 0),
-            BackgroundColor3 = Colors.Border,
-            BorderSizePixel = 0,
-        })
-        task.defer(function()
-            if acctLbl.Parent and acctDivider.Parent then
-                local w = acctLbl.AbsoluteSize.X + 10
-                acctDivider.Position = UDim2.new(0, w, 0.5, 0)
-                acctDivider.Size = UDim2.new(1, -w, 0, 1)
-            end
-        end)
 
         -- ── ACCOUNT rows (Plan · Member Since · Hub Version · Game) ──
         local accountBlock = Create("Frame", {
