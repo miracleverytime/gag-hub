@@ -772,9 +772,9 @@ return function(ctx)
     -- ====================== PROFILE CARD (top of sidebar, Neo) ======================
     local ProfileCard = Create("TextButton", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -20, 0, 56),
+        Size = UDim2.new(1, -20, 0, 60),
         Position = UDim2.new(0, 10, 0, 10),
-        BackgroundColor3 = Colors.BackgroundLighter,
+        BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
         Text = "",
         AutoButtonColor = false,
@@ -782,35 +782,36 @@ return function(ctx)
     CreateCorner(ProfileCard, 10)
     local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
 
-    -- Hover: subtle surface lift + dim lime border
+    -- Hover: sedikit terang, border lebih visible tapi tetap subtle
     ProfileCard.MouseEnter:Connect(function()
         if ActivePage ~= "Profile" then
-            Tween(ProfileCard, {BackgroundColor3 = Colors.Surface}, 0.15)
-            Tween(ProfileStroke, {Color = Color3.fromRGB(55, 60, 50), Thickness = 1}, 0.15)
+            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLighter}, 0.18)
+            Tween(ProfileStroke, {Color = Colors.SurfaceLight}, 0.18)
         end
     end)
     ProfileCard.MouseLeave:Connect(function()
         if ActivePage ~= "Profile" then
-            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15)
-            Tween(ProfileStroke, {Color = Colors.Border, Thickness = 1}, 0.15)
+            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLight}, 0.18)
+            Tween(ProfileStroke, {Color = Colors.Border}, 0.18)
         end
     end)
 
+    -- Avatar: lebih besar, corner kecil, border tipis
     local ProfileAvatar = Create("ImageLabel", {
         Parent = ProfileCard,
-        Size = UDim2.new(0, 36, 0, 36),
-        Position = UDim2.new(0, 10, 0.5, -18),
+        Size = UDim2.new(0, 42, 0, 42),
+        Position = UDim2.new(0, 8, 0.5, -21),
         BackgroundColor3 = Colors.Surface,
         Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
         BorderSizePixel = 0,
     })
-    CreateCorner(ProfileAvatar, 8)
+    CreateCorner(ProfileAvatar, 7)
     CreateStroke(ProfileAvatar, Colors.Border, 1)
 
     Create("TextLabel", {
         Parent = ProfileCard,
         Size = UDim2.new(1, -62, 0, 18),
-        Position = UDim2.new(0, 54, 0, 10),
+        Position = UDim2.new(0, 58, 0, 11),
         BackgroundTransparency = 1,
         Text = player.DisplayName or player.Name,
         TextColor3 = Colors.TextPrimary,
@@ -819,24 +820,19 @@ return function(ctx)
         TextXAlignment = Enum.TextXAlignment.Left,
         TextTruncate = Enum.TextTruncate.AtEnd,
     })
+    local isPrime = player:GetAttribute("PrimeEnabled")
+    -- ★ solid star untuk PRIME (U+2605), ☆ outline untuk FREE (U+2606)
     local PrimeLabel = Create("TextLabel", {
         Parent = ProfileCard,
-        Size = UDim2.new(1, -62, 0, 15),
-        Position = UDim2.new(0, 54, 0, 30),
+        Size = UDim2.new(1, -62, 0, 16),
+        Position = UDim2.new(0, 58, 0, 31),
         BackgroundTransparency = 1,
-        Text = "\226\152\133 PRIME",
-        TextColor3 = Colors.Accent,
+        Text = isPrime and "\226\152\133 PRIME" or "\226\152\134 FREE",
+        TextColor3 = isPrime and Colors.Accent or Colors.TextMuted,
         TextSize = 11,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
-    if player:GetAttribute("PrimeEnabled") then
-        PrimeLabel.Text = "\226\152\133 PRIME"
-        PrimeLabel.TextColor3 = Colors.Accent
-    else
-        PrimeLabel.Text = "FREE"
-        PrimeLabel.TextColor3 = Colors.TextMuted
-    end
 
     -- footer: Powered by Miracle Labs (single centered label, no icon)
     Create("TextLabel", {
@@ -1049,13 +1045,13 @@ return function(ctx)
             PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
             PageHeaderIcon.ImageTransparency = 0.5
         end
-        -- Profile card: lime outline + surface bg when active, clean border when not
+        -- Profile card: lime outline saat active, subtle border saat tidak
         if pageName == "Profile" then
-            Tween(ProfileStroke, {Color = Colors.Accent, Thickness = 1}, 0.2)
-            Tween(ProfileCard, {BackgroundColor3 = Colors.Surface}, 0.2)
-        else
-            Tween(ProfileStroke, {Color = Colors.Border, Thickness = 1}, 0.2)
+            Tween(ProfileStroke, {Color = Colors.Accent}, 0.2)
             Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
+        else
+            Tween(ProfileStroke, {Color = Colors.Border}, 0.2)
+            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLight}, 0.2)
         end
         PageHeaderTitle.Text = string.upper(pageName)
 
