@@ -373,11 +373,11 @@ return function(ctx)
     ctx.LoadingStatus    = LoadingStatus
 
     -- Main Frame
-    -- CanvasGroup dipakai (bukan Frame) supaya children (TopBar/Sidebar/Content)
-    -- ikut ter-clip mengikuti UICorner — Frame + ClipsDescendants memotong persegi
-    -- sehingga sudut luar terlihat kotak.
+    -- Frame biasa (bukan CanvasGroup — CanvasGroup me-rasterize konten dan bikin blur).
+    -- Sudut luar dibulatkan dengan UICorner di sini + UICorner & patch pada children
+    -- yang menyentuh sudut (TopBar, Sidebar, ContentArea).
     local originalSize = UDim2.new(0, 900, 0, 600)
-    local MainFrame = Create("CanvasGroup", {
+    local MainFrame = Create("Frame", {
         Name = "MainFrame",
         Parent = ScreenGui,
         Size = originalSize,
@@ -401,6 +401,15 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     ctx.TopBar = TopBar
+    -- rounded top corners: UICorner + patch persegi di bagian bawah TopBar
+    CreateCorner(TopBar, 14)
+    Create("Frame", { -- patch: menutup lengkungan bawah agar hanya sudut atas yang rounded
+        Parent = TopBar,
+        Size = UDim2.new(1, 0, 0, 14),
+        Position = UDim2.new(0, 0, 1, -14),
+        BackgroundColor3 = Colors.BackgroundLight,
+        BorderSizePixel = 0,
+    })
     Create("Frame", { -- bottom hairline
         Parent = TopBar,
         Size = UDim2.new(1, 0, 0, 1),
@@ -593,6 +602,21 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     ctx.Sidebar = Sidebar
+    -- rounded bottom-left corner: UICorner + patch di sisi atas & kanan
+    CreateCorner(Sidebar, 14)
+    Create("Frame", { -- patch atas
+        Parent = Sidebar,
+        Size = UDim2.new(1, 0, 0, 14),
+        BackgroundColor3 = Colors.BackgroundLight,
+        BorderSizePixel = 0,
+    })
+    Create("Frame", { -- patch kanan
+        Parent = Sidebar,
+        Size = UDim2.new(0, 14, 1, 0),
+        Position = UDim2.new(1, -14, 0, 0),
+        BackgroundColor3 = Colors.BackgroundLight,
+        BorderSizePixel = 0,
+    })
     Create("Frame", { -- right hairline
         Parent = Sidebar,
         Size = UDim2.new(0, 1, 1, 0),
@@ -947,6 +971,8 @@ return function(ctx)
         ClipsDescendants = true,
     })
     ctx.ContentArea = ContentArea
+    -- rounded bottom-right corner; sudut lain tak terlihat karena warna bg sama dengan MainFrame
+    CreateCorner(ContentArea, 14)
 
     -- Page header (Neo): icon + PAGE TITLE (mono caps) + status chip, hairline below
     local PAGE_HEADER_H = 46
