@@ -94,6 +94,7 @@ return function(ctx)
     end
 
     local function Tween(instance, properties, duration, easingStyle, easingDirection)
+        if not instance or not instance.Parent then return end
         local tween = TweenService:Create(
             instance,
             TweenInfo.new(duration or 0.3, easingStyle or Enum.EasingStyle.Quad, easingDirection or Enum.EasingDirection.Out),
@@ -215,20 +216,7 @@ return function(ctx)
         CreateCorner(notifBg, 6)
         local stroke = CreateStroke(notifBg, NOTIF_BORDER, 1)
 
-        -- soft drop shadow — kept as child of notifFrame with absolute size
-        -- so reparenting to gui doesn't make it fill the whole screen
-        local shadow = Create("ImageLabel", {
-            Parent = notifFrame,
-            Size = UDim2.new(0, NOTIF_W + 40, 0, NOTIF_H + 40),
-            Position = UDim2.new(0, -20, 0, -12),
-            BackgroundTransparency = 1,
-            Image = "rbxassetid://1316045217",
-            ImageColor3 = Color3.new(0, 0, 0),
-            ImageTransparency = 1,
-            ScaleType = Enum.ScaleType.Slice,
-            SliceCenter = Rect.new(10, 10, 118, 118),
-            ZIndex = 199,
-        })
+        -- (shadow dihapus: tidak pernah terlihat, menyebabkan phantom frame + crash reflow)
 
         -- ---------- 3px left accent bar (stops above the underline) ----------
         local accentBar = Create("Frame", {
@@ -345,7 +333,6 @@ return function(ctx)
 
         table.insert(activeNotifs, notifFrame)
         -- slide in from the right (hub-in)
-        -- shadow is a child of notifFrame so it moves automatically with the parent
         Tween(notifFrame, {Position = UDim2.new(1, -(NOTIF_W + 10), 0, NotifSlotY(#activeNotifs))}, 0.32, Enum.EasingStyle.Back)
 
         local function Cleanup()
