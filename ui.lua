@@ -457,88 +457,8 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     CreateCorner(BrandCard, 8)
-    -- base border (always visible, dim)
+    -- clean static border, no lime animation
     CreateStroke(BrandCard, Colors.Border, 1)
-
-    -- Smooth snake/comet: a series of dots moving around the perimeter
-    -- using RunService.Heartbeat for pixel-perfect smooth animation
-    local CW, CH = 300, 30
-    local CR = 8  -- corner radius
-
-    -- Perimeter path: top → right → bottom (reversed) → left (reversed)
-    -- Total perimeter = 2*(W-2R) + 2*(H-2R) + 2*pi*R (corners approximated as straight)
-    local PERIM = 2*(CW - 2*CR) + 2*(CH - 2*CR) + 2*math.pi*CR
-    local SPEED = 160  -- pixels per second around the perimeter
-
-    -- Convert a perimeter distance [0, PERIM) to (x, y) on the card edge
-    local function perimToXY(d)
-        d = d % PERIM
-
-        local topW    = CW - 2*CR
-        local rightH  = CH - 2*CR
-        local botW    = CW - 2*CR
-        local leftH   = CH - 2*CR
-        local cornerL = math.pi * CR / 2  -- quarter-circle arc length
-
-        -- top-right corner arc
-        -- Segments in order: top → TR corner → right → BR corner → bottom (RTL) → BL corner → left → TL corner
-        local seg = {
-            {len = topW,    fn = function(t) return CR + t, 0 end},
-            {len = cornerL, fn = function(t) local a = t/CR; return CW-CR + math.sin(a)*CR, CR - math.cos(a)*CR end},
-            {len = rightH,  fn = function(t) return CW, CR + t end},
-            {len = cornerL, fn = function(t) local a = t/CR; return CW-CR + math.cos(a)*CR, CH-CR + math.sin(a)*CR end},
-            {len = botW,    fn = function(t) return CW-CR - t, CH end},
-            {len = cornerL, fn = function(t) local a = t/CR; return CR - math.sin(a)*CR, CH-CR + math.cos(a)*CR end},
-            {len = leftH,   fn = function(t) return 0, CH-CR - t end},
-            {len = cornerL, fn = function(t) local a = t/CR; return CR - math.cos(a)*CR, CR - math.sin(a)*CR end},
-        }
-
-        for _, s in ipairs(seg) do
-            if d <= s.len then
-                local x, y = s.fn(d)
-                return x, y
-            end
-            d = d - s.len
-        end
-        return CR, 0
-    end
-
-    -- Comet: head dot + N tail dots with decreasing opacity
-    local DOT_SIZE = 3
-    local TAIL_COUNT = 28      -- number of tail dots
-    local TAIL_SPACING = 4.5   -- pixels apart along perimeter
-    local TAIL_MAX_ALPHA = 0.85 -- head opacity (0 = fully visible, 1 = transparent)
-
-    local dots = {}
-    for i = 0, TAIL_COUNT do
-        local dot = Create("Frame", {
-            Parent = BrandCard,
-            Size = UDim2.new(0, DOT_SIZE, 0, DOT_SIZE),
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            BackgroundColor3 = Colors.Accent,
-            BackgroundTransparency = 1,
-            BorderSizePixel = 0,
-            ZIndex = 10,
-        })
-        CreateCorner(dot, DOT_SIZE)
-        dots[i] = dot
-    end
-
-    local perimPos = 0
-    RunService.Heartbeat:Connect(function(dt)
-        if not BrandCard.Parent then return end
-        perimPos = (perimPos + SPEED * dt) % PERIM
-
-        for i = 0, TAIL_COUNT do
-            local p = perimPos - i * TAIL_SPACING
-            local x, y = perimToXY(p)
-            local dot = dots[i]
-            -- head (i=0) is brightest, tail fades to transparent
-            local alpha = TAIL_MAX_ALPHA + (1 - TAIL_MAX_ALPHA) * (i / TAIL_COUNT)
-            dot.Position = UDim2.new(0, x, 0, y)
-            dot.BackgroundTransparency = alpha
-        end
-    end)
 
     local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
@@ -861,9 +781,19 @@ return function(ctx)
     })
     CreateCorner(ProfileCard, 10)
     local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
-    ProfileCard.MouseEnter:Connect(function() Tween(ProfileStroke, {Color = Colors.BorderLight}, 0.15) end)
+
+    -- Hover: subtle surface lift + dim lime border
+    ProfileCard.MouseEnter:Connect(function()
+        if ActivePage ~= "Profile" then
+            Tween(ProfileCard, {BackgroundColor3 = Colors.Surface}, 0.15)
+            Tween(ProfileStroke, {Color = Color3.fromRGB(55, 60, 50), Thickness = 1}, 0.15)
+        end
+    end)
     ProfileCard.MouseLeave:Connect(function()
-        if ActivePage ~= "Profile" then Tween(ProfileStroke, {Color = Colors.Border}, 0.15) end
+        if ActivePage ~= "Profile" then
+            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15)
+            Tween(ProfileStroke, {Color = Colors.Border, Thickness = 1}, 0.15)
+        end
     end)
 
     local ProfileAvatar = Create("ImageLabel", {
@@ -875,7 +805,7 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     CreateCorner(ProfileAvatar, 8)
-    CreateStroke(ProfileAvatar, Colors.BorderLight, 1)
+    CreateStroke(ProfileAvatar, Colors.Border, 1)
 
     Create("TextLabel", {
         Parent = ProfileCard,
@@ -1119,7 +1049,14 @@ return function(ctx)
             PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
             PageHeaderIcon.ImageTransparency = 0.5
         end
-        ProfileStroke.Color = (pageName == "Profile") and Colors.BorderLight or Colors.Border
+        -- Profile card: lime outline + surface bg when active, clean border when not
+        if pageName == "Profile" then
+            Tween(ProfileStroke, {Color = Colors.Accent, Thickness = 1}, 0.2)
+            Tween(ProfileCard, {BackgroundColor3 = Colors.Surface}, 0.2)
+        else
+            Tween(ProfileStroke, {Color = Colors.Border, Thickness = 1}, 0.2)
+            Tween(ProfileCard, {BackgroundColor3 = Colors.BackgroundLighter}, 0.2)
+        end
         PageHeaderTitle.Text = string.upper(pageName)
 
         ClearContent()
