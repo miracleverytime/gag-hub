@@ -373,8 +373,11 @@ return function(ctx)
     ctx.LoadingStatus    = LoadingStatus
 
     -- Main Frame
+    -- CanvasGroup dipakai (bukan Frame) supaya children (TopBar/Sidebar/Content)
+    -- ikut ter-clip mengikuti UICorner — Frame + ClipsDescendants memotong persegi
+    -- sehingga sudut luar terlihat kotak.
     local originalSize = UDim2.new(0, 900, 0, 600)
-    local MainFrame = Create("Frame", {
+    local MainFrame = Create("CanvasGroup", {
         Name = "MainFrame",
         Parent = ScreenGui,
         Size = originalSize,
