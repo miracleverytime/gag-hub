@@ -204,21 +204,6 @@ return function(ctx)
         CreateCorner(notifFrame, 6)
         local stroke = CreateStroke(notifFrame, NOTIF_BORDER, 1)
 
-        -- soft drop shadow (shadow-[0_8px_30px] approximation)
-        local shadow = Create("ImageLabel", {
-            Parent = notifFrame,
-            Size = UDim2.new(1, 40, 1, 40),
-            Position = UDim2.new(0, -20, 0, -12),
-            BackgroundTransparency = 1,
-            Image = "rbxassetid://1316045217",
-            ImageColor3 = Color3.new(0, 0, 0),
-            ImageTransparency = 0.55,
-            ScaleType = Enum.ScaleType.Slice,
-            SliceCenter = Rect.new(10, 10, 118, 118),
-            ZIndex = 199,
-        })
-        shadow.Parent = gui -- behind the toast, outside clipping
-        shadow.Position = UDim2.new(1, 10 - 20, 0, NotifSlotY(#activeNotifs + 1) - 12)
 
         -- ---------- 3px left accent bar (stops above the underline) ----------
         local accentBar = Create("Frame", {
