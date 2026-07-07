@@ -375,29 +375,22 @@ return function(ctx)
             0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In
         )
 
-        -- 4. Mulai crossfade: pill muncul ~0.12s sebelum animasi shrink selesai
-        --    sehingga tidak ada gap satu frame pun antara MainFrame hilang dan Pill tampil.
-        task.delay(0.28, function()
+        -- 4. Setelah shrink selesai: show pill dulu, baru hide MainFrame.
+        --    Posisi sudah pixel perfect jadi tidak ada gap/blink sama sekali.
+        task.delay(0.42, function()
             if not minimized then return end
 
-            -- Posisikan pill & set transparan SEBELUM visible=true (zero-blink pattern)
+            -- Show pill di posisi yang sama dengan MainFrame yang sudah mengecil
             MinimizedPill.Position = targetPillPos
-            SetPillTransparency(1)
+            SetPillTransparency(0)   -- langsung opak, tidak perlu fade — posisi sudah identik
             MinimizedPill.Visible  = true
-            -- Pill fade-in overlap dengan sisa 0.12s animasi shrink
-            TweenPillTransparency(0, 0.22)
-        end)
 
-        -- 5. Setelah animasi shrink benar-benar selesai: hide MainFrame & restore TopBar
-        task.delay(0.43, function()
-            if not minimized then return end
-
-            -- MainFrame di-hide SETELAH pill sudah hampir fully opak — tidak ada frame kosong
+            -- Baru hide MainFrame — pill sudah menutupinya, tidak ada frame kosong
             Sidebar.Visible     = false
             ContentArea.Visible = false
             MainFrame.Visible   = false
 
-            -- Snap TopBar kembali ke ukuran asli (aman karena MainFrame sudah hidden)
+            -- Restore TopBar ke ukuran asli (aman karena MainFrame sudah hidden)
             TopBar.Size     = topBarOriginalSize
             TopBar.Position = topBarOriginalPos
         end)
@@ -412,8 +405,7 @@ return function(ctx)
         local pillAbsX = lastPillPosition.X.Offset + 10 + PILL_W / 2
         local pillAbsY = lastPillPosition.Y.Offset + 10 + PILL_H / 2
 
-        -- 2. Snap MainFrame ke posisi pill & show-nya SEBELUM pill di-hide
-        --    (keduanya visible sekaligus sesaat — crossfade, bukan swap)
+        -- 2. Snap MainFrame tepat di posisi pill & show-nya — pill masih visible sebagai cover
         Sidebar.Visible     = true
         ContentArea.Visible = true
 
@@ -421,9 +413,10 @@ return function(ctx)
         MainFrame.Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2)
         MainFrame.Visible  = true
 
-        -- 3. Mulai expand MainFrame & fade-out pill bersamaan (overlap penuh)
-        TweenPillTransparency(1, 0.18)
+        -- 3. Baru hide pill — MainFrame sudah ada di posisi yang sama, tidak ada gap
+        MinimizedPill.Visible = false
 
+        -- 4. Expand ke ukuran penuh
         Tween(
             MainFrame,
             {
@@ -432,11 +425,6 @@ return function(ctx)
             },
             0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out
         )
-
-        -- 4. Setelah pill selesai fade-out, baru hide-nya (tidak akan blink karena sudah transparan)
-        task.delay(0.20, function()
-            MinimizedPill.Visible = false
-        end)
 
         -- 5. Clear guard setelah animasi expand selesai, lalu snap ke pixel bersih
         task.delay(0.50, function()
