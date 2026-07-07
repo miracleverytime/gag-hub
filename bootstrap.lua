@@ -322,8 +322,27 @@ return function(ctx)
     -- Setelah muncul, pill bisa di-drag bebas. Posisi drag disimpan di lastPillPosition
     -- dan dipakai sebagai titik asal animasi expand berikutnya.
 
-    local minimized = false
-    -- ctx.isMinimized dipakai oleh SnapMainFramePosition (ui.lua) sebagai guard:
+    -- Breathing loop untuk PillStroke — lime glow seperti ConnDot saat minimized.
+    -- Loop jalan di coroutine terpisah, berhenti begitu minimized = false.
+    local function StartPillBreathing()
+        task.spawn(function()
+            while minimized and MinimizedPill.Parent do
+                -- Fade warna border dari Border (gelap) ke Accent (lime) sambil tebalkan stroke
+                Tween(PillStroke, {Color = Colors.Accent, Transparency = 0.2, Thickness = 1.5}, 1.0,
+                    Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                task.wait(1.1)
+                if not minimized then break end
+                -- Kembali ke border normal
+                Tween(PillStroke, {Color = Colors.Border, Transparency = 0, Thickness = 1}, 1.0,
+                    Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                task.wait(1.1)
+            end
+            -- Pastikan stroke kembali ke default saat loop berhenti
+            if PillStroke and PillStroke.Parent then
+                Tween(PillStroke, {Color = Colors.Border, Transparency = 0, Thickness = 1}, 0.3)
+            end
+        end)
+    end
     -- selama animasi minimize/restore, AbsoluteSize MainFrame berubah dan bisa
     -- memicu snap ke tengah → blink. Flag ini mencegah hal itu.
     ctx.isMinimized = false
@@ -468,6 +487,7 @@ return function(ctx)
             MinimizedPill.Position = targetPillPos
             SetPillTransparency(0)
             MinimizedPill.Visible = true
+            StartPillBreathing()  -- lime glow breathing mulai
 
             Sidebar.Visible     = false
             ContentArea.Visible = false
