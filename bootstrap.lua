@@ -341,19 +341,33 @@ return function(ctx)
     local transparencySnapshot = {}
     local function BuildSnapshot()
         transparencySnapshot = {}
+        -- Snapshot ContentArea, Sidebar, plus MinimizeButton & CloseButton (di TopBar)
         local targets = {ContentArea, Sidebar}
         for _, root in ipairs(targets) do
             transparencySnapshot[root] = {bg = root.BackgroundTransparency}
             for _, d in ipairs(root:GetDescendants()) do
                 if d:IsA("GuiObject") then
                     local entry = {bg = d.BackgroundTransparency}
-                    if d:IsA("TextLabel") or d:IsA("TextButton") then
-                        entry.text = d.TextTransparency
-                    end
-                    if d:IsA("ImageLabel") or d:IsA("ImageButton") then
-                        entry.img = d.ImageTransparency
-                    end
+                    if d:IsA("TextLabel") or d:IsA("TextButton") then entry.text = d.TextTransparency end
+                    if d:IsA("ImageLabel") or d:IsA("ImageButton") then entry.img = d.ImageTransparency end
                     transparencySnapshot[d] = entry
+                end
+            end
+        end
+        -- Tombol di TopBar: MinimizeButton & CloseButton + semua descendant-nya
+        for _, btn in ipairs({MinimizeButton, CloseButton}) do
+            if btn then
+                local e = {bg = btn.BackgroundTransparency}
+                if btn:IsA("TextLabel") or btn:IsA("TextButton") then e.text = btn.TextTransparency end
+                if btn:IsA("ImageLabel") or btn:IsA("ImageButton") then e.img = btn.ImageTransparency end
+                transparencySnapshot[btn] = e
+                for _, d in ipairs(btn:GetDescendants()) do
+                    if d:IsA("GuiObject") then
+                        local de = {bg = d.BackgroundTransparency}
+                        if d:IsA("TextLabel") or d:IsA("TextButton") then de.text = d.TextTransparency end
+                        if d:IsA("ImageLabel") or d:IsA("ImageButton") then de.img = d.ImageTransparency end
+                        transparencySnapshot[d] = de
+                    end
                 end
             end
         end
