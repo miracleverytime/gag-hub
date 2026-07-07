@@ -347,9 +347,25 @@ return function(ctx)
         local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2
         local pillAbsY = targetPillPos.Y.Offset + 10 + PILL_H / 2
 
-        -- 2. Susut MainFrame menuju posisi pill.
-        -- ClipsDescendants=true di MainFrame yang sudah ada akan otomatis
-        -- memotong konten saat frame mengecil — tidak perlu touch transparency apapun.
+        -- 2. Simpan tinggi TopBar saat ini agar bisa di-restore nanti
+        local topBarOriginalPos  = TopBar.Position
+        local topBarOriginalSize = TopBar.Size
+
+        -- Tinggi TopBar (biasanya 40px). Saat MainFrame mengecil ke PILL_H (30px),
+        -- TopBar harus ikut menyesuaikan tingginya ke PILL_H agar konten tidak meluber.
+        -- Kita tween Size.Y TopBar ke PILL_H dan pastikan Position.Y = 0 (flush ke top).
+        Tween(
+            TopBar,
+            {
+                Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
+                Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
+            },
+            0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In
+        )
+
+        -- 3. Susut MainFrame menuju posisi pill.
+        -- ClipsDescendants=true di MainFrame akan memotong konten seiring frame mengecil.
+        -- Karena TopBar kini ikut menyusut ke PILL_H, konten tetap pixel-perfect di tengah.
         Tween(
             MainFrame,
             {
@@ -359,9 +375,14 @@ return function(ctx)
             0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In
         )
 
-        -- 3. Setelah animasi selesai: hide MainFrame, tampilkan pill
+        -- 4. Setelah animasi selesai: hide MainFrame, tampilkan pill, restore TopBar ukuran asli
         task.delay(0.42, function()
             if not minimized then return end  -- guard: user restore sebelum selesai
+
+            -- Snap TopBar kembali ke ukuran asli (tersembunyi di dalam MainFrame yang hidden)
+            TopBar.Size     = topBarOriginalSize
+            TopBar.Position = topBarOriginalPos
+
             Sidebar.Visible     = false
             ContentArea.Visible = false
             MainFrame.Visible   = false
