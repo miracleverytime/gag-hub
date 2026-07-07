@@ -338,59 +338,96 @@ return function(ctx)
 
     local function DoMinimize()
         minimized = true
-        ctx.isMinimized = true  -- mencegah SnapMainFramePosition blink saat tween menyusut
+        ctx.isMinimized = true
 
-        -- 1. Tentukan target posisi pill (pakai posisi drag terakhir jika ada)
         local targetPillPos = lastPillPosition or DefaultPillPosition()
-
-        -- Target tengah pill dalam koordinat absolut
         local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2
         local pillAbsY = targetPillPos.Y.Offset + 10 + PILL_H / 2
 
-        -- 2. Simpan tinggi TopBar saat ini agar bisa di-restore nanti
         local topBarOriginalPos  = TopBar.Position
         local topBarOriginalSize = TopBar.Size
 
-        -- Tinggi TopBar (biasanya 40px). Saat MainFrame mengecil ke PILL_H (30px),
-        -- TopBar harus ikut menyesuaikan tingginya ke PILL_H agar konten tidak meluber.
-        -- Kita tween Size.Y TopBar ke PILL_H dan pastikan Position.Y = 0 (flush ke top).
-        Tween(
-            TopBar,
-            {
-                Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
-                Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
-            },
-            0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In
-        )
+        -- FASE 1 (0.00–0.15s): Sidebar & ContentArea fade out cepat — "tersedot menghilang"
+        -- GroupTransparency tidak ada di Roblox biasa, jadi kita tween BackgroundTransparency
+        -- ContentArea dan semua TextLabel di dalamnya sekaligus via properti frame induk.
+        -- Cara paling efisien: cukup pindahkan keduanya ke luar viewport (scale trick) +
+        -- fade BackgroundTransparency ContentArea agar tidak ada artefak warna.
+        Tween(ContentArea, {BackgroundTransparency = 1}, 0.12)
+        Tween(Sidebar,     {BackgroundTransparency = 1}, 0.12)
+        -- Fade teks di dalam ContentArea & Sidebar (semua TextLabel/ImageLabel langsung)
+        for _, d in ipairs(ContentArea:GetDescendants()) do
+            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("ImageLabel") then
+                Tween(d, {TextTransparency = 1, ImageTransparency = 1, BackgroundTransparency = 1}, 0.12)
+            end
+        end
+        for _, d in ipairs(Sidebar:GetDescendants()) do
+            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("ImageLabel") then
+                Tween(d, {TextTransparency = 1, ImageTransparency = 1, BackgroundTransparency = 1}, 0.12)
+            end
+        end
 
-        -- 3. Susut MainFrame menuju posisi pill.
-        -- ClipsDescendants=true di MainFrame akan memotong konten seiring frame mengecil.
-        -- Karena TopBar kini ikut menyusut ke PILL_H, konten tetap pixel-perfect di tengah.
-        Tween(
-            MainFrame,
-            {
-                Size     = UDim2.new(0, PILL_W, 0, PILL_H),
-                Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
-            },
-            0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In
-        )
-
-        -- 4. Setelah shrink selesai: show pill dulu, baru hide MainFrame.
-        --    Posisi sudah pixel perfect jadi tidak ada gap/blink sama sekali.
-        task.delay(0.42, function()
+        -- FASE 2 (0.10s): MainFrame mulai mengecil — sedikit delay biar fade konten
+        -- sempat berjalan dulu, kesan "tersedot" sebelum frame menyusut.
+        task.delay(0.10, function()
             if not minimized then return end
 
-            -- Show pill di posisi yang sama dengan MainFrame yang sudah mengecil
+            -- TopBar ikut mengecil ke PILL_H bersamaan dengan MainFrame
+            Tween(
+                TopBar,
+                {
+                    Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
+                    Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
+                },
+                0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In
+            )
+
+            -- MainFrame susut ke ukuran & posisi pill
+            Tween(
+                MainFrame,
+                {
+                    Size     = UDim2.new(0, PILL_W, 0, PILL_H),
+                    Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
+                },
+                0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In
+            )
+        end)
+
+        -- FASE 3 (0.10 + 0.37s = 0.47s): animasi shrink selesai → swap ke pill
+        task.delay(0.47, function()
+            if not minimized then return end
+
+            -- Show pill dulu (posisi identik, langsung opak) — baru hide MainFrame
             MinimizedPill.Position = targetPillPos
-            SetPillTransparency(0)   -- langsung opak, tidak perlu fade — posisi sudah identik
+            SetPillTransparency(0)
             MinimizedPill.Visible  = true
 
-            -- Baru hide MainFrame — pill sudah menutupinya, tidak ada frame kosong
             Sidebar.Visible     = false
             ContentArea.Visible = false
             MainFrame.Visible   = false
 
-            -- Restore TopBar ke ukuran asli (aman karena MainFrame sudah hidden)
+            -- Restore semua transparansi konten agar siap saat DoRestore
+            ContentArea.BackgroundTransparency = 0
+            Sidebar.BackgroundTransparency     = 0
+            for _, d in ipairs(ContentArea:GetDescendants()) do
+                if d:IsA("TextLabel") or d:IsA("TextButton") then
+                    d.TextTransparency       = 0
+                    d.BackgroundTransparency = 0
+                elseif d:IsA("ImageLabel") then
+                    d.ImageTransparency      = 0
+                    d.BackgroundTransparency = 0
+                end
+            end
+            for _, d in ipairs(Sidebar:GetDescendants()) do
+                if d:IsA("TextLabel") or d:IsA("TextButton") then
+                    d.TextTransparency       = 0
+                    d.BackgroundTransparency = 0
+                elseif d:IsA("ImageLabel") then
+                    d.ImageTransparency      = 0
+                    d.BackgroundTransparency = 0
+                end
+            end
+
+            -- Restore TopBar ke ukuran asli
             TopBar.Size     = topBarOriginalSize
             TopBar.Position = topBarOriginalPos
         end)
@@ -399,35 +436,70 @@ return function(ctx)
     local function DoRestore()
         minimized = false
 
-        -- 1. Simpan posisi pill saat ini
         lastPillPosition = MinimizedPill.Position
-
         local pillAbsX = lastPillPosition.X.Offset + 10 + PILL_W / 2
         local pillAbsY = lastPillPosition.Y.Offset + 10 + PILL_H / 2
 
-        -- 2. Snap MainFrame tepat di posisi pill & show-nya — pill masih visible sebagai cover
+        -- Pastikan konten mulai dari transparan (akan fade-in setelah frame cukup besar)
+        ContentArea.BackgroundTransparency = 1
+        Sidebar.BackgroundTransparency     = 1
+        for _, d in ipairs(ContentArea:GetDescendants()) do
+            if d:IsA("TextLabel") or d:IsA("TextButton") then
+                d.TextTransparency = 1 ; d.BackgroundTransparency = 1
+            elseif d:IsA("ImageLabel") then
+                d.ImageTransparency = 1 ; d.BackgroundTransparency = 1
+            end
+        end
+        for _, d in ipairs(Sidebar:GetDescendants()) do
+            if d:IsA("TextLabel") or d:IsA("TextButton") then
+                d.TextTransparency = 1 ; d.BackgroundTransparency = 1
+            elseif d:IsA("ImageLabel") then
+                d.ImageTransparency = 1 ; d.BackgroundTransparency = 1
+            end
+        end
+
+        -- FASE 1: Snap MainFrame ke posisi pill, show, hide pill — swap tanpa gap
         Sidebar.Visible     = true
         ContentArea.Visible = true
 
         MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
         MainFrame.Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2)
         MainFrame.Visible  = true
-
-        -- 3. Baru hide pill — MainFrame sudah ada di posisi yang sama, tidak ada gap
         MinimizedPill.Visible = false
 
-        -- 4. Expand ke ukuran penuh
+        -- FASE 2: Expand frame ke ukuran penuh
         Tween(
             MainFrame,
             {
                 Size     = originalSize,
                 Position = UDim2.new(0.5, -450, 0.5, -300),
             },
-            0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out
+            0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out
         )
 
-        -- 5. Clear guard setelah animasi expand selesai, lalu snap ke pixel bersih
-        task.delay(0.50, function()
+        -- FASE 3 (0.20s): Setelah frame cukup besar, fade-in konten — kesan "muncul dari dalam"
+        task.delay(0.20, function()
+            if minimized then return end
+            Tween(ContentArea, {BackgroundTransparency = 0}, 0.18)
+            Tween(Sidebar,     {BackgroundTransparency = 0}, 0.18)
+            for _, d in ipairs(ContentArea:GetDescendants()) do
+                if d:IsA("TextLabel") or d:IsA("TextButton") then
+                    Tween(d, {TextTransparency = 0, BackgroundTransparency = 0}, 0.18)
+                elseif d:IsA("ImageLabel") then
+                    Tween(d, {ImageTransparency = 0, BackgroundTransparency = 0}, 0.18)
+                end
+            end
+            for _, d in ipairs(Sidebar:GetDescendants()) do
+                if d:IsA("TextLabel") or d:IsA("TextButton") then
+                    Tween(d, {TextTransparency = 0, BackgroundTransparency = 0}, 0.18)
+                elseif d:IsA("ImageLabel") then
+                    Tween(d, {ImageTransparency = 0, BackgroundTransparency = 0}, 0.18)
+                end
+            end
+        end)
+
+        -- FASE 4: Clear guard setelah expand selesai
+        task.delay(0.45, function()
             ctx.isMinimized = false
             ctx.SnapMainFramePosition()
         end)
