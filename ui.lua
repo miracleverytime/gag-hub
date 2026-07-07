@@ -1362,6 +1362,7 @@ return function(ctx)
         TextSize = 11,
         Font = FONT_MONO,
         BorderSizePixel = 0,
+        Visible = false,  -- hidden on Profile page (default); shown on all other pages
     })
     CreateCorner(PageChip, 5)
     local PageChipStroke = CreateStroke(PageChip, Colors.Border, 1)
@@ -1506,7 +1507,14 @@ return function(ctx)
 
         ClearContent()
         if Pages[pageName] then Pages[pageName]() end
-        RefreshPageChip()
+
+        -- Hide the IDLE/ACTIVE chip on Profile page (not needed there)
+        if pageName == "Profile" then
+            PageChip.Visible = false
+        else
+            PageChip.Visible = true
+            RefreshPageChip()
+        end
 
         -- Single-column fallback: if the page only filled the left column,
         -- let it span the full width.
