@@ -421,7 +421,31 @@ return function(ctx)
         -- Snapshot nilai transparansi asli sebelum diubah apapun
         BuildSnapshot()
 
-        -- FASE 1 (0.00s): Konten tersedot menghilang
+        -- FASE 1 (0.00s): MinimizeButton & CloseButton hilang instan —
+        -- keduanya paling kanan, paling terakhir ter-clip saat frame shrink ke kiri,
+        -- jadi harus fade duluan sebelum animasi apapun dimulai.
+        local function FadeButton(btn, dur)
+            if not btn then return end
+            Tween(btn, {BackgroundTransparency = 1}, dur)
+            if btn:IsA("TextLabel") or btn:IsA("TextButton") then
+                Tween(btn, {TextTransparency = 1}, dur)
+            end
+            if btn:IsA("ImageLabel") or btn:IsA("ImageButton") then
+                Tween(btn, {ImageTransparency = 1}, dur)
+            end
+            for _, d in ipairs(btn:GetDescendants()) do
+                if d:IsA("GuiObject") then
+                    local props = {BackgroundTransparency = 1}
+                    if d:IsA("TextLabel") or d:IsA("TextButton") then props.TextTransparency = 1 end
+                    if d:IsA("ImageLabel") or d:IsA("ImageButton") then props.ImageTransparency = 1 end
+                    Tween(d, props, dur)
+                end
+            end
+        end
+        FadeButton(MinimizeButton, 0.06)
+        FadeButton(CloseButton,    0.06)
+
+        -- Konten lainnya fade sedikit lebih lambat
         FadeOutContent(0.12)
 
         -- FASE 2 (0.10s): Frame mulai mengecil setelah konten hampir hilang
