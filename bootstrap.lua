@@ -327,15 +327,20 @@ return function(ctx)
     local function StartPillBreathing()
         task.spawn(function()
             while minimized and MinimizedPill.Parent do
-                -- Fade warna border dari Border (gelap) ke Accent (lime) sambil tebalkan stroke
-                Tween(PillStroke, {Color = Colors.Accent, Transparency = 0.2, Thickness = 1.5}, 1.0,
-                    Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                -- FASE 1: Border naik ke lime dominan, tebal, fully visible
+                Tween(PillStroke, {Color = Colors.Accent, Transparency = 0, Thickness = 2}, 1.0,
+                    Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
                 task.wait(1.1)
                 if not minimized then break end
-                -- Kembali ke border normal
-                Tween(PillStroke, {Color = Colors.Border, Transparency = 0, Thickness = 1}, 1.0,
-                    Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-                task.wait(1.1)
+                -- FASE 2: Fade out border perlahan hampir hilang
+                Tween(PillStroke, {Transparency = 0.85}, 1.2,
+                    Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+                task.wait(1.3)
+                if not minimized then break end
+                -- FASE 3: Fade in border kembali lime dominan
+                Tween(PillStroke, {Transparency = 0, Thickness = 2}, 0.9,
+                    Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                task.wait(1.0)
             end
             -- Pastikan stroke kembali ke default saat loop berhenti
             if PillStroke and PillStroke.Parent then
