@@ -338,85 +338,62 @@ return function(ctx)
         -- 1. Tentukan target posisi pill (pakai posisi drag terakhir jika ada)
         local targetPillPos = lastPillPosition or DefaultPillPosition()
 
-        -- Target tengah pill dalam koordinat absolut (untuk animasi MainFrame menyusut ke sana)
-        local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2   -- +10 offset inner, +half width
+        -- Target tengah pill dalam koordinat absolut
+        local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2
         local pillAbsY = targetPillPos.Y.Offset + 10 + PILL_H / 2
 
-        -- 2. Fade out konten (sidebar + content) lebih awal — seolah "tersedot" duluan
-        Tween(ContentArea, {BackgroundTransparency = 1}, 0.18)
-        for _, child in ipairs(ContentArea:GetDescendants()) do
-            if child:IsA("TextLabel") or child:IsA("TextButton") then
-                Tween(child, {TextTransparency = 1}, 0.15)
-            elseif child:IsA("Frame") or child:IsA("ScrollingFrame") then
-                Tween(child, {BackgroundTransparency = 1}, 0.15)
-            end
-        end
+        -- 2. Susut MainFrame menuju posisi pill.
+        -- ClipsDescendants=true di MainFrame yang sudah ada akan otomatis
+        -- memotong konten saat frame mengecil — tidak perlu touch transparency apapun.
+        Tween(
+            MainFrame,
+            {
+                Size     = UDim2.new(0, PILL_W, 0, PILL_H),
+                Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
+            },
+            0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In
+        )
 
-        -- 3. Susut MainFrame menuju posisi tengah pill (Quart InOut = terasa "ditarik")
-        task.delay(0.12, function()
-            Tween(
-                MainFrame,
-                {
-                    Size     = UDim2.new(0, PILL_W, 0, PILL_H),
-                    Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
-                },
-                0.38, Enum.EasingStyle.Quart, Enum.EasingDirection.In
-            )
-        end)
-
-        -- 4. Hide elemen internal TopBar (CONNECTED dot, close/min buttons) setelah susut dimulai
-        task.delay(0.18, function()
-            Sidebar.Visible    = false
+        -- 3. Setelah animasi selesai: hide MainFrame, tampilkan pill
+        task.delay(0.42, function()
+            if not minimized then return end  -- guard: user restore sebelum selesai
+            Sidebar.Visible     = false
             ContentArea.Visible = false
-        end)
+            MainFrame.Visible   = false
 
-        -- 5. Setelah MainFrame selesai menyusut: sembunyikan, tampilkan pill
-        task.delay(0.55, function()
-            MainFrame.Visible = false
-            -- Reset transparency konten untuk restore nanti
-            ContentArea.BackgroundTransparency = 0
-            for _, child in ipairs(ContentArea:GetDescendants()) do
-                if child:IsA("TextLabel") or child:IsA("TextButton") then
-                    child.TextTransparency = 0
-                elseif child:IsA("Frame") or child:IsA("ScrollingFrame") then
-                    child.BackgroundTransparency = 0
-                end
-            end
-
-            -- Munculkan pill di posisi target
             MinimizedPill.Position = targetPillPos
             SetPillTransparency(1)
-            MinimizedPill.Visible  = true
-            TweenPillTransparency(0, 0.22)
+            MinimizedPill.Visible = true
+            TweenPillTransparency(0, 0.2)
         end)
     end
 
     local function DoRestore()
         minimized = false
 
-        -- 1. Simpan posisi pill saat ini (termasuk hasil drag)
+        -- 1. Simpan posisi pill saat ini
         lastPillPosition = MinimizedPill.Position
 
-        -- Hitung posisi absolut tengah pill untuk jadi titik asal expand
         local pillAbsX = lastPillPosition.X.Offset + 10 + PILL_W / 2
         local pillAbsY = lastPillPosition.Y.Offset + 10 + PILL_H / 2
 
         -- 2. Fade out pill
-        TweenPillTransparency(1, 0.18)
+        TweenPillTransparency(1, 0.15)
 
-        task.delay(0.2, function()
+        task.delay(0.17, function()
             MinimizedPill.Visible = false
 
-            -- 3. Snap MainFrame ke ukuran & posisi pill — titik asal animasi expand
+            -- 3. Restore visibility SEBELUM expand — konten sudah dalam state normal,
+            -- ClipsDescendants yang akan menyembunyikannya saat frame masih kecil.
+            Sidebar.Visible     = true
+            ContentArea.Visible = true
+
+            -- 4. Snap MainFrame ke ukuran & posisi pill
             MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
             MainFrame.Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2)
             MainFrame.Visible  = true
 
-            -- Pastikan semua children visible sebelum expand
-            Sidebar.Visible     = true
-            ContentArea.Visible = true
-
-            -- 4. Expand ke ukuran penuh dengan Back.Out — terasa "meledak" keluar dari pill
+            -- 5. Expand ke ukuran penuh dengan Back.Out
             Tween(
                 MainFrame,
                 {
@@ -426,7 +403,6 @@ return function(ctx)
                 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out
             )
 
-            -- 5. Snap pixel setelah animasi selesai
             task.delay(0.5, ctx.SnapMainFramePosition)
         end)
     end
