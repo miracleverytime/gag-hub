@@ -336,6 +336,63 @@ return function(ctx)
         return UDim2.new(0, cx, 0, 10)
     end
 
+    -- Snapshot transparansi asli semua elemen — diambil sekali, dipakai berulang kali.
+    -- Kunci: instance reference (bukan nama), value: {bg, text, image} nilai aslinya.
+    local transparencySnapshot = {}
+    local function BuildSnapshot()
+        transparencySnapshot = {}
+        local targets = {ContentArea, Sidebar}
+        for _, root in ipairs(targets) do
+            transparencySnapshot[root] = {bg = root.BackgroundTransparency}
+            for _, d in ipairs(root:GetDescendants()) do
+                if d:IsA("GuiObject") then
+                    local entry = {bg = d.BackgroundTransparency}
+                    if d:IsA("TextLabel") or d:IsA("TextButton") then
+                        entry.text = d.TextTransparency
+                    end
+                    if d:IsA("ImageLabel") or d:IsA("ImageButton") then
+                        entry.img = d.ImageTransparency
+                    end
+                    transparencySnapshot[d] = entry
+                end
+            end
+        end
+    end
+
+    -- Terapkan snapshot (restore ke nilai asli), dengan optional tween duration
+    local function RestoreFromSnapshot(duration)
+        for obj, snap in pairs(transparencySnapshot) do
+            if obj and obj.Parent then
+                if duration and duration > 0 then
+                    local props = {BackgroundTransparency = snap.bg}
+                    if snap.text then props.TextTransparency  = snap.text end
+                    if snap.img  then props.ImageTransparency = snap.img  end
+                    Tween(obj, props, duration)
+                else
+                    obj.BackgroundTransparency = snap.bg
+                    if snap.text then obj.TextTransparency  = snap.text end
+                    if snap.img  then obj.ImageTransparency = snap.img  end
+                end
+            end
+        end
+    end
+
+    -- Fade semua elemen ke fully transparan
+    local function FadeOutContent(duration)
+        for obj, _ in pairs(transparencySnapshot) do
+            if obj and obj.Parent then
+                local props = {BackgroundTransparency = 1}
+                if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+                    props.TextTransparency = 1
+                end
+                if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+                    props.ImageTransparency = 1
+                end
+                Tween(obj, props, duration)
+            end
+        end
+    end
+
     local function DoMinimize()
         minimized = true
         ctx.isMinimized = true
@@ -347,87 +404,39 @@ return function(ctx)
         local topBarOriginalPos  = TopBar.Position
         local topBarOriginalSize = TopBar.Size
 
-        -- FASE 1 (0.00–0.15s): Sidebar & ContentArea fade out cepat — "tersedot menghilang"
-        -- GroupTransparency tidak ada di Roblox biasa, jadi kita tween BackgroundTransparency
-        -- ContentArea dan semua TextLabel di dalamnya sekaligus via properti frame induk.
-        -- Cara paling efisien: cukup pindahkan keduanya ke luar viewport (scale trick) +
-        -- fade BackgroundTransparency ContentArea agar tidak ada artefak warna.
-        Tween(ContentArea, {BackgroundTransparency = 1}, 0.12)
-        Tween(Sidebar,     {BackgroundTransparency = 1}, 0.12)
-        -- Fade teks di dalam ContentArea & Sidebar (semua TextLabel/ImageLabel langsung)
-        for _, d in ipairs(ContentArea:GetDescendants()) do
-            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("ImageLabel") then
-                Tween(d, {TextTransparency = 1, ImageTransparency = 1, BackgroundTransparency = 1}, 0.12)
-            end
-        end
-        for _, d in ipairs(Sidebar:GetDescendants()) do
-            if d:IsA("TextLabel") or d:IsA("TextButton") or d:IsA("ImageLabel") then
-                Tween(d, {TextTransparency = 1, ImageTransparency = 1, BackgroundTransparency = 1}, 0.12)
-            end
-        end
+        -- Snapshot nilai transparansi asli sebelum diubah apapun
+        BuildSnapshot()
 
-        -- FASE 2 (0.10s): MainFrame mulai mengecil — sedikit delay biar fade konten
-        -- sempat berjalan dulu, kesan "tersedot" sebelum frame menyusut.
+        -- FASE 1 (0.00s): Konten tersedot menghilang
+        FadeOutContent(0.12)
+
+        -- FASE 2 (0.10s): Frame mulai mengecil setelah konten hampir hilang
         task.delay(0.10, function()
             if not minimized then return end
-
-            -- TopBar ikut mengecil ke PILL_H bersamaan dengan MainFrame
-            Tween(
-                TopBar,
-                {
-                    Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
-                    Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
-                },
-                0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In
-            )
-
-            -- MainFrame susut ke ukuran & posisi pill
-            Tween(
-                MainFrame,
-                {
-                    Size     = UDim2.new(0, PILL_W, 0, PILL_H),
-                    Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
-                },
-                0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In
-            )
+            Tween(TopBar, {
+                Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
+                Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
+            }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            Tween(MainFrame, {
+                Size     = UDim2.new(0, PILL_W, 0, PILL_H),
+                Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
+            }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
         end)
 
-        -- FASE 3 (0.10 + 0.37s = 0.47s): animasi shrink selesai → swap ke pill
+        -- FASE 3 (0.47s): Shrink selesai → swap ke pill, restore transparansi asli (hidden)
         task.delay(0.47, function()
             if not minimized then return end
 
-            -- Show pill dulu (posisi identik, langsung opak) — baru hide MainFrame
             MinimizedPill.Position = targetPillPos
             SetPillTransparency(0)
-            MinimizedPill.Visible  = true
+            MinimizedPill.Visible = true
 
             Sidebar.Visible     = false
             ContentArea.Visible = false
             MainFrame.Visible   = false
 
-            -- Restore semua transparansi konten agar siap saat DoRestore
-            ContentArea.BackgroundTransparency = 0
-            Sidebar.BackgroundTransparency     = 0
-            for _, d in ipairs(ContentArea:GetDescendants()) do
-                if d:IsA("TextLabel") or d:IsA("TextButton") then
-                    d.TextTransparency       = 0
-                    d.BackgroundTransparency = 0
-                elseif d:IsA("ImageLabel") then
-                    d.ImageTransparency      = 0
-                    d.BackgroundTransparency = 0
-                end
-            end
-            for _, d in ipairs(Sidebar:GetDescendants()) do
-                if d:IsA("TextLabel") or d:IsA("TextButton") then
-                    d.TextTransparency       = 0
-                    d.BackgroundTransparency = 0
-                elseif d:IsA("ImageLabel") then
-                    d.ImageTransparency      = 0
-                    d.BackgroundTransparency = 0
-                end
-            end
-
-            -- Restore TopBar ke ukuran asli
+            -- Restore nilai asli (snap, bukan tween) — aman karena sudah hidden
+            RestoreFromSnapshot(0)
             TopBar.Size     = topBarOriginalSize
             TopBar.Position = topBarOriginalPos
         end)
@@ -440,65 +449,31 @@ return function(ctx)
         local pillAbsX = lastPillPosition.X.Offset + 10 + PILL_W / 2
         local pillAbsY = lastPillPosition.Y.Offset + 10 + PILL_H / 2
 
-        -- Pastikan konten mulai dari transparan (akan fade-in setelah frame cukup besar)
-        ContentArea.BackgroundTransparency = 1
-        Sidebar.BackgroundTransparency     = 1
-        for _, d in ipairs(ContentArea:GetDescendants()) do
-            if d:IsA("TextLabel") or d:IsA("TextButton") then
-                d.TextTransparency = 1 ; d.BackgroundTransparency = 1
-            elseif d:IsA("ImageLabel") then
-                d.ImageTransparency = 1 ; d.BackgroundTransparency = 1
-            end
-        end
-        for _, d in ipairs(Sidebar:GetDescendants()) do
-            if d:IsA("TextLabel") or d:IsA("TextButton") then
-                d.TextTransparency = 1 ; d.BackgroundTransparency = 1
-            elseif d:IsA("ImageLabel") then
-                d.ImageTransparency = 1 ; d.BackgroundTransparency = 1
-            end
-        end
+        -- Set konten ke transparan dulu (dari nilai asli via snapshot → 1)
+        -- Snapshot sudah ada dari DoMinimize terakhir, tinggal fade ke invisible
+        FadeOutContent(0)  -- instant, karena belum visible
 
-        -- FASE 1: Snap MainFrame ke posisi pill, show, hide pill — swap tanpa gap
+        -- FASE 1: Swap pill → MainFrame tanpa gap
         Sidebar.Visible     = true
         ContentArea.Visible = true
-
         MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
         MainFrame.Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2)
         MainFrame.Visible  = true
         MinimizedPill.Visible = false
 
-        -- FASE 2: Expand frame ke ukuran penuh
-        Tween(
-            MainFrame,
-            {
-                Size     = originalSize,
-                Position = UDim2.new(0.5, -450, 0.5, -300),
-            },
-            0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out
-        )
+        -- FASE 2: Frame expand
+        Tween(MainFrame, {
+            Size     = originalSize,
+            Position = UDim2.new(0.5, -450, 0.5, -300),
+        }, 0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
-        -- FASE 3 (0.20s): Setelah frame cukup besar, fade-in konten — kesan "muncul dari dalam"
+        -- FASE 3 (0.20s): Konten fade-in ke nilai aslinya masing-masing
         task.delay(0.20, function()
             if minimized then return end
-            Tween(ContentArea, {BackgroundTransparency = 0}, 0.18)
-            Tween(Sidebar,     {BackgroundTransparency = 0}, 0.18)
-            for _, d in ipairs(ContentArea:GetDescendants()) do
-                if d:IsA("TextLabel") or d:IsA("TextButton") then
-                    Tween(d, {TextTransparency = 0, BackgroundTransparency = 0}, 0.18)
-                elseif d:IsA("ImageLabel") then
-                    Tween(d, {ImageTransparency = 0, BackgroundTransparency = 0}, 0.18)
-                end
-            end
-            for _, d in ipairs(Sidebar:GetDescendants()) do
-                if d:IsA("TextLabel") or d:IsA("TextButton") then
-                    Tween(d, {TextTransparency = 0, BackgroundTransparency = 0}, 0.18)
-                elseif d:IsA("ImageLabel") then
-                    Tween(d, {ImageTransparency = 0, BackgroundTransparency = 0}, 0.18)
-                end
-            end
+            RestoreFromSnapshot(0.18)
         end)
 
-        -- FASE 4: Clear guard setelah expand selesai
+        -- FASE 4: Clear guard
         task.delay(0.45, function()
             ctx.isMinimized = false
             ctx.SnapMainFramePosition()
