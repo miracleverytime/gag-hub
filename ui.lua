@@ -715,6 +715,10 @@ return function(ctx)
     -- mis. 1237px -> 168.5px) dan membuat SEMUA teks di window jadi blur.
     -- Snap posisi center window ke pixel bulat berbasis ukuran ScreenGui.
     local function SnapMainFramePosition()
+        -- Guard: jangan snap saat sedang minimize/restore animation.
+        -- ctx.isMinimized di-set oleh bootstrap.lua sebelum animasi dimulai
+        -- dan di-clear setelah MainFrame kembali visible penuh.
+        if ctx.isMinimized then return end
         local vp = ScreenGui.AbsoluteSize
         if vp.X <= 0 or vp.Y <= 0 then return end
         local x = math.floor((vp.X - MainFrame.AbsoluteSize.X) / 2 + 0.5)

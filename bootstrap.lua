@@ -323,6 +323,10 @@ return function(ctx)
     -- dan dipakai sebagai titik asal animasi expand berikutnya.
 
     local minimized = false
+    -- ctx.isMinimized dipakai oleh SnapMainFramePosition (ui.lua) sebagai guard:
+    -- selama animasi minimize/restore, AbsoluteSize MainFrame berubah dan bisa
+    -- memicu snap ke tengah → blink. Flag ini mencegah hal itu.
+    ctx.isMinimized = false
 
     -- Hitung posisi pill default: rata tengah viewport, y=10px dari atas.
     -- Ini meniru posisi BrandCard yang ada di tengah TopBar.
@@ -334,6 +338,7 @@ return function(ctx)
 
     local function DoMinimize()
         minimized = true
+        ctx.isMinimized = true  -- mencegah SnapMainFramePosition blink saat tween menyusut
 
         -- 1. Tentukan target posisi pill (pakai posisi drag terakhir jika ada)
         local targetPillPos = lastPillPosition or DefaultPillPosition()
@@ -407,7 +412,11 @@ return function(ctx)
                 0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out
             )
 
-            task.delay(0.5, ctx.SnapMainFramePosition)
+            -- Clear guard setelah animasi expand selesai, lalu snap ke pixel bersih
+            task.delay(0.5, function()
+                ctx.isMinimized = false
+                ctx.SnapMainFramePosition()
+            end)
         end)
     end
 
