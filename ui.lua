@@ -1206,8 +1206,8 @@ return function(ctx)
     -- Idle subtle, Hover slightly brighter, Pressed deeper, Active = lime glow
     local ProfileCard = Create("TextButton", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -28, 0, 56),
-        Position = UDim2.new(0, 14, 0, 10),
+        Size = UDim2.new(1, -20, 0, 60),
+        Position = UDim2.new(0, 10, 0, 10),
         BackgroundColor3 = Colors.BackgroundLighter,
         BackgroundTransparency = 0.55,
         BorderSizePixel = 0,
@@ -1215,7 +1215,7 @@ return function(ctx)
         AutoButtonColor = false,
     })
     CreateCorner(ProfileCard, 10)
-    local ProfileStroke = CreateStroke(ProfileCard, Colors.BorderLight, 1)
+    local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
     local ProfileAvatarStroke -- assigned after ProfileAvatar is created (forward decl for hover handlers)
     local profileHovered = false
 
@@ -1233,9 +1233,9 @@ return function(ctx)
         profileHovered = false
         if ActivePage ~= "Profile" then
             Tween(ProfileCard, {BackgroundTransparency = 0.55}, SIDE_TWEEN)
-            Tween(ProfileStroke, {Color = Colors.BorderLight}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.Border}, SIDE_TWEEN)
             if ProfileAvatarStroke then
-                Tween(ProfileAvatarStroke, {Color = Colors.BorderLight}, SIDE_TWEEN)
+                Tween(ProfileAvatarStroke, {Color = Colors.Border}, SIDE_TWEEN)
             end
         end
     end)
@@ -1260,7 +1260,7 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     CreateCorner(ProfileAvatar, 7)
-    ProfileAvatarStroke = CreateStroke(ProfileAvatar, Colors.BorderLight, 1)
+    ProfileAvatarStroke = CreateStroke(ProfileAvatar, Colors.Border, 1)
 
     Create("TextLabel", {
         Parent = ProfileCard,
@@ -1498,9 +1498,9 @@ return function(ctx)
         else
             ProfileCard.BackgroundColor3 = Colors.BackgroundLighter
             Tween(ProfileCard, {BackgroundTransparency = 0.55}, SIDE_TWEEN)
-            Tween(ProfileStroke, {Color = Colors.BorderLight, Transparency = 0}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
             if ProfileAvatarStroke then
-                Tween(ProfileAvatarStroke, {Color = Colors.BorderLight, Transparency = 0}, SIDE_TWEEN)
+                Tween(ProfileAvatarStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
             end
         end
         PageHeaderTitle.Text = string.upper(pageName)
