@@ -511,60 +511,6 @@ CreateInfoText(plantContent, "How It Works",
             end
         end)
 
-        CreateSubHeader(plotContent, "Plot Actions")
-        CreateActionButton(plotContent, "Customise Plot Theme", function()
-            local plot = GetMyPlot()
-            if plot then
-                local signs = plot:FindFirstChild("Signs")
-                if signs then
-                    local garden = signs:FindFirstChild("Garden")
-                    if garden then
-                        local core = garden:FindFirstChild("CorePart")
-                        if core then
-                            local prompt = core:FindFirstChild("CustomiseTheme")
-                            if prompt then SafeFirePrompt(prompt) end
-                        end
-                    end
-                end
-            end
-            Notify("Plot", "Opened theme customiser.", Colors.Accent)
-        end)
-        CreateActionButton(plotContent, "Like My Garden", function()
-            local plot = GetMyPlot()
-            if plot then
-                for _, desc in ipairs(plot:GetDescendants()) do
-                    if desc:IsA("ProximityPrompt") and desc.Name == "GardenSignLike" then
-                        SafeFirePrompt(desc) break
-                    end
-                end
-            end
-            Notify("Plot", "Liked your garden!", Colors.Gold)
-        end)
-        CreateActionButton(plotContent, "Teleport to Plot SpawnPoint", function()
-            local plot = GetMyPlot()
-            if plot then
-                local sp = plot:FindFirstChild("SpawnPoint")
-                if sp and player.Character then
-                    player.Character:PivotTo(sp.CFrame + Vector3.new(0, 5, 0))
-                    Notify("Teleport", "Teleported to Plot " .. MY_PLOT_ID .. " SpawnPoint", Colors.Success)
-                    return
-                end
-            end
-            Notify("Teleport", "SpawnPoint not found.", Colors.Error)
-        end, Colors.Success)
-
-        local pottedCard, pottedContent = CreateSectionCard("\240\159\170\180 Potted Plants", 2, Colors.Rainbow)
-        CreateActionButton(pottedContent, "Auto Pickup Potted Plants", function()
-            local picked = 0
-            for _, desc in ipairs(game:GetService("Workspace"):GetDescendants()) do
-                if desc:IsA("ProximityPrompt") and desc.Name == "PickUpPottedPlantPrompt" then
-                    SafeFirePrompt(desc)
-                    picked = picked + 1
-                    task.wait(0.2)
-                end
-            end
-            Notify("Potted", "Picked up " .. picked .. " potted plant(s)", Colors.Rainbow)
-        end, Colors.Rainbow)
     end)
 
     -- ====================== SHOP PAGE ======================
@@ -683,132 +629,8 @@ CreateInfoText(plantContent, "How It Works",
         end
         CreateToggle(buyContent, "Notify on Purchase", "notifyBuy", "Show a notification each time a seed is bought")
 
-        -- Predict Next Stock
-        local predictCard, predictContent = CreateSectionCard("\240\159\148\174 Predict Next Stock", 2, Colors.Rainbow)
-
-        local SEED_RESTOCK_DATA = {
-            ["Carrot"]={chance=100,restockMin=3,restockMax=4},["Strawberry"]={chance=100,restockMin=4,restockMax=5},
-            ["Blueberry"]={chance=100,restockMin=1,restockMax=2},["Tulip"]={chance=100,restockMin=3,restockMax=4},
-            ["Tomato"]={chance=90,restockMin=2,restockMax=3},["Apple"]={chance=52.63,restockMin=1,restockMax=1},
-            ["Bamboo"]={chance=80,restockMin=7,restockMax=11},["Corn"]={chance=35,restockMin=1,restockMax=1},
-            ["Cactus"]={chance=16.668,restockMin=1,restockMax=2},["Pineapple"]={chance=12.501,restockMin=1,restockMax=3},
-            ["Mushroom"]={chance=9.092,restockMin=2,restockMax=5},["Green Bean"]={chance=15,restockMin=1,restockMax=2},
-            ["Banana"]={chance=9,restockMin=1,restockMax=1},["Grape"]={chance=6.668,restockMin=1,restockMax=1},
-            ["Coconut"]={chance=5.001,restockMin=1,restockMax=1},["Mango"]={chance=5.001,restockMin=1,restockMax=1},
-            ["Dragon Fruit"]={chance=4,restockMin=1,restockMax=1},["Acorn"]={chance=2.942,restockMin=1,restockMax=3},
-            ["Cherry"]={chance=2.274,restockMin=1,restockMax=1},["Sunflower"]={chance=1.787,restockMin=1,restockMax=1},
-            ["Venus Fly Trap"]={chance=1.43,restockMin=1,restockMax=1},["Pomegranate"]={chance=0.927,restockMin=1,restockMax=1},
-            ["Poison Apple"]={chance=0.533,restockMin=1,restockMax=1},["Venom Spitter"]={chance=0.475,restockMin=1,restockMax=1},
-            ["Moon Bloom"]={chance=0.35,restockMin=1,restockMax=1},["Hypno Bloom"]={chance=0.275,restockMin=1,restockMax=1},
-            ["Dragon's Breath"]={chance=0.2,restockMin=1,restockMax=1},["Ghost Pepper"]={chance=0.533,restockMin=1,restockMax=1},
-            ["Poison Ivy"]={chance=0.533,restockMin=1,restockMax=1},["Glow Mushroom"]={chance=0.533,restockMin=1,restockMax=1},
-            ["Romanesco"]={chance=0.533,restockMin=1,restockMax=1},["Horned Melon"]={chance=0.533,restockMin=1,restockMax=1},
-        }
-
-        local function GetRestockData()
-            local sv = ReplicatedStorage:FindFirstChild("StockValues")
-            if not sv then return nil end
-            local ss = sv:FindFirstChild("SeedShop")
-            if not ss then return nil end
-            local nextVal = ss:FindFirstChild("UnixNextRestock")
-            local lastVal = ss:FindFirstChild("UnixLastRestock")
-            if not nextVal or not lastVal then return nil end
-            local interval = math.max(nextVal.Value - lastVal.Value, 1)
-            return {nextRestock = nextVal.Value, lastRestock = lastVal.Value, interval = interval}
-        end
-
-        local function FormatSeconds(secs)
-            secs = math.max(0, math.floor(secs))
-            local h = math.floor(secs / 3600)
-            local m = math.floor((secs % 3600) / 60)
-            local s = secs % 60
-            if h > 0 then return h .. "h " .. m .. "m " .. s .. "s"
-            elseif m > 0 then return m .. "m " .. s .. "s" end
-            return s .. "s"
-        end
-        local function FormatUnixTime(unix)
-            local d = os.date("*t", unix)
-            if d then return string.format("%02d:%02d:%02d", d.hour, d.min, d.sec) end
-            return tostring(unix)
-        end
-        local function ExpectedRestocksUntilAppear(chance)
-            if chance >= 100 then return 1 end
-            return math.ceil(1 / (chance / 100))
-        end
-        local function RestocksFor75Pct(chance)
-            if chance >= 100 then return 1 end
-            local p = chance / 100
-            return math.max(1, math.ceil(math.log(0.25) / math.log(1 - p)))
-        end
-        local function RestockColor(restocksLeft)
-            if restocksLeft <= 1 then return Colors.Success
-            elseif restocksLeft <= 10 then return Colors.Warning
-            elseif restocksLeft <= 50 then return Colors.Electric
-            else return Colors.Error end
-        end
-
-        local timerRow = Create("Frame", {Parent = predictContent, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y})
-        CreateListLayout(timerRow, 4)
-        local _, nextRestockLbl = CreateStatRow(timerRow, "\226\143\177 Next Restock", "...", Colors.Rainbow)
-        local _, intervalLbl    = CreateStatRow(timerRow, "\240\159\147\144 Interval", "...", Colors.TextSecondary)
-        local _, stockCountLbl  = CreateStatRow(timerRow, "\240\159\147\166 In Stock Now", "...", Colors.Success)
-
-        task.spawn(function()
-            while GetActivePage() == "Shop" do
-                task.wait(0.5)
-                if GetActivePage() ~= "Shop" then break end
-                local data = GetRestockData()
-                if not data then
-                    nextRestockLbl.Text = "\226\154\160 Stock data unavailable"
-                    intervalLbl.Text    = "\226\128\148"
-                    stockCountLbl.Text  = "\226\128\148"
-                    continue
-                end
-                local sisa = math.max(0, data.nextRestock - os.time())
-                nextRestockLbl.Text = sisa > 0 and (FormatSeconds(sisa) .. "  (jam " .. FormatUnixTime(data.nextRestock) .. ")") or "\240\159\159\162 RESTOCK SEKARANG!"
-                intervalLbl.Text    = FormatSeconds(data.interval)
-                local items = ReplicatedStorage:FindFirstChild("StockValues") and ReplicatedStorage.StockValues:FindFirstChild("SeedShop") and ReplicatedStorage.StockValues.SeedShop:FindFirstChild("Items")
-                local available = 0
-                if items then
-                    for _, c in ipairs(items:GetChildren()) do
-                        if c:IsA("NumberValue") and c.Value > 0 then available = available + 1 end
-                    end
-                end
-                stockCountLbl.Text = available .. " seed(s) in stock"
-            end
-        end)
-
-        CreateSubHeader(predictContent, "\240\159\140\177 Predict Per Seed")
-        States.predictSeedTarget = States.predictSeedTarget or SEEDS[1]
-        CreateDropdown(predictContent, "Select Seed", SEEDS, "predictSeedTarget")
-        CreateActionButton(predictContent, "\240\159\148\141 Predict This Seed", function()
-            local seedName = States.predictSeedTarget or SEEDS[1]
-            local data = GetRestockData()
-            if not data then Notify("Predict", "\226\154\160\239\184\143 Restock data not available!", Colors.Warning, 5) return end
-            local stock = GetSeedStock(seedName)
-            local sdata = SEED_RESTOCK_DATA[seedName]
-            local sisa = math.max(0, data.nextRestock - os.time())
-            if stock > 0 then
-                Notify("\240\159\140\177 " .. seedName, "In stock: " .. stock, Colors.Success, 8)
-                task.wait(0.1)
-                Notify("\226\143\177 Next restock", FormatSeconds(sisa), Colors.Accent, 8)
-                return
-            end
-            if not sdata then Notify("\240\159\140\177 " .. seedName, "Out of stock, no chance data available", Colors.Warning, 6) return end
-            local meanN = ExpectedRestocksUntilAppear(sdata.chance)
-            local n75 = RestocksFor75Pct(sdata.chance)
-            local etaDetik = sisa + (data.interval * (meanN - 1))
-            local eta75Detik = sisa + (data.interval * (n75 - 1))
-            local col = RestockColor(meanN)
-            Notify("\240\159\140\177 " .. seedName, "Out of stock | Chance: " .. sdata.chance .. "%", col, 10)
-            task.wait(0.1)
-            Notify("\240\159\147\138 Expected to appear", "~" .. meanN .. " restocks away (~" .. FormatSeconds(etaDetik) .. ")", col, 10)
-            task.wait(0.1)
-            Notify("\240\159\142\175 75% likely within", n75 .. " restocks (~" .. FormatSeconds(eta75Detik) .. ")", Colors.Warning, 10)
-        end, Colors.Rainbow)
-
         -- Auto Buy Gear
-        local gearCard, gearContent = CreateSectionCard("\226\154\153\239\184\143 Auto Buy Gear", 3, Colors.Electric)
+        local gearCard, gearContent = CreateSectionCard("\226\154\153\239\184\143 Auto Buy Gear", 2, Colors.Electric)
 
         local autoBuyGearToggleBg, autoBuyGearKnob
         local _msGearControl = { SetDisabled = nil }
@@ -891,7 +713,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateToggle(gearContent, "Notify on Purchase", "notifyBuyGear", "Show a notification each time a gear is bought")
 
         -- Auto Buy Crate
-        local crateCard, crateContent = CreateSectionCard("\240\159\147\166 Auto Buy Crate", 4, Colors.Warning)
+        local crateCard, crateContent = CreateSectionCard("\240\159\147\166 Auto Buy Crate", 3, Colors.Warning)
 
         local autoBuyCrateToggleBg, autoBuyCrateKnob
         local _msCrateControl = { SetDisabled = nil }
@@ -997,7 +819,7 @@ CreateInfoText(plantContent, "How It Works",
         end)
 
         -- Auto Open Crate
-        local openCrateCard, openCrateContent = CreateSectionCard("\240\159\142\129 Auto Open Crate", 5, Colors.Gold)
+        local openCrateCard, openCrateContent = CreateSectionCard("\240\159\142\129 Auto Open Crate", 4, Colors.Gold)
         CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Automatically opens all crates in your backpack")
         CreateSlider(openCrateContent, "Delay Between Opens (s)", 1, 30, "crateOpenDelay")
         CreateToggle(openCrateContent, "Notify on Open", "notifyOpenCrate", "Show what item you received when a crate is opened")
