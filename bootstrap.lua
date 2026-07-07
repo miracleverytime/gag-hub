@@ -361,10 +361,14 @@ return function(ctx)
             ContentArea.Visible = false
             MainFrame.Visible   = false
 
+            -- Posisi + transparency harus di-set SEBELUM Visible=true
+            -- supaya tidak ada satu frame pun yang render di posisi salah (blink).
             MinimizedPill.Position = targetPillPos
-            SetPillTransparency(1)
-            MinimizedPill.Visible = true
-            TweenPillTransparency(0, 0.2)
+            SetPillTransparency(1)   -- pastikan fully transparan dulu
+            MinimizedPill.Visible  = true
+            task.defer(function()    -- defer: jalan di frame render berikutnya, setelah posisi committed
+                TweenPillTransparency(0, 0.2)
+            end)
         end)
     end
 
