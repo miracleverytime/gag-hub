@@ -1074,8 +1074,8 @@ return function(ctx)
                 Position = UDim2.new(0, 11, 0.5, -8),
                 BackgroundTransparency = 1,
                 Image = assetId,
-                ImageColor3 = Colors.TextMuted,      -- gray saat idle
-                ImageTransparency = 0.25,
+                ImageColor3 = Colors.TextSecondary,  -- gray saat idle
+                ImageTransparency = 0,
                 ScaleType = Enum.ScaleType.Fit,
             })
         else
@@ -1121,7 +1121,7 @@ return function(ctx)
             Tween(textLabel, {TextColor3 = Colors.TextSecondary}, d)
             textLabel.Font = FONT_BODY
             if assetId then
-                Tween(iconLabel, {ImageColor3 = Colors.TextMuted, ImageTransparency = 0.25}, d)
+                Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0}, d)
             else
                 Tween(iconLabel, {TextColor3 = Colors.TextMuted, TextTransparency = 0.15}, d)
             end
@@ -1132,7 +1132,7 @@ return function(ctx)
             Tween(button, {BackgroundTransparency = 0.45}, SIDE_TWEEN)
             Tween(textLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
             if assetId then
-                Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.05}, SIDE_TWEEN)
+                Tween(iconLabel, {ImageColor3 = Colors.TextPrimary, ImageTransparency = 0}, SIDE_TWEEN)
             else
                 Tween(iconLabel, {TextColor3 = Colors.TextSecondary, TextTransparency = 0}, SIDE_TWEEN)
             end
