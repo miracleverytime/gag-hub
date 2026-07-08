@@ -1310,12 +1310,12 @@ return function(ctx)
         TextXAlignment = Enum.TextXAlignment.Left,
     })
 
-    -- footer: icon ⚡ + Powered by Miracle Labs
+    -- footer: icon ⚡ + "Powered by" + "Miracle Labs" (2 baris, mirip ss)
     -- Dibungkus dalam frame solid agar tidak tertimpa konten scroll sidebar
     local SidebarFooter = Create("Frame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 36),
-        Position = UDim2.new(0, 0, 1, -36),
+        Size = UDim2.new(1, 0, 0, 52),
+        Position = UDim2.new(0, 0, 1, -52),
         BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
         ZIndex = 20,
@@ -1323,7 +1323,7 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = SidebarFooter,
         Size = UDim2.new(0, 11, 0, 11),
-        Position = UDim2.new(0.5, -5, 0, 4),
+        Position = UDim2.new(0.5, -5, 0, 6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://77981384142919",
         ImageColor3 = Colors.Accent,
@@ -1331,10 +1331,23 @@ return function(ctx)
     })
     Create("TextLabel", {
         Parent = SidebarFooter,
-        Size = UDim2.new(1, 0, 0, 16),
-        Position = UDim2.new(0, 0, 0, 17),
+        Size = UDim2.new(1, 0, 0, 14),
+        Position = UDim2.new(0, 0, 0, 21),
         BackgroundTransparency = 1,
-        Text = "Powered by Miracle Labs",
+        Text = "Powered by",
+        TextColor3 = Colors.TextMuted,
+        TextTransparency = 0.3,
+        TextSize = 11,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 21,
+    })
+    Create("TextLabel", {
+        Parent = SidebarFooter,
+        Size = UDim2.new(1, 0, 0, 14),
+        Position = UDim2.new(0, 0, 0, 35),
+        BackgroundTransparency = 1,
+        Text = "Miracle Labs",
         TextColor3 = Colors.TextMuted,
         TextTransparency = 0.3,
         TextSize = 11,
