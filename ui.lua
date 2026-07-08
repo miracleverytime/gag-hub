@@ -2476,7 +2476,7 @@ return function(ctx)
                 Text = "\226\152\134 PRIME",                     -- ☆ outline star
                 TextColor3 = Colors.Accent,
                 TextSize = 11,
-                Font = FONT_MONO,
+                Font = FONT_BOLD,
                 BorderSizePixel = 0,
                 LayoutOrder = 2,
             })
