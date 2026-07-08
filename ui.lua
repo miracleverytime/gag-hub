@@ -1535,9 +1535,10 @@ return function(ctx)
                 PageHeaderIcon.ImageTransparency = 0.15
             end
         else
-            -- Profile atau page tanpa sidebar button
-            PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
-            PageHeaderIcon.ImageTransparency = 0.5
+            -- Profile page: pakai icon User (sama seperti sidebar Player)
+            PageHeaderIcon.Image = LUCIDE_ICONS["Player"] or ""
+            PageHeaderIcon.ImageColor3 = Colors.Accent
+            PageHeaderIcon.ImageTransparency = 0
         end
         -- Profile card: exact same Active styling as nav items
         -- (dark green translucent bg + lime glow border); subtle saat idle
