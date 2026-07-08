@@ -1311,20 +1311,28 @@ return function(ctx)
     })
 
     -- footer: icon ⚡ + Powered by Miracle Labs
-    -- Icon petir (ImageLabel dengan asset ID 77981384142919)
-    Create("ImageLabel", {
+    -- Dibungkus dalam frame solid agar tidak tertimpa konten scroll sidebar
+    local SidebarFooter = Create("Frame", {
         Parent = Sidebar,
-        Size = UDim2.new(0, 18, 0, 18),
-        Position = UDim2.new(0.5, -9, 1, -52),
+        Size = UDim2.new(1, 0, 0, 36),
+        Position = UDim2.new(0, 0, 1, -36),
+        BackgroundColor3 = Colors.BackgroundLight,
+        BorderSizePixel = 0,
+        ZIndex = 20,
+    })
+    Create("ImageLabel", {
+        Parent = SidebarFooter,
+        Size = UDim2.new(0, 11, 0, 11),
+        Position = UDim2.new(0.5, -5, 0, 4),
         BackgroundTransparency = 1,
         Image = "rbxassetid://77981384142919",
         ImageColor3 = Colors.Accent,
-        ZIndex = 10,
+        ZIndex = 21,
     })
     Create("TextLabel", {
-        Parent = Sidebar,
+        Parent = SidebarFooter,
         Size = UDim2.new(1, 0, 0, 16),
-        Position = UDim2.new(0, 0, 1, -30),
+        Position = UDim2.new(0, 0, 0, 17),
         BackgroundTransparency = 1,
         Text = "Powered by Miracle Labs",
         TextColor3 = Colors.TextMuted,
@@ -1332,6 +1340,7 @@ return function(ctx)
         TextSize = 11,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 21,
     })
 
     -- ====================== CONTENT AREA ======================
