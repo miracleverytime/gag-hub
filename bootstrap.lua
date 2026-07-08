@@ -166,23 +166,36 @@ return function(ctx)
         ZIndex = 52,
     })
 
-    -- Segmen FPS (92px, identik FpsSeg)
+    -- FPS icon (identik BrandCard: gauge/speedometer lucide, x=123)
+    local PillFpsIcon = Create("ImageLabel", {
+        Parent = PillInner,
+        Size = UDim2.new(0, 13, 0, 13),
+        Position = UDim2.new(0, 123, 0.5, -6),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://91865147593924",
+        ImageColor3 = Colors.Accent,
+        ImageTransparency = 1,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 52,
+    })
+
+    -- Segmen FPS (identik FpsSeg: x=145, w=79, TextXAlignment Left)
     local PillFps = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 92, 1, 0),
-        Position = UDim2.new(0, 117, 0, 0),
+        Size = UDim2.new(0, 79, 1, 0),
+        Position = UDim2.new(0, 145, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68">FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">--</font>',
+        Text = '<font color="#6A6D68"> FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextTransparency = 1,
         TextSize = 12,
         Font = Enum.Font.Code,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 52,
     })
 
-    -- Divider 2
+    -- Divider 2 (identik BrandCard: x=209)
     local PillDiv2 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
@@ -193,19 +206,32 @@ return function(ctx)
         ZIndex = 52,
     })
 
-    -- Segmen MS (90px, identik MsSeg)
+    -- MS icon (identik BrandCard: activity/waveform lucide, x=215)
+    local PillMsIcon = Create("ImageLabel", {
+        Parent = PillInner,
+        Size = UDim2.new(0, 13, 0, 13),
+        Position = UDim2.new(0, 215, 0.5, -6),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://90043289378344",
+        ImageColor3 = Colors.Accent,
+        ImageTransparency = 1,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 52,
+    })
+
+    -- Segmen MS (identik MsSeg: x=237, w=77, TextXAlignment Left)
     local PillMs = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 90, 1, 0),
-        Position = UDim2.new(0, 210, 0, 0),
+        Size = UDim2.new(0, 77, 1, 0),
+        Position = UDim2.new(0, 237, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68">MS</font>  --',
+        Text = '<font color="#6A6D68"> MS</font>  --',
         TextColor3 = Colors.TextSecondary,
         TextTransparency = 1,
         TextSize = 12,
         Font = Enum.Font.Code,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 52,
     })
 
@@ -216,8 +242,8 @@ return function(ctx)
                 local fps = ctx.CurrentFPS or 0
                 local ping = 0
                 pcall(function() ping = ctx.player:GetNetworkPing() * 1000 end)
-                PillFps.Text = '<font color="#6A6D68">FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
-                PillMs.Text  = '<font color="#6A6D68">MS</font>  ' .. string.format("%.1f", ping)
+                PillFps.Text = '<font color="#6A6D68"> FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
+                PillMs.Text  = '<font color="#6A6D68"> MS</font>  ' .. string.format("%.1f", ping)
             end
             task.wait(0.5)
         end
@@ -250,16 +276,20 @@ return function(ctx)
         PillMs.TextTransparency           = alpha
         PillDiv1.BackgroundTransparency   = alpha
         PillDiv2.BackgroundTransparency   = alpha
+        PillFpsIcon.ImageTransparency     = alpha
+        PillMsIcon.ImageTransparency      = alpha
     end
     local function TweenPillTransparency(alpha, dur)
         dur = dur or 0.25
-        Tween(PillInner,  {BackgroundTransparency = alpha}, dur)
-        Tween(PillStroke, {Transparency           = alpha}, dur)
-        Tween(PillBrand,  {TextTransparency       = alpha}, dur)
-        Tween(PillFps,    {TextTransparency       = alpha}, dur)
-        Tween(PillMs,     {TextTransparency       = alpha}, dur)
-        Tween(PillDiv1,   {BackgroundTransparency = alpha}, dur)
-        Tween(PillDiv2,   {BackgroundTransparency = alpha}, dur)
+        Tween(PillInner,   {BackgroundTransparency = alpha}, dur)
+        Tween(PillStroke,  {Transparency           = alpha}, dur)
+        Tween(PillBrand,   {TextTransparency       = alpha}, dur)
+        Tween(PillFps,     {TextTransparency       = alpha}, dur)
+        Tween(PillMs,      {TextTransparency       = alpha}, dur)
+        Tween(PillDiv1,    {BackgroundTransparency = alpha}, dur)
+        Tween(PillDiv2,    {BackgroundTransparency = alpha}, dur)
+        Tween(PillFpsIcon, {ImageTransparency      = alpha}, dur)
+        Tween(PillMsIcon,  {ImageTransparency      = alpha}, dur)
     end
 
     -- Drag pill (identik pola drag logo lama)
