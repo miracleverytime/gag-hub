@@ -2131,16 +2131,13 @@ return function(ctx)
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
         })
-        local arrowLbl = Create("TextLabel", {
+        local arrowLbl = Create("ImageLabel", {
             Parent = pill,
-            Size = UDim2.new(0, 26, 1, 0),
-            Position = UDim2.new(1, -32, 0, 0),
+            Size = UDim2.new(0, 16, 0, 16),
+            Position = UDim2.new(1, -28, 0.5, -8),
             BackgroundTransparency = 1,
-            Text = "\226\150\190",
-            TextColor3 = Colors.Accent,
-            TextSize = 12,
-            Font = FONT_BOLD,
-            TextXAlignment = Enum.TextXAlignment.Center,
+            Image = "rbxassetid://76183523786785",
+            ImageColor3 = Colors.Accent,
         })
 
         local panel = Create("Frame", {
@@ -2278,7 +2275,7 @@ return function(ctx)
         pill.MouseButton1Click:Connect(function()
             if isDisabled then return end
             isOpen = not isOpen
-            Tween(arrowLbl, {Rotation = isOpen and 180 or 0}, 0.2)
+            arrowLbl.Image = isOpen and "rbxassetid://70479509562650" or "rbxassetid://76183523786785"
             if isOpen then
                 panel.Visible = true
                 panel.Size = UDim2.new(1, 0, 0, 0)
@@ -2298,7 +2295,7 @@ return function(ctx)
 
             if disabled and isOpen then
                 isOpen = false
-                Tween(arrowLbl, {Rotation = 0}, 0.18)
+                arrowLbl.Image = "rbxassetid://76183523786785"
                 Tween(panel, {Size = UDim2.new(1, 0, 0, 0)}, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
                 task.delay(0.19, function()
                     if not isOpen then panel.Visible = false end
@@ -2308,7 +2305,7 @@ return function(ctx)
             local dimAlpha = disabled and 0.55 or 0
             Tween(wrapper, {BackgroundTransparency = disabled and 0.5 or 0}, 0.18)
             Tween(pillLabel, {TextTransparency = dimAlpha}, 0.18)
-            Tween(arrowLbl,  {TextTransparency = dimAlpha}, 0.18)
+            Tween(arrowLbl,  {ImageTransparency = dimAlpha}, 0.18)
 
             for _, t in ipairs(itemFrames) do
                 t.nameLbl.TextTransparency  = dimAlpha
