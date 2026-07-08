@@ -2437,11 +2437,26 @@ return function(ctx)
         CreateCorner(av, 10)
         CreateStroke(av, Colors.BorderLight, 1)
 
+        -- Name row container (display name + prime badge side by side)
+        local nameRow = Create("Frame", {
+            Parent = idCard,
+            Size = UDim2.new(1, -104, 0, 24),
+            Position = UDim2.new(0, 88, 0, 20),
+            BackgroundTransparency = 1,
+        })
+        Create("UIListLayout", {
+            Parent = nameRow,
+            FillDirection = Enum.FillDirection.Horizontal,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Padding = UDim.new(0, 8),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+        })
+
         -- Display name (bold, 18px — biggest text on the card)
         Create("TextLabel", {
-            Parent = idCard,
-            Size = UDim2.new(1, -170, 0, 24),
-            Position = UDim2.new(0, 88, 0, 20),
+            Parent = nameRow,
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
             Text = player.DisplayName or player.Name,
             TextColor3 = Colors.TextPrimary,
@@ -2449,12 +2464,30 @@ return function(ctx)
             Font = FONT_BOLD,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
+            LayoutOrder = 1,
         })
+
+        -- Prime badge (inline next to display name)
+        if isPrime then
+            local badge = Create("TextLabel", {
+                Parent = nameRow,
+                Size = UDim2.new(0, 72, 0, 20),
+                BackgroundColor3 = Color3.fromRGB(20, 28, 14),  -- dark green-tinted bg like ss2
+                Text = "\226\152\134 PRIME",                     -- ☆ outline star
+                TextColor3 = Colors.Accent,
+                TextSize = 11,
+                Font = FONT_MONO,
+                BorderSizePixel = 0,
+                LayoutOrder = 2,
+            })
+            CreateCorner(badge, 5)
+            CreateStroke(badge, Colors.BorderLight, 1)
+        end
 
         -- Username subtitle (@name, mono, muted, 13px)
         Create("TextLabel", {
             Parent = idCard,
-            Size = UDim2.new(1, -170, 0, 18),
+            Size = UDim2.new(1, -104, 0, 18),
             Position = UDim2.new(0, 88, 0, 48),
             BackgroundTransparency = 1,
             Text = player.Name,
@@ -2464,21 +2497,6 @@ return function(ctx)
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
         })
-
-        -- Prime badge (top-right of card)
-        local badge = Create("TextLabel", {
-            Parent = idCard,
-            Size = UDim2.new(0, 78, 0, 22),
-            Position = UDim2.new(1, -94, 0, 20),
-            BackgroundColor3 = Colors.Background,
-            Text = isPrime and "\226\152\133 PRIME" or "FREE",
-            TextColor3 = isPrime and Colors.Accent or Colors.TextMuted,
-            TextSize = 11,
-            Font = FONT_MONO,
-            BorderSizePixel = 0,
-        })
-        CreateCorner(badge, 5)
-        CreateStroke(badge, isPrime and Colors.BorderLight or Colors.Border, 1)
 
         -- ── 4-stat row (SESSION · ACTIONS RUN · AVG FPS · UPTIME) ──
         -- Uses a horizontal UIListLayout for equal-width cells
