@@ -831,17 +831,28 @@ return function(ctx)
         BackgroundColor3 = Colors.Border,
         BorderSizePixel = 0,
     })
+    -- FPS icon (gauge/speedometer lucide)
+    Create("ImageLabel", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 13, 0, 13),
+        Position = UDim2.new(0, 123, 0.5, -6),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://91865147593924",
+        ImageColor3 = Colors.Accent,
+        ImageTransparency = 0,
+        ScaleType = Enum.ScaleType.Fit,
+    })
     local FpsSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 92, 1, 0),
-        Position = UDim2.new(0, 117, 0, 0),
+        Size = UDim2.new(0, 79, 1, 0),
+        Position = UDim2.new(0, 139, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#6A6D68">FPS</font>  <font color="'..LIME_HEX..'">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
     })
     Create("Frame", { -- divider 2
         Parent = BrandCard,
@@ -850,17 +861,28 @@ return function(ctx)
         BackgroundColor3 = Colors.Border,
         BorderSizePixel = 0,
     })
+    -- MS icon (activity/waveform lucide)
+    Create("ImageLabel", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 13, 0, 13),
+        Position = UDim2.new(0, 215, 0.5, -6),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://90043289378344",
+        ImageColor3 = Colors.Accent,
+        ImageTransparency = 0,
+        ScaleType = Enum.ScaleType.Fit,
+    })
     local MsSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 90, 1, 0),
-        Position = UDim2.new(0, 210, 0, 0),
+        Size = UDim2.new(0, 77, 1, 0),
+        Position = UDim2.new(0, 231, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#6A6D68">MS</font>  --',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
     })
 
     -- live FPS / MS meter
@@ -1003,7 +1025,7 @@ return function(ctx)
     -- Lucide Icons diupload sebagai Decal ke Roblox, lalu dipakai via ImageLabel.
     -- ImageColor3 diubah saat active/hover untuk tinting effect.
     local LUCIDE_ICONS = {
-        Farm     = "rbxassetid://102271142350114",  -- Leaf
+        Farm     = "rbxassetid://73812833133230",  -- Leaf
         Plot     = "rbxassetid://16898674182",  -- Grid
         Shop     = "rbxassetid://73812833133230",  -- ShoppingCart
         Sell     = "rbxassetid://16898669433",  -- Dollar
@@ -1074,8 +1096,8 @@ return function(ctx)
                 Position = UDim2.new(0, 11, 0.5, -8),
                 BackgroundTransparency = 1,
                 Image = assetId,
-                ImageColor3 = Colors.TextSecondary,  -- gray saat idle
-                ImageTransparency = 0,
+                ImageColor3 = Colors.TextMuted,      -- gray saat idle
+                ImageTransparency = 0.25,
                 ScaleType = Enum.ScaleType.Fit,
             })
         else
@@ -1121,7 +1143,7 @@ return function(ctx)
             Tween(textLabel, {TextColor3 = Colors.TextSecondary}, d)
             textLabel.Font = FONT_BODY
             if assetId then
-                Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0}, d)
+                Tween(iconLabel, {ImageColor3 = Colors.TextMuted, ImageTransparency = 0.25}, d)
             else
                 Tween(iconLabel, {TextColor3 = Colors.TextMuted, TextTransparency = 0.15}, d)
             end
@@ -1132,7 +1154,7 @@ return function(ctx)
             Tween(button, {BackgroundTransparency = 0.45}, SIDE_TWEEN)
             Tween(textLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
             if assetId then
-                Tween(iconLabel, {ImageColor3 = Colors.TextPrimary, ImageTransparency = 0}, SIDE_TWEEN)
+                Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.05}, SIDE_TWEEN)
             else
                 Tween(iconLabel, {TextColor3 = Colors.TextSecondary, TextTransparency = 0}, SIDE_TWEEN)
             end
