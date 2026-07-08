@@ -845,7 +845,7 @@ return function(ctx)
     local FpsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 79, 1, 0),
-        Position = UDim2.new(0, 139, 0, 0),
+        Position = UDim2.new(0, 145, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#6A6D68"> FPS</font>  <font color="'..LIME_HEX..'">--</font>',
@@ -875,7 +875,7 @@ return function(ctx)
     local MsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 77, 1, 0),
-        Position = UDim2.new(0, 231, 0, 0),
+        Position = UDim2.new(0, 237, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#6A6D68"> MS</font>  --',
