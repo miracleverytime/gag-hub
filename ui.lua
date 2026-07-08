@@ -1123,7 +1123,7 @@ return function(ctx)
             Text = text,
             TextColor3 = Colors.TextPrimary,  -- idle lebih terang, seperti referensi
             TextSize = 14,
-            Font = FONT_BOLD,
+            Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
 
@@ -1141,7 +1141,7 @@ return function(ctx)
             Tween(glow, {Transparency = 1}, d)
             Tween(indicator, {Size = UDim2.new(0, 2, 0, 0), BackgroundTransparency = 1}, d)
             Tween(textLabel, {TextColor3 = Colors.TextPrimary}, d)  -- tetap terang saat idle
-            textLabel.Font = FONT_BOLD
+            textLabel.Font = FONT_BODY
             if assetId then
                 Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.1}, d)
             else
