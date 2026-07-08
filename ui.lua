@@ -848,7 +848,7 @@ return function(ctx)
         Position = UDim2.new(0, 139, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68">FPS</font>  <font color="'..LIME_HEX..'">--</font>',
+        Text = '<font color="#6A6D68"> FPS</font>  <font color="'..LIME_HEX..'">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
@@ -878,7 +878,7 @@ return function(ctx)
         Position = UDim2.new(0, 231, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68">MS</font>  --',
+        Text = '<font color="#6A6D68"> MS</font>  --',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
@@ -1025,20 +1025,20 @@ return function(ctx)
     -- Lucide Icons diupload sebagai Decal ke Roblox, lalu dipakai via ImageLabel.
     -- ImageColor3 diubah saat active/hover untuk tinting effect.
     local LUCIDE_ICONS = {
-        Farm     = "rbxassetid://73812833133230",  -- Leaf
-        Plot     = "rbxassetid://16898674182",  -- Grid
-        Shop     = "rbxassetid://73812833133230",  -- ShoppingCart
-        Sell     = "rbxassetid://16898669433",  -- Dollar
-        Pets     = "rbxassetid://16898731301",  -- PawPrint
-        Eggs     = "rbxassetid://16898669689",  -- Egg
-        Player   = "rbxassetid://16898790259",  -- User
-        Visuals  = "rbxassetid://16898669897",  -- Eye
-        Teleport = "rbxassetid://16898675359",  -- MapPin
-        Utility  = "rbxassetid://16898791187",  -- Wrench
-        Mailer   = "rbxassetid://16898675156",  -- Mail
-        Info     = "rbxassetid://16898673523",  -- Info
-        Server   = "rbxassetid://16898729141",  -- Server
-        Settings = "rbxassetid://16898619015",  -- Cog
+        Farm     = "rbxassetid://80777208164591",  -- Leaf
+        Plot     = "rbxassetid://87316251149405",  -- Grid
+        Shop     = "rbxassetid://76080467452382",  -- ShoppingCart
+        Sell     = "rbxassetid://140657030512024",  -- Dollar
+        Pets     = "rbxassetid://116007211295034",  -- PawPrint
+        Eggs     = "rbxassetid://100365523847172",  -- Egg
+        Player   = "rbxassetid://89538326699568",  -- User
+        Visuals  = "rbxassetid://109331875518738",  -- Eye
+        Teleport = "rbxassetid://102771272796313",  -- MapPin
+        Utility  = "rbxassetid://114046395678554",  -- Wrench
+        Mailer   = "rbxassetid://131932847752233",  -- Mail
+        Info     = "rbxassetid://77903314482490",  -- Info
+        Server   = "rbxassetid://85074479673177",  -- Server
+        Settings = "rbxassetid://133886562604149",  -- Cog
     }
 
     -- =============== UNIFIED SIDEBAR INTERACTION SYSTEM ===============
