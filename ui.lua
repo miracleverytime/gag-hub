@@ -2137,7 +2137,7 @@ return function(ctx)
             Position = UDim2.new(1, -28, 0.5, -8),
             BackgroundTransparency = 1,
             Image = "rbxassetid://76183523786785",
-            ImageColor3 = Colors.Accent,
+            ImageColor3 = Color3.fromRGB(255, 255, 255),
         })
 
         local panel = Create("Frame", {
