@@ -1003,9 +1003,9 @@ return function(ctx)
     -- Lucide Icons diupload sebagai Decal ke Roblox, lalu dipakai via ImageLabel.
     -- ImageColor3 diubah saat active/hover untuk tinting effect.
     local LUCIDE_ICONS = {
-        Farm     = "rbxassetid://11818627075",  -- Leaf
+        Farm     = "rbxassetid://73812833133230",  -- Leaf
         Plot     = "rbxassetid://16898674182",  -- Grid
-        Shop     = "rbxassetid://16898734664",  -- ShoppingCart
+        Shop     = "rbxassetid://73812833133230",  -- ShoppingCart
         Sell     = "rbxassetid://16898669433",  -- Dollar
         Pets     = "rbxassetid://16898731301",  -- PawPrint
         Eggs     = "rbxassetid://16898669689",  -- Egg
