@@ -1049,8 +1049,8 @@ return function(ctx)
     --   Active  : dark translucent green bg + soft lime glow + left accent
     --             bar, lime icon and bright text (integrated, not a block)
     local SIDE_TWEEN      = 0.18                          -- premium, subtle
-    local ACTIVE_BG_COLOR = Color3.fromRGB(38, 50, 20)    -- dark green surface
-    local HOVER_BG_COLOR  = Color3.fromRGB(31, 36, 27)    -- gray w/ green tint
+    local ACTIVE_BG_COLOR = Color3.fromRGB(52, 72, 24)    -- green surface (lebih jenuh & terbaca)
+    local HOVER_BG_COLOR  = Color3.fromRGB(42, 50, 36)    -- gray w/ green tint (lebih terang)
 
     local function CreateSidebarButton(parent, icon, text, layoutOrder)
         local button = Create("TextButton", {
@@ -1096,8 +1096,8 @@ return function(ctx)
                 Position = UDim2.new(0, 11, 0.5, -8),
                 BackgroundTransparency = 1,
                 Image = assetId,
-                ImageColor3 = Colors.TextMuted,      -- gray saat idle
-                ImageTransparency = 0.25,
+                ImageColor3 = Colors.TextSecondary,  -- gray saat idle (lebih terang)
+                ImageTransparency = 0.1,
                 ScaleType = Enum.ScaleType.Fit,
             })
         else
@@ -1121,7 +1121,7 @@ return function(ctx)
             Position = UDim2.new(0, 34, 0, 0),
             BackgroundTransparency = 1,
             Text = text,
-            TextColor3 = Colors.TextSecondary,
+            TextColor3 = Colors.TextPrimary,  -- idle lebih terang, seperti referensi
             TextSize = 14,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -1140,23 +1140,23 @@ return function(ctx)
             Tween(button, {BackgroundTransparency = 1}, d)
             Tween(glow, {Transparency = 1}, d)
             Tween(indicator, {Size = UDim2.new(0, 2, 0, 0), BackgroundTransparency = 1}, d)
-            Tween(textLabel, {TextColor3 = Colors.TextSecondary}, d)
+            Tween(textLabel, {TextColor3 = Colors.TextPrimary}, d)  -- tetap terang saat idle
             textLabel.Font = FONT_BODY
             if assetId then
-                Tween(iconLabel, {ImageColor3 = Colors.TextMuted, ImageTransparency = 0.25}, d)
+                Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.1}, d)
             else
-                Tween(iconLabel, {TextColor3 = Colors.TextMuted, TextTransparency = 0.15}, d)
+                Tween(iconLabel, {TextColor3 = Colors.TextSecondary, TextTransparency = 0}, d)
             end
         end
 
         local function applyHover()
             button.BackgroundColor3 = HOVER_BG_COLOR
-            Tween(button, {BackgroundTransparency = 0.45}, SIDE_TWEEN)
+            Tween(button, {BackgroundTransparency = 0.3}, SIDE_TWEEN)  -- lebih solid saat hover
             Tween(textLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
             if assetId then
-                Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.05}, SIDE_TWEEN)
+                Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0.35}, SIDE_TWEEN)
             else
-                Tween(iconLabel, {TextColor3 = Colors.TextSecondary, TextTransparency = 0}, SIDE_TWEEN)
+                Tween(iconLabel, {TextColor3 = Colors.TextPrimary, TextTransparency = 0}, SIDE_TWEEN)
             end
         end
 
@@ -1167,9 +1167,9 @@ return function(ctx)
         local function applyActive(animate)
             local d = animate and SIDE_TWEEN or 0
             button.BackgroundColor3 = ACTIVE_BG_COLOR
-            Tween(button, {BackgroundTransparency = 0.15}, d)
-            Tween(glow, {Transparency = 0.7}, d)
-            Tween(indicator, {Size = UDim2.new(0, 2, 0, 16), BackgroundTransparency = 0}, d)
+            Tween(button, {BackgroundTransparency = 0}, d)             -- solid penuh, jelas terpilih
+            Tween(glow, {Transparency = 0.55}, d)                      -- glow lebih kuat
+            Tween(indicator, {Size = UDim2.new(0, 3, 0, 22), BackgroundTransparency = 0}, d)  -- bar 3px & lebih tinggi
             Tween(textLabel, {TextColor3 = Colors.Accent}, d)
             textLabel.Font = FONT_BOLD
             if assetId then
