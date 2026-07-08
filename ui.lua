@@ -1310,11 +1310,21 @@ return function(ctx)
         TextXAlignment = Enum.TextXAlignment.Left,
     })
 
-    -- footer: Powered by Miracle Labs (single centered label, no icon)
+    -- footer: icon ⚡ + Powered by Miracle Labs
+    -- Icon petir (ImageLabel dengan asset ID 77981384142919)
+    Create("ImageLabel", {
+        Parent = Sidebar,
+        Size = UDim2.new(0, 18, 0, 18),
+        Position = UDim2.new(0.5, -9, 1, -52),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://77981384142919",
+        ImageColor3 = Colors.Accent,
+        ZIndex = 10,
+    })
     Create("TextLabel", {
         Parent = Sidebar,
         Size = UDim2.new(1, 0, 0, 16),
-        Position = UDim2.new(0, 0, 1, -22),
+        Position = UDim2.new(0, 0, 1, -30),
         BackgroundTransparency = 1,
         Text = "Powered by Miracle Labs",
         TextColor3 = Colors.TextMuted,
