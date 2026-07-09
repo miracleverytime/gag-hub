@@ -186,7 +186,7 @@ return function(ctx)
         Position = UDim2.new(0, 145, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68"> FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">--</font>',
+        Text = '<font color="#6A6D68">FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextTransparency = 1,
         TextSize = 12,
@@ -226,7 +226,7 @@ return function(ctx)
         Position = UDim2.new(0, 237, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68"> MS</font>  --',
+        Text = '<font color="#6A6D68">MS</font>  --',
         TextColor3 = Colors.TextSecondary,
         TextTransparency = 1,
         TextSize = 12,
@@ -242,8 +242,8 @@ return function(ctx)
                 local fps = ctx.CurrentFPS or 0
                 local ping = 0
                 pcall(function() ping = ctx.player:GetNetworkPing() * 1000 end)
-                PillFps.Text = '<font color="#6A6D68"> FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
-                PillMs.Text  = '<font color="#6A6D68"> MS</font>  ' .. string.format("%.1f", ping)
+                PillFps.Text = '<font color="#6A6D68">FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
+                PillMs.Text  = '<font color="#6A6D68">MS</font>  ' .. string.format("%.1f", ping)
             end
             task.wait(0.5)
         end
