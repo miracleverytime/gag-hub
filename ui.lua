@@ -2693,7 +2693,7 @@ return function(ctx)
 
         accountRow(84171650897655,  "Plan",        isPrime and "Prime \194\183 Lifetime" or "Free")
         accountRow(100521852773201, "Game",        "Grow A Garden 2")
-        accountRow(79697495020129,  "Hub Version", ctx.HubVersion or "v3.2.1")
+        accountRow(79697495020129,  "Hub Version", ctx.HubVersion or "v2.0.1")
         accountRow(88921554280153,  "Platform",    PLATFORM_LABEL)
     end)
 
