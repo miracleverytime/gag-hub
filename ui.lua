@@ -2624,7 +2624,7 @@ return function(ctx)
         })
         CreateListLayout(accountBlock, 6)
 
-        local function accountRow(labelText, valueText)
+        local function accountRow(icon, labelText, valueText)
             local r = Create("Frame", {
                 Parent = accountBlock,
                 Size = UDim2.new(1, 0, 0, 48),
@@ -2634,11 +2634,23 @@ return function(ctx)
             CreateCorner(r, 10)
             CreateStroke(r, Colors.Border, 1)
 
+            -- Icon (left, muted)
+            Create("TextLabel", {
+                Parent = r,
+                Size = UDim2.new(0, 20, 1, 0),
+                Position = UDim2.new(0, 16, 0, 0),
+                BackgroundTransparency = 1,
+                Text = icon,
+                TextColor3 = Colors.TextMuted,
+                TextSize = 14,
+                Font = FONT_BODY,
+            })
+
             -- Label (left side, primary text, 14px Gotham)
             Create("TextLabel", {
                 Parent = r,
-                Size = UDim2.new(0.5, -16, 1, 0),
-                Position = UDim2.new(0, 16, 0, 0),
+                Size = UDim2.new(0.5, -50, 1, 0),
+                Position = UDim2.new(0, 44, 0, 0),
                 BackgroundTransparency = 1,
                 Text = labelText,
                 TextColor3 = Colors.TextPrimary,
@@ -2661,10 +2673,10 @@ return function(ctx)
             })
         end
 
-        accountRow("Plan",        isPrime and "Prime \194\183 Lifetime" or "Free")
-        accountRow("Game",        "Grow A Garden 2")
-        accountRow("Hub Version", ctx.HubVersion or "v3.2.1")
-        accountRow("Platform",    PLATFORM_LABEL)
+        accountRow("\226\151\136",     "Plan",        isPrime and "Prime \194\183 Lifetime" or "Free")
+        accountRow("\240\159\140\177", "Game",        "Grow A Garden 2")
+        accountRow("\226\154\161",     "Hub Version", ctx.HubVersion or "v3.2.1")
+        accountRow("\240\159\150\165", "Platform",    PLATFORM_LABEL)
     end)
 
     ProfileCard.MouseButton1Click:Connect(function()
