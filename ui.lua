@@ -55,6 +55,25 @@ return function(ctx)
     local FONT_BODY  = Enum.Font.Gotham
     local FONT_BOLD  = Enum.Font.GothamBold
 
+    -- ====================== PLATFORM DETECTION ======================
+    -- Detects whether the hub is running on Desktop or Mobile.
+    -- UserInputService.TouchEnabled  → true on mobile/tablet
+    -- UserInputService.KeyboardEnabled → true on desktop (PC/Mac)
+    -- We check KeyboardEnabled first so emulated-touch PCs stay "Desktop".
+    local PLATFORM_LABEL
+    do
+        local hasKeyboard = UserInputService.KeyboardEnabled
+        local hasTouch    = UserInputService.TouchEnabled
+        if hasKeyboard then
+            PLATFORM_LABEL = "\240\159\150\165 Desktop"   -- 🖥 Desktop
+        elseif hasTouch then
+            PLATFORM_LABEL = "\240\159\223\190 Mobile"    -- 📱 Mobile
+        else
+            PLATFORM_LABEL = "Unknown"
+        end
+        ctx.Platform = PLATFORM_LABEL
+    end
+
     local UI = {}
 
     -- ====================== BASIC CREATE HELPERS ======================
@@ -2582,12 +2601,12 @@ return function(ctx)
             end
         end)
 
-        -- ── ACCOUNT section label ──
+        -- ── INFORMATION section label ──
         Create("TextLabel", {
             Parent = col,
             Size = UDim2.new(1, 0, 0, 20),
             BackgroundTransparency = 1,
-            Text = "ACCOUNT",
+            Text = "INFORMATION",
             TextColor3 = Colors.TextMuted,
             TextSize = 11,
             Font = FONT_MONO,
@@ -2595,7 +2614,7 @@ return function(ctx)
             LayoutOrder = 3,
         })
 
-        -- ── ACCOUNT rows (Plan · Member Since · Hub Version · Game) ──
+        -- ── INFORMATION rows (Plan · Game · Hub Version · Platform) ──
         local accountBlock = Create("Frame", {
             Parent = col,
             Size = UDim2.new(1, 0, 0, 0),
@@ -2654,10 +2673,10 @@ return function(ctx)
             })
         end
 
-        accountRow("\226\151\136", "Plan",         isPrime and "Prime \194\183 Lifetime" or "Free")
-        accountRow("\226\143\177", "Member Since",  os.date("%b %Y"))
-        accountRow("\226\154\161", "Hub Version",   ctx.HubVersion or "v3.2.1")
-        accountRow("\240\159\140\177", "Game",      "Grow A Garden 2")
+        accountRow("\226\151\136",     "Plan",        isPrime and "Prime \194\183 Lifetime" or "Free")
+        accountRow("\240\159\140\177", "Game",        "Grow A Garden 2")
+        accountRow("\226\154\161",     "Hub Version", ctx.HubVersion or "v3.2.1")
+        accountRow("\240\159\223\190", "Platform",    PLATFORM_LABEL)
     end)
 
     ProfileCard.MouseButton1Click:Connect(function()
