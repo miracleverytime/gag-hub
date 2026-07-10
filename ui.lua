@@ -65,9 +65,9 @@ return function(ctx)
         local hasKeyboard = UserInputService.KeyboardEnabled
         local hasTouch    = UserInputService.TouchEnabled
         if hasKeyboard then
-            PLATFORM_LABEL = "\240\159\150\165 Desktop"   -- 🖥 Desktop
+            PLATFORM_LABEL = "Desktop"   -- 
         elseif hasTouch then
-            PLATFORM_LABEL = "\240\159\223\190 Mobile"    -- 📱 Mobile
+            PLATFORM_LABEL = "obile"    -- 
         else
             PLATFORM_LABEL = "Unknown"
         end
