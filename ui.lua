@@ -2602,17 +2602,37 @@ return function(ctx)
         end)
 
         -- ── INFORMATION section label ──
-        Create("TextLabel", {
+        local infoHeader = Create("Frame", {
             Parent = col,
             Size = UDim2.new(1, 0, 0, 20),
             BackgroundTransparency = 1,
+            LayoutOrder = 3,
+        })
+        local infoTitle = Create("TextLabel", {
+            Parent = infoHeader,
+            Size = UDim2.new(0, 0, 1, 0),
+            BackgroundTransparency = 1,
             Text = "INFORMATION",
-            TextColor3 = Colors.TextMuted,
+            TextColor3 = Colors.Accent,
             TextSize = 11,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
-            LayoutOrder = 3,
+            AutomaticSize = Enum.AutomaticSize.X,
         })
+        local infoDivider = Create("Frame", {
+            Parent = infoHeader,
+            Size = UDim2.new(1, 0, 0, 1),
+            Position = UDim2.new(0, 0, 0.5, 0),
+            BackgroundColor3 = Colors.Border,
+            BorderSizePixel = 0,
+        })
+        task.defer(function()
+            if infoTitle.Parent and infoDivider.Parent then
+                local w = infoTitle.AbsoluteSize.X + 10
+                infoDivider.Position = UDim2.new(0, w, 0.5, 0)
+                infoDivider.Size = UDim2.new(1, -w, 0, 1)
+            end
+        end)
 
         -- ── INFORMATION rows (Plan · Game · Hub Version · Platform) ──
         local accountBlock = Create("Frame", {
@@ -2624,7 +2644,7 @@ return function(ctx)
         })
         CreateListLayout(accountBlock, 6)
 
-        local function accountRow(icon, labelText, valueText)
+        local function accountRow(iconId, labelText, valueText)
             local r = Create("Frame", {
                 Parent = accountBlock,
                 Size = UDim2.new(1, 0, 0, 48),
@@ -2634,16 +2654,14 @@ return function(ctx)
             CreateCorner(r, 10)
             CreateStroke(r, Colors.Border, 1)
 
-            -- Icon (left, muted)
-            Create("TextLabel", {
+            -- Icon (left, image)
+            local iconImg = Create("ImageLabel", {
                 Parent = r,
-                Size = UDim2.new(0, 20, 1, 0),
-                Position = UDim2.new(0, 16, 0, 0),
+                Size = UDim2.new(0, 18, 0, 18),
+                Position = UDim2.new(0, 16, 0.5, -9),
                 BackgroundTransparency = 1,
-                Text = icon,
-                TextColor3 = Colors.TextMuted,
-                TextSize = 14,
-                Font = FONT_BODY,
+                Image = "rbxassetid://" .. iconId,
+                ImageColor3 = Colors.TextMuted,
             })
 
             -- Label (left side, primary text, 14px Gotham)
@@ -2673,10 +2691,10 @@ return function(ctx)
             })
         end
 
-        accountRow("\226\151\136",     "Plan",        isPrime and "Prime \194\183 Lifetime" or "Free")
-        accountRow("\240\159\140\177", "Game",        "Grow A Garden 2")
-        accountRow("\226\154\161",     "Hub Version", ctx.HubVersion or "v3.2.1")
-        accountRow("\240\159\150\165", "Platform",    PLATFORM_LABEL)
+        accountRow(84171650897655,  "Plan",        isPrime and "Prime \194\183 Lifetime" or "Free")
+        accountRow(100521852773201, "Game",        "Grow A Garden 2")
+        accountRow(79697495020129,  "Hub Version", ctx.HubVersion or "v3.2.1")
+        accountRow(88921554280153,  "Platform",    PLATFORM_LABEL)
     end)
 
     ProfileCard.MouseButton1Click:Connect(function()
