@@ -70,10 +70,10 @@ return function(ctx)
     local IsToolEquipped     = Logic.IsToolEquipped
     local HopToNearPos       = Logic.HopToNearPos
     local GetPlantWaterPos   = Logic.GetPlantWaterPos
-    local GetSprinklerPlacePositions = Logic.GetSprinklerPlacePositions
-    local GetSprinklerRadius         = Logic.GetSprinklerRadius
-    local GetPlantPositions          = Logic.GetPlantPositions
-    local DoPlaceSprinklerAt         = Logic.DoPlaceSprinklerAt
+    local GetPlantAreaParts             = Logic.GetPlantAreaParts
+    local GetExistingSprinklerPositions = Logic.GetExistingSprinklerPositions
+    local CalculateCoverage             = Logic.CalculateCoverage
+    local DoPlaceSprinklerAt            = Logic.DoPlaceSprinklerAt
     local GetSeedStock       = Logic.GetSeedStock
     local GetCrateStock      = Logic.GetCrateStock
     local BuyCratePacket     = Logic.BuyCratePacket
@@ -387,36 +387,81 @@ CreateInfoText(plantContent, "How It Works",
                 return
             end
 
-            -- Calculate optimal sprinkler positions based on actual plants + sprinkler radius
-            -- GetSprinklerPlacePositions menerima sprinklerName agar radius-nya tepat per rarity
-            local positions = GetSprinklerPlacePositions(50, sprinklerName)
-
-            if #positions == 0 then
-                local plants = Logic.GetPlantPositions and Logic.GetPlantPositions() or {}
-                if #plants == 0 then
-                    Notify("Sprinkler", "No plants on your plot yet. Plant some seeds first!", Colors.TextMuted)
-                else
-                    Notify("Sprinkler", "All plants are already covered by existing sprinklers \240\159\140\191", Colors.Success)
-                end
+            -- Ambil PlantArea parts milik plot kita
+            local plantAreaParts = GetPlantAreaParts()
+            if #plantAreaParts == 0 then
+                Notify("Sprinkler", "\226\154\160\239\184\143 PlantArea tidak ditemukan di plot kamu!", Colors.Warning)
                 return
             end
 
-            local radius = Logic.GetSprinklerRadius and Logic.GetSprinklerRadius(sprinklerName) or 8
+            -- Radius per sprinkler type (sync dengan logic.lua)
+            local SPRINKLER_RADII_LOCAL = {
+                ["Common Sprinkler"]    = 20,
+                ["Uncommon Sprinkler"]  = 25,
+                ["Rare Sprinkler"]      = 30,
+                ["Legendary Sprinkler"] = 40,
+                ["Super Sprinkler"]     = 55,
+            }
+            local radius = SPRINKLER_RADII_LOCAL[sprinklerName] or 20
+
+            -- Ambil posisi sprinkler yang sudah ada
+            local existingPos = GetExistingSprinklerPositions()
+
+            -- Buat kandidat titik grid untuk placement (spacing 1.6x radius)
+            local step = math.max(radius * 1.6, 10)
+            local candidates = {}
+            for _, area in ipairs(plantAreaParts) do
+                local cf = area.CFrame
+                local sz = area.Size
+                local margin = 1.0
+                local lx = -sz.X/2 + margin
+                while lx <= sz.X/2 - margin do
+                    local lz = -sz.Z/2 + margin
+                    while lz <= sz.Z/2 - margin do
+                        local wp = cf:PointToWorldSpace(Vector3.new(lx, sz.Y/2, lz))
+                        table.insert(candidates, Vector2.new(wp.X, wp.Z))
+                        lz = lz + step
+                    end
+                    lx = lx + step
+                end
+            end
+
+            -- Filter kandidat yang belum ter-cover sprinkler existing
+            local function isCoveredLocal(pt, sprPos)
+                for _, sp in ipairs(sprPos) do
+                    local dx, dz = pt.X - sp.X, pt.Y - sp.Y
+                    if dx*dx + dz*dz <= radius * radius then return true end
+                end
+                return false
+            end
+            local uncovered = {}
+            for _, pt in ipairs(candidates) do
+                if not isCoveredLocal(pt, existingPos) then
+                    table.insert(uncovered, pt)
+                end
+            end
+
+            if #uncovered == 0 then
+                Notify("Sprinkler", "Semua area sudah ter-cover sprinkler \240\159\140\191", Colors.Success)
+                return
+            end
+
             Notify("Sprinkler \240\159\140\191",
-                "Placing " .. #positions .. " sprinkler(s) (" .. sprinklerName .. ", radius " .. radius .. " studs)...",
+                "Placing " .. #uncovered .. " sprinkler(s) (" .. sprinklerName .. ", radius " .. radius .. " studs)...",
                 Colors.Success)
 
             task.spawn(function()
                 local placed = 0
-                for _, pos in ipairs(positions) do
+                for _, pt in ipairs(uncovered) do
+                    local ok = false
                     pcall(function()
-                        local success = DoPlaceSprinklerAt(pos, tool, sprinklerName)
-                        if success then placed = placed + 1 end
+                        ok = DoPlaceSprinklerAt(pt.X, pt.Y, plantAreaParts, tool, sprinklerName)
                     end)
-                    -- Re-acquire after each placement (tool is consumed by the server)
+                    if ok then placed = placed + 1 end
+                    -- Re-acquire setelah tiap placement (tool dikonsumsi server)
                     local t2, sn2 = AcquireSprinklerTool()
                     if not t2 then
-                        Notify("Sprinkler", "Ran out of sprinklers in backpack!", Colors.Error)
+                        Notify("Sprinkler", "Habis sprinkler di backpack!", Colors.Error)
                         break
                     end
                     tool, sprinklerName = t2, sn2
@@ -424,10 +469,10 @@ CreateInfoText(plantContent, "How It Works",
                 end
                 if placed > 0 then
                     Notify("Sprinkler",
-                        "Placed " .. placed .. "/" .. #positions .. " sprinklers on Plot " .. MY_PLOT_ID,
+                        "Placed " .. placed .. "/" .. #uncovered .. " sprinklers on Plot " .. MY_PLOT_ID,
                         Colors.Success, 5)
                 else
-                    Notify("Sprinkler", "No sprinklers were placed. Make sure you're on your plot and have plants.", Colors.Warning)
+                    Notify("Sprinkler", "Tidak ada sprinkler yang berhasil di-place. Pastikan kamu di plot dan punya plants.", Colors.Warning)
                 end
             end)
         end, Colors.Success)
