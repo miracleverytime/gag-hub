@@ -908,7 +908,7 @@ return function(ctx)
                 -- pasang satu sprinkler tepat di atas tiap tanaman yang belum ter-cover
                 for _, p in ipairs(uncovered) do
                     -- Cari Y dari candidatePositions terdekat
-                    local bestY = 142.602 -- fallback Y plot
+                    local bestY = 142.7554 -- fallback Y plot (confirmed dari debug)
                     local minD  = math.huge
                     for _, cand in ipairs(candidatePositions) do
                         local d = (cand.X - p.X)^2 + (cand.Z - p.Y)^2
@@ -958,14 +958,19 @@ return function(ctx)
             local halfX  = sz.X / 2
             local halfZ  = sz.Z / 2
             local margin = 0.5
-            local centerY = cf.Position.Y + sz.Y / 2
+            -- FIX: pakai UpVector untuk top surface yang akurat (sama seperti yang server terima)
+            -- cf.Position + UpVector * (sz.Y/2) = titik tengah top face dalam world space
+            local topWorld = cf.Position + cf.UpVector * (sz.Y / 2)
+            local topY     = topWorld.Y
 
             local lx = -halfX + margin
             while lx <= halfX - margin do
                 local lz = -halfZ + margin
                 while lz <= halfZ - margin do
+                    -- PointToWorldSpace di lokal (lx, sz.Y/2, lz) → world XZ sudah benar,
+                    -- tapi Y-nya ikut rotasi area. Kita override Y ke topY yang benar.
                     local worldPt = cf:PointToWorldSpace(Vector3.new(lx, sz.Y / 2, lz))
-                    table.insert(candidates, Vector3.new(worldPt.X, centerY, worldPt.Z))
+                    table.insert(candidates, Vector3.new(worldPt.X, topY, worldPt.Z))
                     lz = lz + step
                 end
                 lx = lx + step
@@ -1069,7 +1074,7 @@ return function(ctx)
                 bestY = topWorld.Y
             end
         end
-        return bestY or 142.602
+        return bestY or 142.7554  -- confirmed dari debug: server terima Y=142.7554
     end
     Logic.GetSurfaceY = GetSurfaceY
 
@@ -1114,40 +1119,37 @@ return function(ctx)
             task.wait(0.15)  -- FIX: naikan dari 0.05 → 0.15 agar tool benar-benar aktif di karakter
         end
 
-        -- Posisi: pakai top surface dari PlantArea langsung via CFrame.UpVector
-        -- Ini yang paling akurat tanpa perlu raycast maupun move player
+        -- Posisi: normalize Y ke top surface PlantArea yang benar.
+        -- Debug konfirmasi server terima Y=142.7554, bukan 142.3554.
+        -- cf.Position + UpVector*(sz.Y/2) menghasilkan Y yang benar.
+        -- Server TIDAK validasi jarak player, jadi HopToNearPos tidak diperlukan.
         local hitPos = pos
         pcall(function()
             local plantAreas = GetMyPlantAreas()
             local bestDist = math.huge
             for _, area in ipairs(plantAreas) do
                 local cf, sz = area.CFrame, area.Size
-                -- Cek apakah pos XZ masuk dalam bounds area ini
+                local topWorld = cf.Position + cf.UpVector * (sz.Y / 2)
+                local topY     = topWorld.Y
+                -- Cek apakah pos XZ masuk dalam bounds area ini (cek di object space)
                 local localPt = cf:PointToObjectSpace(Vector3.new(pos.X, cf.Position.Y, pos.Z))
                 local halfX, halfZ = sz.X / 2, sz.Z / 2
                 if math.abs(localPt.X) <= halfX and math.abs(localPt.Z) <= halfZ then
-                    -- Pos ada di dalam area ini — hitung top surface
-                    local topWorld = cf.Position + cf.UpVector * (sz.Y / 2)
-                    hitPos = Vector3.new(pos.X, topWorld.Y, pos.Z)
+                    -- Pos tepat di dalam area ini — pakai topY area ini
+                    hitPos = Vector3.new(pos.X, topY, pos.Z)
                     bestDist = 0
                     break
                 end
-                -- Kalau tidak ada yang match, ambil terdekat
+                -- Tidak match — simpan yang terdekat sebagai fallback
                 local dx = pos.X - cf.Position.X
                 local dz = pos.Z - cf.Position.Z
                 local d2 = dx*dx + dz*dz
                 if d2 < bestDist then
                     bestDist = d2
-                    local topWorld = cf.Position + cf.UpVector * (sz.Y / 2)
-                    hitPos = Vector3.new(pos.X, topWorld.Y, pos.Z)
+                    hitPos = Vector3.new(pos.X, topY, pos.Z)
                 end
             end
         end)
-
-        -- FIX UTAMA: Pindah player ke dekat hitPos sebelum fire
-        -- Server validasi jarak player ke hitPos; tanpa ini placement sering ditolak
-        HopToNearPos(hitPos)
-        task.wait(0.1)  -- beri waktu server sync posisi player setelah hop
 
         -- plotId dari nama model Garden — persis cara TryPlace game lakukan
         local plotId
