@@ -2655,12 +2655,11 @@ return function(ctx)
             antiAfk           = "Anti AFK",
         }
 
-        -- Info icon — sejajar dengan label "ACTIVE LOOPS" (Y=62, h=14), tepat di sebelah kanannya
-        -- Label mulai X=14, "ACTIVE LOOPS" 12 char × ~6px (Code font 10px) ≈ 72px → icon X = 14+72+4 = 90
+        -- Info icon — top-right, mirror posisi icon repeat (top-left: 18x18, Y=13, X=14 dari tepi)
         local infoBtn = Create("ImageButton", {
             Parent = activeCell,
-            Size = UDim2.new(0, 10, 0, 10),
-            Position = UDim2.new(0, 90, 0, 64),
+            Size = UDim2.new(0, 18, 0, 18),
+            Position = UDim2.new(1, -32, 0, 13),
             BackgroundTransparency = 1,
             Image = "rbxassetid://72579596890456",
             ImageColor3 = Colors.TextMuted,
