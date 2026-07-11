@@ -964,25 +964,60 @@ return function(ctx)
         HopToNearPos(hitPos)
         task.wait(0.1)
 
-        -- Log semua argumen sebelum fire untuk debug
-        Notify("Sprinkler [ARGS]",
-            "hitPos=" .. math.floor(hitPos.X) .. "," .. math.floor(hitPos.Y) .. "," .. math.floor(hitPos.Z) ..
-            " | name=" .. tostring(sprinklerName) ..
-            " | tool=" .. tostring(tool and tool.Name) ..
-            " | toolAttr=" .. tostring(tool and tool:GetAttribute("Sprinkler")) ..
-            " | plotId=" .. tostring(plotId),
-            Colors.Accent, 10)
+        -- Pastikan tool equipped dan tunggu sebentar sebelum klik
+        if not IsToolEquipped(tool) then
+            EquipTool(tool)
+            task.wait(0.3)
+        else
+            task.wait(0.1)
+        end
 
-        -- Fire ke server
-        local fired = false
-        local fireErr = ""
+        -- Simulasi mouse click di hitPos (sama seperti klik manual player)
+        -- 1. Arahkan kamera ke hitPos
+        -- 2. Konvert world pos ke screen pos
+        -- 3. VirtualUser Button1Down/Up di screen pos itu
+        local clickSuccess = false
         pcall(function()
-            Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
-            fired = true
+            local cam = workspace.CurrentCamera
+            if not cam then return end
+
+            -- Arahkan kamera supaya hitPos ada di depan
+            local camPos = hitPos + Vector3.new(0, 15, 0)
+            cam.CFrame = CFrame.lookAt(camPos, hitPos)
+            task.wait(0.05)
+
+            -- Konvert ke screen coords
+            local screenPos, onScreen = cam:WorldToViewportPoint(hitPos)
+            if not onScreen then
+                -- Paksa masuk viewport dengan reposisi cam lebih dekat
+                camPos = hitPos + Vector3.new(0, 8, 5)
+                cam.CFrame = CFrame.lookAt(camPos, hitPos)
+                task.wait(0.05)
+                screenPos, onScreen = cam:WorldToViewportPoint(hitPos)
+            end
+
+            local clickPos = Vector2.new(screenPos.X, screenPos.Y)
+
+            -- Coba mouse1click (Synapse/executor function)
+            if mouse1click then
+                mouse1click()
+                clickSuccess = true
+            -- Fallback: VirtualUser Button1
+            elseif game:GetService("VirtualUser") then
+                local vu = game:GetService("VirtualUser")
+                if vu.CaptureController then pcall(function() vu:CaptureController() end) end
+                vu:Button1Down(clickPos, cam.CFrame)
+                task.wait(0.05)
+                vu:Button1Up(clickPos, cam.CFrame)
+                clickSuccess = true
+            end
         end)
-        if not fired then
-            Notify("Sprinkler [DBG]", "Fire gagal: " .. fireErr, Colors.Error, 4)
-            return false
+
+        -- Fallback ke remote langsung kalau click gagal
+        if not clickSuccess then
+            pcall(function()
+                Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+            end)
         end
 
         _lastSprinklerFire = os.clock()
