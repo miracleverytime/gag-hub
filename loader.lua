@@ -40,6 +40,12 @@ local function loadModule(name)
         return false
     end
 
+    -- Strip UTF-8 BOM (U+FEFF = EF BB BF) if present — some editors/GitHub
+    -- uploads include it, which makes loadstring crash at :1 with "got Unicode U+FEFF".
+    if src:sub(1, 3) == "\239\187\191" then
+        src = src:sub(4)
+    end
+
     local fn, compileErr = loadstring(src, "=" .. name)
     if not fn then
         warn("[Miracle Hub] Compile error in " .. name .. ": " .. tostring(compileErr))
