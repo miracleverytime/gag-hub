@@ -2584,19 +2584,24 @@ return function(ctx)
             return v
         end
 
-        local sessionVal = statCell(1, "\226\143\177", "00:00:00", "SESSION")
-        local actionsVal = statCell(2, "\226\154\161", tostring(States.ActionsRun or 0), "ACTIONS RUN")
-        local fpsVal     = statCell(3, "\226\151\148", "60", "AVG FPS")
+        local sessionVal  = statCell(1, "\226\143\177", "00:00:00", "SESSION")
+        local scriptVal   = statCell(2, "\226\154\161", "Running",  "SCRIPT STATUS")
+        local serverVal   = statCell(3, "\226\151\148", "...",       "SERVER")
         statCell(4, "\226\136\191", "99.8%", "UPTIME")
 
-        -- Live session clock + FPS + actions counter
+        -- Detect server type once on inject (no loop needed — menu re-injects on rejoin/server change)
+        if game.PrivateServerId ~= "" then
+            serverVal.Text = game.PrivateServerOwnerId ~= 0 and "Private" or "Reserved"
+        else
+            serverVal.Text = "Public"
+        end
+
+        -- Live session clock
         task.spawn(function()
             while sessionVal.Parent do
                 local el = os.clock() - sessionStart
                 sessionVal.Text = string.format("%02d:%02d:%02d",
                     math.floor(el/3600), math.floor(el%3600/60), math.floor(el%60))
-                if ctx.CurrentFPS then fpsVal.Text = tostring(ctx.CurrentFPS) end
-                if States.ActionsRun then actionsVal.Text = tostring(States.ActionsRun) end
                 task.wait(1)
             end
         end)
