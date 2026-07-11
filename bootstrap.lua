@@ -380,6 +380,9 @@ return function(ctx)
     end
     -- selama animasi minimize/restore, AbsoluteSize MainFrame berubah dan bisa
     -- memicu snap ke tengah → blink. Flag ini mencegah hal itu.
+    -- FIX: `minimized` was never declared — it silently read as nil (global) in
+    -- Xeno's isolated environment, breaking DoMinimize/DoRestore state tracking.
+    local minimized = false
     ctx.isMinimized = false
 
     -- Hitung posisi pill default: rata tengah viewport, y=10px dari atas.

@@ -46,6 +46,12 @@ local function loadModule(name)
         src = src:sub(4)
     end
 
+    -- FIX: Yield before compiling each module.
+    -- Xeno's BytecodePatchWatcherT has a threshold on rapid bytecode patches.
+    -- Without this yield, 6 large loadstring() calls back-to-back causes
+    -- "Threshold reached. Workers failed to call restore" → client crash.
+    task.wait(0.1)
+
     local fn, compileErr = loadstring(src, "=" .. name)
     if not fn then
         warn("[Miracle Hub] Compile error in " .. name .. ": " .. tostring(compileErr))
@@ -74,11 +80,17 @@ local function loadModule(name)
 end
 
 -- Run all modules in order. Abort early if a critical module fails.
-for _, name in ipairs(MODULES) do
+-- FIX: task.wait(0.5) between each module load — lets Xeno's BytecodePatchWatcher
+-- workers fully recover between loadstring calls. Without this, compiling 6 large
+-- scripts in rapid succession hits the patcher threshold and crashes the client.
+for i, name in ipairs(MODULES) do
     local ok = loadModule(name)
     if not ok then
         warn("[Miracle Hub] Aborting load chain at module: " .. name)
         break
+    end
+    if i < #MODULES then
+        task.wait(0.5)
     end
 end
 
