@@ -2532,7 +2532,7 @@ return function(ctx)
             SortOrder = Enum.SortOrder.LayoutOrder,
         })
 
-        local function statCell(order, icon, valueText, labelText)
+        local function statCell(order, iconId, valueText, labelText)
             local cell = Create("Frame", {
                 Parent = statRow,
                 -- 4 cells with 3 gaps of 8px each: (1 - 3*8/totalW) / 4
@@ -2544,16 +2544,14 @@ return function(ctx)
             CreateCorner(cell, 10)
             CreateStroke(cell, Colors.Border, 1)
 
-            -- Small icon/symbol (accent color, top-left inside cell)
-            Create("TextLabel", {
+            -- Small icon image (lime accent, top-left inside cell)
+            Create("ImageLabel", {
                 Parent = cell,
-                Size = UDim2.new(0, 20, 0, 20),
-                Position = UDim2.new(0, 14, 0, 12),
+                Size = UDim2.new(0, 16, 0, 16),
+                Position = UDim2.new(0, 14, 0, 14),
                 BackgroundTransparency = 1,
-                Text = icon,
-                TextColor3 = Colors.Accent,
-                TextSize = 13,
-                Font = FONT_BODY,
+                Image = "rbxassetid://" .. iconId,
+                ImageColor3 = Colors.Accent,
             })
 
             -- Value (large, bold mono — the number people care about)
@@ -2599,10 +2597,10 @@ return function(ctx)
             "autoAcceptGifts", "autoRejoin", "antiAfk",
         }
 
-        local sessionVal  = statCell(1, "\226\143\177", "00:00:00", "SESSION")
-        local playersVal  = statCell(2, "\226\154\161", "0",        "PLAYERS")
-        local memoryVal   = statCell(3, "\226\151\148", "0",        "MEMORY MB")
-        local activeVal   = statCell(4, "\226\136\191", "0",        "ACTIVE LOOPS")
+        local sessionVal  = statCell(1, 136103650662391, "00:00:00", "SESSION")
+        local playersVal  = statCell(2, 124978844700371, "0",        "PLAYERS")
+        local memoryVal   = statCell(3, 118492548320850, "0",        "MEMORY MB")
+        local activeVal   = statCell(4, 120958905213540, "0",        "ACTIVE LOOPS")
 
         local Stats   = game:GetService("Stats")
         local Players = game:GetService("Players")
