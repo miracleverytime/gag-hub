@@ -1763,11 +1763,6 @@ return function(ctx)
             state = not state
             States[stateKey] = state
             SaveState(stateKey, state)
-            -- Track active automation features for the stat cell
-            if ctx.AUTOMATION_KEYS and ctx.AUTOMATION_KEYS[stateKey] then
-                States.ActiveFeatures = (States.ActiveFeatures or 0) + (state and 1 or -1)
-                if States.ActiveFeatures < 0 then States.ActiveFeatures = 0 end
-            end
             Tween(toggleBg, {BackgroundColor3 = state and Colors.ToggleOn or Colors.ToggleOff}, 0.2)
             Tween(knob, {
                 Position = UDim2.new(0, state and 21 or 3, 0.5, -8),
@@ -2589,19 +2584,20 @@ return function(ctx)
             return v
         end
 
-        -- Keys considered "active automation" for the ACTIVE stat cell
-        ctx.AUTOMATION_KEYS = {
-            autoPlant=true, autoPlantAllSeeds=true, autoHarvest=true,
-            autoWater=true, autoSprinkler=true, autoBuySeed=true,
-            autoBuyAll=true, autoBuyGear=true, autoBuyGearAll=true,
-            autoBuyCrate=true, autoBuyCrateAll=true, autoOpenCrate=true,
-            autoSell=true, autoCatchWild=true, fly=true,
-            espPlayers=true, espItems=true, espFruits=true, espMutations=true,
-            lockWalkSpeed=true, lockJumpPower=true, infiniteJump=true,
-            fullBright=true, noFog=true, noShadows=true,
-            autoAcceptGifts=true, autoRejoin=true, antiAfk=true,
+        -- Keys counted as "active" for the ACTIVE stat cell
+        -- Counted directly from States each tick — works regardless of
+        -- which module (logic/pages/bootstrap) changed the state.
+        local AUTOMATION_KEYS = {
+            "autoPlant", "autoPlantAllSeeds", "autoHarvest",
+            "autoWater", "autoSprinkler", "autoBuySeed",
+            "autoBuyAll", "autoBuyGear", "autoBuyGearAll",
+            "autoBuyCrate", "autoBuyCrateAll", "autoOpenCrate",
+            "autoSell", "autoCatchWild", "fly",
+            "espPlayers", "espItems", "espFruits", "espMutations",
+            "lockWalkSpeed", "lockJumpPower", "infiniteJump",
+            "fullBright", "noFog", "noShadows",
+            "autoAcceptGifts", "autoRejoin", "antiAfk",
         }
-        States.ActiveFeatures = 0
 
         local sessionVal  = statCell(1, "\226\143\177", "00:00:00", "SESSION")
         local playersVal  = statCell(2, "\226\154\161", "0",        "PLAYERS")
@@ -2611,7 +2607,7 @@ return function(ctx)
         local Stats   = game:GetService("Stats")
         local Players = game:GetService("Players")
 
-        -- Live session clock + players + memory + active features
+        -- Live session clock + players + memory + active feature count
         task.spawn(function()
             while sessionVal.Parent do
                 local el = os.clock() - sessionStart
@@ -2619,7 +2615,11 @@ return function(ctx)
                     math.floor(el/3600), math.floor(el%3600/60), math.floor(el%60))
                 playersVal.Text = tostring(#Players:GetPlayers())
                 memoryVal.Text  = tostring(math.floor(Stats:GetTotalMemoryUsageMb()))
-                activeVal.Text  = tostring(States.ActiveFeatures or 0)
+                local count = 0
+                for _, k in ipairs(AUTOMATION_KEYS) do
+                    if States[k] then count = count + 1 end
+                end
+                activeVal.Text = tostring(count)
                 task.wait(1)
             end
         end)
