@@ -2547,8 +2547,8 @@ return function(ctx)
             -- Small icon image (lime accent, top-left inside cell)
             Create("ImageLabel", {
                 Parent = cell,
-                Size = UDim2.new(0, 16, 0, 16),
-                Position = UDim2.new(0, 14, 0, 14),
+                Size = UDim2.new(0, 18, 0, 18),
+                Position = UDim2.new(0, 14, 0, 13),
                 BackgroundTransparency = 1,
                 Image = "rbxassetid://" .. iconId,
                 ImageColor3 = Colors.Accent,
