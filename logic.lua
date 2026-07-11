@@ -1984,46 +1984,73 @@ return function(ctx)
     }
     Logic.PET_RARITY_LOOKUP = PET_RARITY_LOOKUP
 
+    -- FIX: BuyPrompt ada di PrimaryPart model di WildPetSpawns, bukan di RefPart.
+    -- RefPart = BasePart di WildPetRef (data/trigger).
+    -- Model visual = di WildPetSpawns, namanya "WildPet_<PetName>_<RefPart.Name>".
+    local function FindPromptForRefPart(refPart)
+        if not refPart then return nil end
+
+        -- Cari langsung di refPart dulu (kalau ada)
+        local prompt = refPart:FindFirstChildWhichIsA("ProximityPrompt", true)
+        if prompt then return prompt end
+
+        -- Cari model visual di WildPetSpawns berdasarkan nama refPart
+        local map = workspace:FindFirstChild("Map")
+        local spawnsFolder = map and map:FindFirstChild("WildPetSpawns")
+        if spawnsFolder then
+            for _, model in ipairs(spawnsFolder:GetChildren()) do
+                -- Nama model format: "WildPet_<PetName>_<RefPart.Name>"
+                if model.Name:find(refPart.Name, 1, true) then
+                    local p = model:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if p then return p end
+                end
+            end
+        end
+
+        -- Fallback: cari di _PetVisualClient juga
+        local visualClient = workspace:FindFirstChild("_PetVisualClient")
+        local modelsFolder = visualClient and visualClient:FindFirstChild("Models")
+        if modelsFolder then
+            for _, model in ipairs(modelsFolder:GetChildren()) do
+                local ownerSlot = model:GetAttribute("OwnerSlot")
+                if ownerSlot == refPart.Name then
+                    local p = model:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if p then return p end
+                end
+            end
+        end
+
+        return nil
+    end
+
     local function FireWildPetPrompt(part)
         if not part then return false end
-
-        local prompt = part:FindFirstChildWhichIsA("ProximityPrompt", true)
-        if not prompt and part.Parent then
-            prompt = part.Parent:FindFirstChildWhichIsA("ProximityPrompt", true)
-        end
+        local prompt = FindPromptForRefPart(part)
         if prompt then
             return SafeFirePrompt(prompt)
         end
-
         return false
     end
 
     local function FireWildPetNetwork(part)
         if not part then return false end
 
-        local petId = part.Name
-        local petName = part:GetAttribute("PetName") or part:GetAttribute("Pet") or part:GetAttribute("Species") or petId
-
+        -- FIX: server butuh Instance RefPart langsung (bukan string/name).
+        -- Dari spy: Networking.Pets.WildPetTame:Fire(refPartInstance)
         if Networking then
             local petsNS = rawget(Networking, "Pets")
             if petsNS then
                 local tame = rawget(petsNS, "WildPetTame")
                 if tame and tame.Fire then
-                    local payloads = {petId, petName, part}
-                    for _, payload in ipairs(payloads) do
-                        local ok = pcall(function() tame:Fire(payload) end)
-                        if ok then return true end
-                    end
+                    local ok = pcall(function() tame:Fire(part) end)
+                    if ok then return true end
                 end
             end
         end
 
+        -- Fallback PacketRemote juga dengan Instance
         if PacketRemote then
-            local payloads = {petId, petName, part}
-            for _, payload in ipairs(payloads) do
-                local ok = pcall(function() PacketRemote:FireServer(payload) end)
-                if ok then return true end
-            end
+            pcall(function() PacketRemote:FireServer(part) end)
         end
 
         return false
@@ -2032,8 +2059,9 @@ return function(ctx)
     local function IsWildPetClaimed(part)
         if not part or not part.Parent then return true end
         if (tonumber(part:GetAttribute("OwnerUserId")) or 0) ~= 0 then return true end
+        -- FIX: State "wandering" = pet bebas, "walking_to_garden" = sudah dibeli
         local state = part:GetAttribute("State") or ""
-        if state ~= "" and state ~= "free" and state ~= "idle" then return true end
+        if state == "walking_to_garden" then return true end
         return false
     end
 
@@ -2041,24 +2069,28 @@ return function(ctx)
         if not part or not part.Parent then return false end
 
         local function succeeded()
-            return IsWildPetClaimed(part)
+            -- Cek server sudah acknowledge: OwnerUserId berubah atau State berubah
+            if (tonumber(part:GetAttribute("OwnerUserId")) or 0) ~= 0 then return true end
+            if part:GetAttribute("State") == "walking_to_garden" then return true end
+            return false
         end
 
-        if FireWildPetPrompt(part) then
-            task.wait(0.2)
-            if succeeded() then return true end
-        end
-
+        -- Metode utama: Networking langsung dengan RefPart Instance
         if FireWildPetNetwork(part) then
-            task.wait(0.25)
+            task.wait(0.4)
             if succeeded() then return true end
         end
 
-        task.wait(0.25)
+        -- Fallback: ProximityPrompt
         if FireWildPetPrompt(part) then
-            task.wait(0.2)
+            task.wait(0.4)
             if succeeded() then return true end
         end
+
+        -- Retry sekali lagi
+        task.wait(0.3)
+        FireWildPetNetwork(part)
+        task.wait(0.5)
 
         return succeeded()
     end
