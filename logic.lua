@@ -960,16 +960,10 @@ return function(ctx)
         -- Hitung jumlah sprinkler sebelum fire (untuk verifikasi success)
         local countBefore = #existingPos
 
-        -- Hop ke dekat hitPos agar server validasi jarak lolos
-        HopToNearPos(hitPos)
-        task.wait(0.1)
-
-        -- Pastikan tool equipped dan tunggu sebentar sebelum klik
+        -- Pastikan tool masih equipped sebelum fire
         if not IsToolEquipped(tool) then
             EquipTool(tool)
-            task.wait(0.3)
-        else
-            task.wait(0.1)
+            task.wait(0.15)
         end
 
         -- Simulasi mouse click di hitPos (sama seperti klik manual player)
