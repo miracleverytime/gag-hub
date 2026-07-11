@@ -17,37 +17,37 @@ local BASE = "https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/"
 local MODULES = {
     {
         name      = "core.lua",
-        label     = "Initializing core systems...",
+        label     = "Connecting to servers...",
         preDelay  = 0.5,
         postDelay = 0.5,
     },
     {
         name      = "ui.lua",
-        label     = "Building UI framework...",
+        label     = "Loading assets & icons...",
         preDelay  = 2.5,
         postDelay = 2.0,
     },
     {
         name      = "ultralow.lua",
-        label     = "Loading performance module...",
+        label     = "Optimizing performance...",
         preDelay  = 1.0,
         postDelay = 0.5,
     },
     {
         name      = "logic.lua",
-        label     = "Loading game logic & features...",
+        label     = "Loading features...",
         preDelay  = 2.5,
         postDelay = 2.0,
     },
     {
         name      = "pages.lua",
-        label     = "Building UI pages...",
+        label     = "Almost there...",
         preDelay  = 2.0,
         postDelay = 1.5,
     },
     {
         name      = "bootstrap.lua",
-        label     = "Finalizing Miracle Hub...",
+        label     = "Finishing up...",
         preDelay  = 1.0,
         postDelay = 0.0,
     },
@@ -83,7 +83,7 @@ local function loadModule(mod, stepIndex)
     local postDelay = mod.postDelay
 
     -- Update status: "Fetching …"
-    setLoadingUI(stepIndex - 0.8, "Fetching " .. name .. "...")
+    setLoadingUI(stepIndex - 0.8, "Preparing " .. (stepIndex) .. "/" .. TOTAL .. "...")
 
     -- 1. Fetch
     local src
@@ -91,7 +91,7 @@ local function loadModule(mod, stepIndex)
         src = game:HttpGet(BASE .. name, true)
     end)
     if not ok or not src then
-        setLoadingUI(stepIndex - 0.8, "ERROR: Failed to fetch " .. name)
+        setLoadingUI(stepIndex - 0.8, "Connection error. Retrying...")
         warn("[MiracleHub] FETCH FAILED — " .. name .. ": " .. tostring(err))
         return false
     end
@@ -100,13 +100,13 @@ local function loadModule(mod, stepIndex)
     if src:sub(1, 3) == "\239\187\191" then src = src:sub(4) end
 
     -- 3. PRE-COMPILE DELAY — BytecodePatchWatcher worker recovery
-    setLoadingUI(stepIndex - 0.5, "Compiling " .. name .. "...")
+    setLoadingUI(stepIndex - 0.5, mod.label)
     task.wait(preDelay)
 
     -- 4. Compile
     local fn, compileErr = loadstring(src, "=" .. name)
     if not fn then
-        setLoadingUI(stepIndex - 0.5, "ERROR: Compile failed — " .. name)
+        setLoadingUI(stepIndex - 0.5, "Failed to load. Please re-inject.")
         warn("[MiracleHub] COMPILE ERROR — " .. name .. ": " .. tostring(compileErr))
         return false
     end
@@ -114,7 +114,7 @@ local function loadModule(mod, stepIndex)
     -- 5. Run outer wrapper
     local runOk, moduleFn = pcall(fn)
     if not runOk then
-        setLoadingUI(stepIndex - 0.5, "ERROR: Run failed — " .. name)
+        setLoadingUI(stepIndex - 0.5, "Failed to load. Please re-inject.")
         warn("[MiracleHub] RUN ERROR — " .. name .. ": " .. tostring(moduleFn))
         return false
     end
@@ -130,7 +130,7 @@ local function loadModule(mod, stepIndex)
     -- 7. Init module
     local initOk, initErr = pcall(moduleFn, ctx)
     if not initOk then
-        setLoadingUI(stepIndex - 0.2, "ERROR: Init failed — " .. name)
+        setLoadingUI(stepIndex - 0.2, "Failed to load. Please re-inject.")
         warn("[MiracleHub] INIT ERROR — " .. name .. ": " .. tostring(initErr))
         return false
     end
@@ -159,8 +159,7 @@ end
 -- animasi reveal (fade out loading screen → show MainFrame).
 -- Tidak perlu print ke console lagi.
 if loaded < TOTAL then
-    -- Kalau ada yang gagal, tetap tampilkan error di loading screen
-    setLoadingUI(loaded, "Load failed at module " .. loaded + 1 .. "/" .. TOTAL .. ". Check console.")
+    setLoadingUI(loaded, "Something went wrong. Please re-inject.")
 end
 
 return ctx
