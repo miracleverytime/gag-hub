@@ -960,6 +960,10 @@ return function(ctx)
         -- Hitung jumlah sprinkler sebelum fire (untuk verifikasi success)
         local countBefore = #existingPos
 
+        -- Hop ke dekat hitPos agar server validasi jarak lolos
+        HopToNearPos(hitPos)
+        task.wait(0.1)
+
         -- Fire ke server
         local fired = false
         local fireErr = ""
