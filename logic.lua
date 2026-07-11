@@ -964,6 +964,15 @@ return function(ctx)
         HopToNearPos(hitPos)
         task.wait(0.1)
 
+        -- Log semua argumen sebelum fire untuk debug
+        Notify("Sprinkler [ARGS]",
+            "hitPos=" .. math.floor(hitPos.X) .. "," .. math.floor(hitPos.Y) .. "," .. math.floor(hitPos.Z) ..
+            " | name=" .. tostring(sprinklerName) ..
+            " | tool=" .. tostring(tool and tool.Name) ..
+            " | toolAttr=" .. tostring(tool and tool:GetAttribute("Sprinkler")) ..
+            " | plotId=" .. tostring(plotId),
+            Colors.Accent, 10)
+
         -- Fire ke server
         local fired = false
         local fireErr = ""
