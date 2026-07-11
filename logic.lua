@@ -714,21 +714,42 @@ return function(ctx)
     -- FilterDescendantsInstances = array of PlantArea BaseParts (bukan QueryDescendants string!)
     local function RaycastToPlantSurface(px, pz, plantAreaParts)
         if not plantAreaParts or #plantAreaParts == 0 then return nil end
+
+        -- Coba raycast dari berbagai ketinggian (plot bisa di Y berbeda)
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Include
         params.FilterDescendantsInstances = plantAreaParts
-        local result = workspace:Raycast(
-            Vector3.new(px, 300, pz),
-            Vector3.new(0, -500, 0),
-            params
-        )
-        if result and CollectionService:HasTag(result.Instance, "PlantArea") then
-            return result.Position
+        for _, startY in ipairs({500, 300, 1000, 2000}) do
+            local result = workspace:Raycast(
+                Vector3.new(px, startY, pz),
+                Vector3.new(0, -(startY + 500), 0),
+                params
+            )
+            if result then
+                return result.Position
+            end
         end
-        -- Fallback: coba tanpa CollectionService check (untuk "Part" yang mungkin tidak punya tag)
-        if result then
-            return result.Position
+
+        -- Fallback: pakai Y dari surface area terdekat secara XZ
+        -- (kalau raycast gagal total, pakai posisi center area + offset kecil ke atas)
+        local bestArea = nil
+        local bestDist = math.huge
+        for _, area in ipairs(plantAreaParts) do
+            local apos = area.Position
+            local dx = px - apos.X
+            local dz = pz - apos.Z
+            local d = dx*dx + dz*dz
+            if d < bestDist then
+                bestDist = d
+                bestArea = area
+            end
         end
+        if bestArea then
+            -- Surface Y = area.Position.Y + area.Size.Y/2
+            local surfaceY = bestArea.Position.Y + bestArea.Size.Y / 2
+            return Vector3.new(px, surfaceY, pz)
+        end
+
         return nil
     end
     Logic.RaycastToPlantSurface = RaycastToPlantSurface
@@ -896,46 +917,76 @@ return function(ctx)
         if gap > 0 then task.wait(gap) end
 
         -- Pastikan tool masih valid
-        if not (tool and tool.Parent) then return false end
+        if not (tool and tool.Parent) then
+            Notify("Sprinkler [DBG]", "Tool invalid/nil", Colors.Error, 4)
+            return false
+        end
 
         -- Equip tool
         if not IsToolEquipped(tool) then
-            if not EquipTool(tool) then return false end
+            if not EquipTool(tool) then
+                Notify("Sprinkler [DBG]", "EquipTool gagal", Colors.Error, 4)
+                return false
+            end
             task.wait(0.15)
         end
 
         -- Raycast ke surface PlantArea
         local hitPos = RaycastToPlantSurface(px, pz, plantAreaParts)
-        if not hitPos then return false end
+        if not hitPos then
+            Notify("Sprinkler [DBG]", "Raycast nil @ ("..math.floor(px)..","..math.floor(pz)..") areas="..#plantAreaParts, Colors.Warning, 5)
+            return false
+        end
 
         -- Ambil plotId
         local myPlot = GetMyPlot()
         local plotId = GetPlotId(myPlot)
-        if not plotId then return false end
+        if not plotId then
+            -- Fallback: coba extract dari MY_PLOT_ID langsung
+            plotId = tonumber(MY_PLOT_ID)
+        end
+        if not plotId then
+            Notify("Sprinkler [DBG]", "plotId nil, plot=" .. tostring(myPlot and myPlot.Name), Colors.Error, 4)
+            return false
+        end
 
-        -- Cek too-close LAGI tepat sebelum fire (sprinkler baru mungkin sudah ditambah loop lain)
+        -- Cek too-close LAGI tepat sebelum fire
         local existingPos = GetExistingSprinklerPositions()
-        if IsTooCloseToExistingSprinkler(hitPos, existingPos) then return false end
+        if IsTooCloseToExistingSprinkler(hitPos, existingPos) then
+            -- Bukan error, titik ini memang sudah ada sprinkler
+            return false
+        end
 
         -- Hitung jumlah sprinkler sebelum fire (untuk verifikasi success)
         local countBefore = #existingPos
 
         -- Fire ke server
         local fired = false
+        local fireErr = ""
         pcall(function()
             Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
             fired = true
         end)
-        if not fired then return false end
+        if not fired then
+            Notify("Sprinkler [DBG]", "Fire gagal: " .. fireErr, Colors.Error, 4)
+            return false
+        end
 
         _lastSprinklerFire = os.clock()
 
-        -- Tunggu server confirm (SprinklerAdded event akan update Sprinklers folder)
-        task.wait(0.7)
+        -- Tunggu server confirm
+        task.wait(0.8)
 
         -- Verifikasi: sprinkler folder bertambah?
         local newPos = GetExistingSprinklerPositions()
-        return #newPos > countBefore
+        local success = #newPos > countBefore
+        if not success then
+            Notify("Sprinkler [DBG]",
+                "Fire OK tapi sprinkler tidak bertambah (before=" .. countBefore ..
+                ", after=" .. #newPos .. ") hitY=" .. math.floor(hitPos.Y),
+                Colors.Warning, 5)
+        end
+        return success
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
 

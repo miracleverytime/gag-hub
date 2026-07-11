@@ -407,13 +407,13 @@ CreateInfoText(plantContent, "How It Works",
             -- Ambil posisi sprinkler yang sudah ada
             local existingPos = GetExistingSprinklerPositions()
 
-            -- Buat kandidat titik grid untuk placement (spacing 1.6x radius)
-            local step = math.max(radius * 1.6, 10)
+            -- Grid step kecil (8 studs) agar titik lebih rapat dan tidak miss PlantArea
+            local step = 8
             local candidates = {}
             for _, area in ipairs(plantAreaParts) do
                 local cf = area.CFrame
                 local sz = area.Size
-                local margin = 1.0
+                local margin = 2.0
                 local lx = -sz.X/2 + margin
                 while lx <= sz.X/2 - margin do
                     local lz = -sz.Z/2 + margin
@@ -426,6 +426,18 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end
 
+            Notify("Sprinkler [DEBUG]",
+                "PlantAreas: " .. #plantAreaParts ..
+                " | Kandidat titik: " .. #candidates ..
+                " | Existing sprinkler: " .. #existingPos ..
+                " | Radius: " .. radius,
+                Colors.TextMuted, 8)
+
+            if #candidates == 0 then
+                Notify("Sprinkler", "\226\154\160 Tidak ada kandidat titik di PlantArea!", Colors.Error)
+                return
+            end
+
             -- Filter kandidat yang belum ter-cover sprinkler existing
             local function isCoveredLocal(pt, sprPos)
                 for _, sp in ipairs(sprPos) do
@@ -434,45 +446,89 @@ CreateInfoText(plantContent, "How It Works",
                 end
                 return false
             end
-            local uncovered = {}
-            for _, pt in ipairs(candidates) do
-                if not isCoveredLocal(pt, existingPos) then
-                    table.insert(uncovered, pt)
+
+            -- Greedy: ambil titik yg tidak covered, tapi pilih yg paling jauh dari semua sprinkler existing
+            -- (untuk spread optimal)
+            local placed_positions = {table.unpack(existingPos)}
+            local targets_to_place = {}
+            local remaining = {table.unpack(candidates)}
+            while #remaining > 0 do
+                -- Cari titik yang tidak covered
+                local best = nil
+                local bestScore = -1
+                local bestIdx = nil
+                for i, pt in ipairs(remaining) do
+                    if not isCoveredLocal(pt, placed_positions) then
+                        -- Score: min distance ke sprinkler terdekat (lebih jauh = lebih baik)
+                        local minDist = math.huge
+                        for _, sp in ipairs(placed_positions) do
+                            local dx, dz = pt.X - sp.X, pt.Y - sp.Y
+                            local d = dx*dx + dz*dz
+                            if d < minDist then minDist = d end
+                        end
+                        if #placed_positions == 0 then minDist = math.huge end
+                        if minDist > bestScore then
+                            bestScore = minDist
+                            best = pt
+                            bestIdx = i
+                        end
+                    end
                 end
+                if not best then break end
+                table.insert(targets_to_place, best)
+                table.insert(placed_positions, best)
+                -- Hapus titik yang sekarang ter-cover oleh sprinkler baru ini
+                local newRemaining = {}
+                for _, pt in ipairs(remaining) do
+                    if not isCoveredLocal(pt, {best}) then
+                        table.insert(newRemaining, pt)
+                    end
+                end
+                remaining = newRemaining
             end
 
-            if #uncovered == 0 then
+            if #targets_to_place == 0 then
                 Notify("Sprinkler", "Semua area sudah ter-cover sprinkler \240\159\140\191", Colors.Success)
                 return
             end
 
             Notify("Sprinkler \240\159\140\191",
-                "Placing " .. #uncovered .. " sprinkler(s) (" .. sprinklerName .. ", radius " .. radius .. " studs)...",
+                "Akan place " .. #targets_to_place .. " sprinkler (" .. sprinklerName .. ", r=" .. radius .. ")...",
                 Colors.Success)
 
             task.spawn(function()
                 local placed = 0
-                for _, pt in ipairs(uncovered) do
+                for i, pt in ipairs(targets_to_place) do
+                    -- Re-acquire tool di awal setiap iterasi (tool dikonsumsi server setelah place)
+                    if i > 1 then
+                        task.wait(0.3)
+                        local t2, sn2 = AcquireSprinklerTool()
+                        if not t2 then
+                            Notify("Sprinkler", "Habis sprinkler di backpack! (" .. placed .. "/" .. #targets_to_place .. " placed)", Colors.Error)
+                            break
+                        end
+                        tool, sprinklerName = t2, sn2
+                    end
                     local ok = false
+                    local errMsg = ""
                     pcall(function()
                         ok = DoPlaceSprinklerAt(pt.X, pt.Y, plantAreaParts, tool, sprinklerName)
                     end)
-                    if ok then placed = placed + 1 end
-                    -- Re-acquire setelah tiap placement (tool dikonsumsi server)
-                    local t2, sn2 = AcquireSprinklerTool()
-                    if not t2 then
-                        Notify("Sprinkler", "Habis sprinkler di backpack!", Colors.Error)
-                        break
+                    if ok then
+                        placed = placed + 1
+                    else
+                        Notify("Sprinkler [DEBUG]",
+                            "Place " .. i .. "/" .. #targets_to_place ..
+                            " GAGAL @ (" .. math.floor(pt.X) .. ", " .. math.floor(pt.Y) .. ")",
+                            Colors.Warning, 4)
                     end
-                    tool, sprinklerName = t2, sn2
-                    task.wait(0.5)
                 end
                 if placed > 0 then
                     Notify("Sprinkler",
-                        "Placed " .. placed .. "/" .. #uncovered .. " sprinklers on Plot " .. MY_PLOT_ID,
+                        "Placed " .. placed .. "/" .. #targets_to_place .. " sprinklers on Plot " .. MY_PLOT_ID,
                         Colors.Success, 5)
                 else
-                    Notify("Sprinkler", "Tidak ada sprinkler yang berhasil di-place. Pastikan kamu di plot dan punya plants.", Colors.Warning)
+                    Notify("Sprinkler", "Tidak ada sprinkler yang berhasil di-place. Cek debug di atas!", Colors.Warning)
                 end
             end)
         end, Colors.Success)
