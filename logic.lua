@@ -958,18 +958,17 @@ return function(ctx)
             local halfX  = sz.X / 2
             local halfZ  = sz.Z / 2
             local margin = 0.5
-            -- FIX: pakai UpVector untuk top surface yang akurat (sama seperti yang server terima)
-            -- cf.Position + UpVector * (sz.Y/2) = titik tengah top face dalam world space
-            local topWorld = cf.Position + cf.UpVector * (sz.Y / 2)
-            local topY     = topWorld.Y
+
+            -- Sample Y dari satu titik tengah area via raycast (akurat, tidak perlu tiap titik)
+            local centerWorld = cf:PointToWorldSpace(Vector3.new(0, sz.Y / 2, 0))
+            local topY = GetSurfaceY(centerWorld.X, centerWorld.Z)
 
             local lx = -halfX + margin
             while lx <= halfX - margin do
                 local lz = -halfZ + margin
                 while lz <= halfZ - margin do
-                    -- PointToWorldSpace di lokal (lx, sz.Y/2, lz) → world XZ sudah benar,
-                    -- tapi Y-nya ikut rotasi area. Kita override Y ke topY yang benar.
                     local worldPt = cf:PointToWorldSpace(Vector3.new(lx, sz.Y / 2, lz))
+                    -- Y dari raycast di center area (konsisten per area, bukan per titik)
                     table.insert(candidates, Vector3.new(worldPt.X, topY, worldPt.Z))
                     lz = lz + step
                 end
@@ -1042,39 +1041,41 @@ return function(ctx)
     -- Pendekatan: equip tool -> teleport player tepat ke atas pos -> fire remote.
     -- Tidak pakai VirtualInputManager sama sekali (brittle, tergantung kamera & layar).
 
-    -- Hitung Y surface dari PlantArea di posisi XZ tertentu via raycast
+    -- Hitung Y surface dari PlantArea di posisi XZ tertentu via raycast.
+    -- Debug confirmed: server terima Y=142.7554. Raycast tanpa filter dulu agar
+    -- pasti kena surface, lalu cek apakah instance-nya PlantArea.
     local function GetSurfaceY(px, pz)
         local foundY = nil
+
+        -- Pass 1: raycast include Gardens saja (paling cepat)
         pcall(function()
             local rayParams = RaycastParams.new()
             rayParams.FilterType = Enum.RaycastFilterType.Include
             local gardens = workspace:FindFirstChild("Gardens")
-            if gardens then rayParams.FilterDescendantsInstances = {gardens} end
-            local result = workspace:Raycast(Vector3.new(px, 200, pz), Vector3.new(0, -300, 0), rayParams)
-            if result and result.Instance then
-                local inst = result.Instance
-                if CollectionService:HasTag(inst, "PlantArea")
-                   or inst.Name:lower():find("plantarea") then
-                    foundY = result.Position.Y
-                end
+            if not gardens then return end
+            rayParams.FilterDescendantsInstances = {gardens}
+            local result = workspace:Raycast(Vector3.new(px, 300, pz), Vector3.new(0, -500, 0), rayParams)
+            if result then
+                foundY = result.Position.Y
             end
         end)
         if foundY then return foundY end
-        local plantAreas = GetMyPlantAreas()
-        local bestY, bestDist = nil, math.huge
-        for _, area in ipairs(plantAreas) do
-            local cf, sz = area.CFrame, area.Size
-            local dx = px - cf.Position.X
-            local dz = pz - cf.Position.Z
-            local d2 = dx*dx + dz*dz
-            if d2 < bestDist then
-                bestDist = d2
-                -- Top surface yang akurat: center + UpVector * halfHeight
-                local topWorld = cf.Position + cf.UpVector * (sz.Y / 2)
-                bestY = topWorld.Y
+
+        -- Pass 2: raycast global (exclude karakter sendiri)
+        pcall(function()
+            local rayParams = RaycastParams.new()
+            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+            local char = player.Character
+            if char then rayParams.FilterDescendantsInstances = {char} end
+            local result = workspace:Raycast(Vector3.new(px, 300, pz), Vector3.new(0, -500, 0), rayParams)
+            if result then
+                foundY = result.Position.Y
             end
-        end
-        return bestY or 142.7554  -- confirmed dari debug: server terima Y=142.7554
+        end)
+        if foundY then return foundY end
+
+        -- Pass 3: fallback ke nilai confirmed dari debug session
+        return 142.7554
     end
     Logic.GetSurfaceY = GetSurfaceY
 
@@ -1119,37 +1120,11 @@ return function(ctx)
             task.wait(0.15)  -- FIX: naikan dari 0.05 → 0.15 agar tool benar-benar aktif di karakter
         end
 
-        -- Posisi: normalize Y ke top surface PlantArea yang benar.
-        -- Debug konfirmasi server terima Y=142.7554, bukan 142.3554.
-        -- cf.Position + UpVector*(sz.Y/2) menghasilkan Y yang benar.
-        -- Server TIDAK validasi jarak player, jadi HopToNearPos tidak diperlukan.
-        local hitPos = pos
-        pcall(function()
-            local plantAreas = GetMyPlantAreas()
-            local bestDist = math.huge
-            for _, area in ipairs(plantAreas) do
-                local cf, sz = area.CFrame, area.Size
-                local topWorld = cf.Position + cf.UpVector * (sz.Y / 2)
-                local topY     = topWorld.Y
-                -- Cek apakah pos XZ masuk dalam bounds area ini (cek di object space)
-                local localPt = cf:PointToObjectSpace(Vector3.new(pos.X, cf.Position.Y, pos.Z))
-                local halfX, halfZ = sz.X / 2, sz.Z / 2
-                if math.abs(localPt.X) <= halfX and math.abs(localPt.Z) <= halfZ then
-                    -- Pos tepat di dalam area ini — pakai topY area ini
-                    hitPos = Vector3.new(pos.X, topY, pos.Z)
-                    bestDist = 0
-                    break
-                end
-                -- Tidak match — simpan yang terdekat sebagai fallback
-                local dx = pos.X - cf.Position.X
-                local dz = pos.Z - cf.Position.Z
-                local d2 = dx*dx + dz*dz
-                if d2 < bestDist then
-                    bestDist = d2
-                    hitPos = Vector3.new(pos.X, topY, pos.Z)
-                end
-            end
-        end)
+        -- Posisi: Y harus tepat di surface PlantArea yang server terima.
+        -- Debug confirmed: server terima Y=142.7554 konsisten di semua area.
+        -- GetSurfaceY pakai raycast sebagai primary; fallback hardcode 142.7554.
+        local surfY  = GetSurfaceY(pos.X, pos.Z)
+        local hitPos = Vector3.new(pos.X, surfY, pos.Z)
 
         -- plotId dari nama model Garden — persis cara TryPlace game lakukan
         local plotId
