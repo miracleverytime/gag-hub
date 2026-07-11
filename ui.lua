@@ -2731,18 +2731,15 @@ return function(ctx)
                 Visible = false,
                 ZIndex = 201,
             })
-            Create("Frame", {   -- green dot
+            local dot = Create("Frame", {   -- green dot
                 Parent = row,
                 Size = UDim2.new(0, 6, 0, 6),
                 Position = UDim2.new(0, 0, 0.5, -3),
                 BackgroundColor3 = Colors.ToggleOn,
                 BorderSizePixel = 0,
                 ZIndex = 202,
-            }):FindFirstChildOfClass("UICorner") or
-            Create("UICorner", { Parent = row:FindFirstChild("Frame") or row, CornerRadius = UDim.new(1, 0) })
-            -- dot corner via separate call
-            local dot = row:FindFirstChildWhichIsA("Frame")
-            if dot then CreateCorner(dot, 99) end
+            })
+            CreateCorner(dot, 99)
 
             local lbl = Create("TextLabel", {
                 Parent = row,
