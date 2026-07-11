@@ -1111,7 +1111,7 @@ return function(ctx)
         -- Equip tool (harus di karakter, bukan backpack)
         if not IsToolEquipped(tool) then
             if not EquipTool(tool) then return false end
-            task.wait(0.05)
+            task.wait(0.15)  -- FIX: naikan dari 0.05 → 0.15 agar tool benar-benar aktif di karakter
         end
 
         -- Posisi: pakai top surface dari PlantArea langsung via CFrame.UpVector
@@ -1144,6 +1144,11 @@ return function(ctx)
             end
         end)
 
+        -- FIX UTAMA: Pindah player ke dekat hitPos sebelum fire
+        -- Server validasi jarak player ke hitPos; tanpa ini placement sering ditolak
+        HopToNearPos(hitPos)
+        task.wait(0.1)  -- beri waktu server sync posisi player setelah hop
+
         -- plotId dari nama model Garden — persis cara TryPlace game lakukan
         local plotId
         local myPlot = GetMyPlot()
@@ -1154,16 +1159,14 @@ return function(ctx)
 
         local countBefore = CountSprinklerTools()
 
-        -- Fire langsung — tidak perlu move player sama sekali
-        local ok = pcall(function()
+        -- Fire remote placement
+        pcall(function()
             Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
         end)
         _lastSprinklerFire = os.clock()
 
-        if not ok then return false end
-
-        -- Deteksi sukses: tool berkurang dari inventory
-        task.wait(0.5)
+        -- FIX: naikan dari 0.5 → 0.7 untuk antisipasi latency server lebih baik
+        task.wait(0.7)
         return CountSprinklerTools() < countBefore
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
