@@ -660,6 +660,448 @@ return function(ctx)
         end
     end)
 
+    -- ====================== AUTO PLACE SPRINKLERS ======================
+    --
+    -- Pendekatan baru berdasarkan decompile + debug data real:
+    --
+    -- 1. Raycast dari atas ke bawah di titik-titik dalam PlantArea
+    --    FilterType = Include, target = semua BasePart ber-tag "PlantArea" di plot kita
+    --    hitPos = result.Position langsung (Y otomatis sesuai surface game, ~142.75)
+    --
+    -- 2. Fire: Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+    --    plotId = number dari "PlotXX" → XX
+    --
+    -- 3. Cek sprinkler existing via plot:FindFirstChild("Sprinklers") folder
+    --    (diisi oleh SprinklerVisualizerController setelah server confirm)
+    --
+    -- 4. Cek too-close: jarak < 1 stud dari sprinkler model existing
+    --
+    -- 5. Coverage: hitung apakah titik-titik PlantArea sudah ter-cover radius sprinkler
+    --    Radius dari SprinklerData (Common=20, Uncommon=25, Rare=30, Legendary=40, Super=55)
+
+    local SPRINKLER_RADII = {
+        ["Common Sprinkler"]    = 20,
+        ["Uncommon Sprinkler"]  = 25,
+        ["Rare Sprinkler"]      = 30,
+        ["Legendary Sprinkler"] = 40,
+        ["Super Sprinkler"]     = 55,
+    }
+
+    -- Ambil PlantArea BaseParts milik plot kita (pakai CollectionService + fallback manual)
+    local function GetPlantAreaParts()
+        local myPlot = GetMyPlot()
+        if not myPlot then return {} end
+        local parts = {}
+        -- Primary: CollectionService tag "PlantArea"
+        for _, part in ipairs(CollectionService:GetTagged("PlantArea")) do
+            if part:IsA("BasePart") and part:IsDescendantOf(myPlot) then
+                table.insert(parts, part)
+            end
+        end
+        -- Fallback: scan nama
+        if #parts == 0 then
+            for _, desc in ipairs(myPlot:GetDescendants()) do
+                if desc:IsA("BasePart") and desc.Name:find("PlantArea") then
+                    table.insert(parts, desc)
+                end
+            end
+        end
+        return parts
+    end
+    Logic.GetPlantAreaParts = GetPlantAreaParts
+
+    -- Raycast dari atas ke bawah di (X, Z) tertentu, return hitPos atau nil
+    -- FilterDescendantsInstances = array of PlantArea BaseParts (bukan QueryDescendants string!)
+    local function RaycastToPlantSurface(px, pz, plantAreaParts)
+        if not plantAreaParts or #plantAreaParts == 0 then return nil end
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Include
+        params.FilterDescendantsInstances = plantAreaParts
+        local result = workspace:Raycast(
+            Vector3.new(px, 300, pz),
+            Vector3.new(0, -500, 0),
+            params
+        )
+        if result and CollectionService:HasTag(result.Instance, "PlantArea") then
+            return result.Position
+        end
+        -- Fallback: coba tanpa CollectionService check (untuk "Part" yang mungkin tidak punya tag)
+        if result then
+            return result.Position
+        end
+        return nil
+    end
+    Logic.RaycastToPlantSurface = RaycastToPlantSurface
+
+    -- Ambil posisi world semua sprinkler yang sudah terpasang di plot kita
+    local function GetExistingSprinklerPositions()
+        local myPlot = GetMyPlot()
+        local positions = {}
+        if not myPlot then return positions end
+        local sprinklersFolder = myPlot:FindFirstChild("Sprinklers")
+        if not sprinklersFolder then return positions end
+        for _, model in ipairs(sprinklersFolder:GetChildren()) do
+            if model:IsA("Model") then
+                local pp = model.PrimaryPart
+                local wpos
+                if pp then
+                    wpos = pp.Position
+                else
+                    local ok, piv = pcall(function() return model:GetPivot() end)
+                    if ok and piv then wpos = piv.Position end
+                end
+                if wpos then
+                    table.insert(positions, Vector2.new(wpos.X, wpos.Z))
+                end
+            end
+        end
+        return positions
+    end
+    Logic.GetExistingSprinklerPositions = GetExistingSprinklerPositions
+
+    -- Cek apakah hitPos terlalu dekat sprinkler existing (< 1 stud, persis seperti game)
+    local function IsTooCloseToExistingSprinkler(hitPos, existingPositions)
+        for _, sp in ipairs(existingPositions) do
+            local dx = hitPos.X - sp.X
+            local dz = hitPos.Z - sp.Y
+            if dx*dx + dz*dz < 1 then  -- < 1 stud^2 = < 1 stud distance
+                return true
+            end
+        end
+        return false
+    end
+
+    -- Ambil sprinkler tool dari backpack / karakter
+    local function GetSprinklerTool()
+        local targets = States.sprinklerTargets or {}
+        local hasTargets = #targets > 0
+
+        local function isValidTool(tool)
+            if not (tool and tool:IsA("Tool")) then return false end
+            local attr = tool:GetAttribute("Sprinkler")
+            if not attr then return false end
+            local sName = type(attr) == "string" and attr ~= "" and attr or tool.Name
+            if hasTargets then
+                for _, t in ipairs(targets) do
+                    if t == sName then return tool, sName end
+                end
+                return false
+            end
+            return tool, sName
+        end
+
+        -- Cek equipped dulu
+        if player.Character then
+            local held = player.Character:FindFirstChildOfClass("Tool")
+            local t, n = isValidTool(held)
+            if t then return t, n end
+        end
+
+        -- Cek backpack
+        local bp = player:FindFirstChildOfClass("Backpack")
+        if bp then
+            if hasTargets then
+                for _, targetName in ipairs(targets) do
+                    for _, tool in ipairs(bp:GetChildren()) do
+                        if tool:IsA("Tool") then
+                            local attr = tool:GetAttribute("Sprinkler")
+                            local sName = type(attr) == "string" and attr ~= "" and attr or tool.Name
+                            if sName == targetName then return tool, sName end
+                        end
+                    end
+                end
+            else
+                for _, tool in ipairs(bp:GetChildren()) do
+                    local t, n = isValidTool(tool)
+                    if t then return t, n end
+                end
+            end
+        end
+        return nil, nil
+    end
+
+    local function AcquireSprinklerTool()
+        local tool, sprinklerName = GetSprinklerTool()
+        if not tool or not sprinklerName then return nil, nil end
+        if not IsToolEquipped(tool) then
+            if not EquipTool(tool) then return nil, nil end
+        end
+        return tool, sprinklerName
+    end
+    Logic.AcquireSprinklerTool = AcquireSprinklerTool
+
+    -- Hitung plotId dari nama plot ("PlotXX" → XX)
+    local function GetPlotId(plot)
+        if not plot then return nil end
+        return tonumber(string.match(plot.Name, "%d+"))
+    end
+
+    -- Generate kandidat titik (XZ) yang merata di seluruh PlantArea
+    -- step = spasi grid; lebih kecil = lebih presisi tapi lebih banyak titik
+    local function GetPlantAreaCandidatePoints(plantAreaParts, step)
+        step = step or 8
+        local candidates = {}
+        for _, area in ipairs(plantAreaParts) do
+            local cf   = area.CFrame
+            local sz   = area.Size
+            local halfX = sz.X / 2
+            local halfZ = sz.Z / 2
+            local margin = 1.0
+            local lx = -halfX + margin
+            while lx <= halfX - margin do
+                local lz = -halfZ + margin
+                while lz <= halfZ - margin do
+                    local worldPt = cf:PointToWorldSpace(Vector3.new(lx, sz.Y / 2, lz))
+                    table.insert(candidates, Vector2.new(worldPt.X, worldPt.Z))
+                    lz = lz + step
+                end
+                lx = lx + step
+            end
+        end
+        return candidates
+    end
+
+    -- Cek apakah titik (Vector2 XZ) ter-cover oleh salah satu sprinkler
+    local function IsPointCoveredBySprinkler(point, sprinklerPositions, radius)
+        for _, sp in ipairs(sprinklerPositions) do
+            local dx = point.X - sp.X
+            local dz = point.Y - sp.Y
+            if dx*dx + dz*dz <= radius * radius then
+                return true
+            end
+        end
+        return false
+    end
+
+    -- Hitung coverage: berapa persen titik PlantArea sudah ter-cover
+    local function CalculateCoverage(candidatePoints, sprinklerPositions, radius)
+        if #candidatePoints == 0 then return 1.0 end
+        local covered = 0
+        for _, pt in ipairs(candidatePoints) do
+            if IsPointCoveredBySprinkler(pt, sprinklerPositions, radius) then
+                covered = covered + 1
+            end
+        end
+        return covered / #candidatePoints
+    end
+    Logic.CalculateCoverage = CalculateCoverage
+
+    -- Fire single placement: equip tool, raycast, fire remote
+    -- Return true jika berhasil (tool berkurang dari inventory)
+    local _lastSprinklerFire = 0
+    local function DoPlaceSprinklerAt(px, pz, plantAreaParts, tool, sprinklerName)
+        -- Rate limit 0.6 detik (sedikit lebih dari game 0.5 untuk aman)
+        local now = os.clock()
+        local gap = 0.6 - (now - _lastSprinklerFire)
+        if gap > 0 then task.wait(gap) end
+
+        -- Pastikan tool masih valid
+        if not (tool and tool.Parent) then return false end
+
+        -- Equip tool
+        if not IsToolEquipped(tool) then
+            if not EquipTool(tool) then return false end
+            task.wait(0.15)
+        end
+
+        -- Raycast ke surface PlantArea
+        local hitPos = RaycastToPlantSurface(px, pz, plantAreaParts)
+        if not hitPos then return false end
+
+        -- Ambil plotId
+        local myPlot = GetMyPlot()
+        local plotId = GetPlotId(myPlot)
+        if not plotId then return false end
+
+        -- Cek too-close LAGI tepat sebelum fire (sprinkler baru mungkin sudah ditambah loop lain)
+        local existingPos = GetExistingSprinklerPositions()
+        if IsTooCloseToExistingSprinkler(hitPos, existingPos) then return false end
+
+        -- Hitung jumlah sprinkler sebelum fire (untuk verifikasi success)
+        local countBefore = #existingPos
+
+        -- Fire ke server
+        local fired = false
+        pcall(function()
+            Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+            fired = true
+        end)
+        if not fired then return false end
+
+        _lastSprinklerFire = os.clock()
+
+        -- Tunggu server confirm (SprinklerAdded event akan update Sprinklers folder)
+        task.wait(0.7)
+
+        -- Verifikasi: sprinkler folder bertambah?
+        local newPos = GetExistingSprinklerPositions()
+        return #newPos > countBefore
+    end
+    Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
+
+    -- AUTO SPRINKLER LOOP
+    -- Strategy: grid coverage per PlantArea, skip titik yang sudah ter-cover
+    -- Cooldown panjang setelah satu sesi placement selesai
+    local _sprinklerLoopCooldown = 0
+    task.spawn(function()
+        while _G._MiracleHubSession == SESSION do
+            task.wait(0.5)
+            if not States.autoSprinkler then continue end
+
+            local now = os.clock()
+            if now < _sprinklerLoopCooldown then continue end
+
+            pcall(function()
+                -- 1. Acquire tool
+                local tool, sprinklerName = AcquireSprinklerTool()
+                if not tool or not sprinklerName then
+                    Notify("Auto Sprinkler", "\226\154\160 Tidak ada sprinkler tool di backpack!", Colors.Warning, 3)
+                    _sprinklerLoopCooldown = os.clock() + 10
+                    return
+                end
+
+                local radius = SPRINKLER_RADII[sprinklerName] or 20
+
+                -- 2. Ambil PlantArea parts
+                local plantAreaParts = GetPlantAreaParts()
+                if #plantAreaParts == 0 then
+                    Notify("Auto Sprinkler", "\226\154\160 PlantArea tidak ditemukan di Plot " .. MY_PLOT_ID, Colors.Warning, 3)
+                    _sprinklerLoopCooldown = os.clock() + 15
+                    return
+                end
+
+                -- 3. Generate kandidat titik (grid step = radius/2 agar coverage cukup)
+                local step = math.max(math.floor(radius / 2), 4)
+                local candidatePoints = GetPlantAreaCandidatePoints(plantAreaParts, step)
+                if #candidatePoints == 0 then
+                    _sprinklerLoopCooldown = os.clock() + 15
+                    return
+                end
+
+                -- 4. Ambil posisi sprinkler existing sebagai Vector2
+                local existingSpPos = GetExistingSprinklerPositions()
+
+                -- 5. Cek coverage saat ini
+                local coverage = CalculateCoverage(candidatePoints, existingSpPos, radius)
+                if coverage >= 0.95 then
+                    -- Plot sudah ter-cover ≥95%, tidak perlu pasang lagi
+                    _sprinklerLoopCooldown = os.clock() + 30
+                    return
+                end
+
+                -- 6. Cari titik yang belum ter-cover, sort dari yang paling central
+                local uncoveredPoints = {}
+                for _, pt in ipairs(candidatePoints) do
+                    if not IsPointCoveredBySprinkler(pt, existingSpPos, radius) then
+                        table.insert(uncoveredPoints, pt)
+                    end
+                end
+
+                -- 7. Greedy placement: pilih titik yang cover paling banyak uncovered sekaligus
+                local placed  = 0
+                local failed  = 0
+                local placedPositions = {} -- track posisi yang baru kita pasang sesi ini
+
+                -- Gabungkan existing + baru untuk coverage check akumulatif
+                local allSprinklerPos = {}
+                for _, p in ipairs(existingSpPos) do table.insert(allSprinklerPos, p) end
+
+                while #uncoveredPoints > 0 and States.autoSprinkler do
+                    -- Re-acquire tool tiap iterasi (bisa habis)
+                    local curTool, curName = AcquireSprinklerTool()
+                    if not curTool then
+                        Notify("Auto Sprinkler", "\226\154\160 Sprinkler habis di backpack!", Colors.Warning, 3)
+                        break
+                    end
+                    tool, sprinklerName = curTool, curName
+                    radius = SPRINKLER_RADII[sprinklerName] or 20
+
+                    -- Greedy: cari kandidat yang cover paling banyak uncovered
+                    local bestPt    = nil
+                    local bestCount = 0
+                    for _, cand in ipairs(candidatePoints) do
+                        -- Skip jika terlalu dekat dengan yang sudah ada
+                        local tooClose = false
+                        for _, sp in ipairs(allSprinklerPos) do
+                            local dx = cand.X - sp.X
+                            local dz = cand.Y - sp.Y
+                            if dx*dx + dz*dz < 1 then tooClose = true; break end
+                        end
+                        if not tooClose then
+                            local count = 0
+                            local r2 = radius * radius
+                            for _, pt in ipairs(uncoveredPoints) do
+                                local dx = cand.X - pt.X
+                                local dz = cand.Y - pt.Y
+                                if dx*dx + dz*dz <= r2 then count = count + 1 end
+                            end
+                            if count > bestCount then
+                                bestCount = count
+                                bestPt    = cand
+                            end
+                        end
+                    end
+
+                    -- Tidak ada kandidat yang bisa cover apapun → stop
+                    if not bestPt or bestCount == 0 then break end
+
+                    -- Place sprinkler di bestPt
+                    local success = false
+                    local ok = pcall(function()
+                        success = DoPlaceSprinklerAt(bestPt.X, bestPt.Y, plantAreaParts, tool, sprinklerName)
+                    end)
+
+                    if ok and success then
+                        placed = placed + 1
+                        failed = 0
+                        -- Update coverage tracking
+                        local newSp = Vector2.new(bestPt.X, bestPt.Y)
+                        table.insert(allSprinklerPos, newSp)
+                        table.insert(placedPositions, newSp)
+                        -- Filter uncovered
+                        local newUncovered = {}
+                        local r2 = radius * radius
+                        for _, pt in ipairs(uncoveredPoints) do
+                            local dx = bestPt.X - pt.X
+                            local dz = bestPt.Y - pt.Y
+                            if dx*dx + dz*dz > r2 then
+                                table.insert(newUncovered, pt)
+                            end
+                        end
+                        uncoveredPoints = newUncovered
+                    else
+                        failed = failed + 1
+                        if failed >= 3 then
+                            task.wait(1)
+                            failed = 0
+                            -- Refresh existing positions (mungkin ada perubahan)
+                            local refreshed = GetExistingSprinklerPositions()
+                            allSprinklerPos = refreshed
+                            for _, p in ipairs(placedPositions) do
+                                table.insert(allSprinklerPos, p)
+                            end
+                        end
+                    end
+                end
+
+                -- 8. Notify hasil
+                if placed > 0 then
+                    Notify("Auto Sprinkler \240\159\140\191",
+                        "Pasang " .. placed .. " sprinkler di Plot " .. MY_PLOT_ID,
+                        Colors.Success, 5)
+                elseif #uncoveredPoints == 0 or coverage >= 0.95 then
+                    -- Sudah ter-cover, tidak ada notif (spam)
+                else
+                    Notify("Auto Sprinkler",
+                        "Tidak ada sprinkler yang berhasil dipasang.",
+                        Colors.Warning, 3)
+                end
+            end)
+
+            _sprinklerLoopCooldown = os.clock() + 15
+        end
+    end)
+
     -- ====================== SELL HELPERS + LOOP ======================
     local function PreviewSellAll()
         if not Networking then return nil end
