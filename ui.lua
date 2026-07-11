@@ -2486,8 +2486,23 @@ return function(ctx)
             LayoutOrder = 1,
         })
 
-        -- Prime badge (inline next to display name)
-        if isPrime then
+        -- Prime / Founder badge (inline next to display name)
+        local isFounder = (player.UserId == 9039505358)
+        if isFounder then
+            local badge = Create("TextLabel", {
+                Parent = nameRow,
+                Size = UDim2.new(0, 84, 0, 20),
+                BackgroundColor3 = Color3.fromRGB(28, 20, 5),   -- dark gold-tinted bg
+                Text = "\226\152\133 FOUNDER",                   -- ★ filled star
+                TextColor3 = Colors.Gold,
+                TextSize = 11,
+                Font = FONT_BOLD,
+                BorderSizePixel = 0,
+                LayoutOrder = 2,
+            })
+            CreateCorner(badge, 5)
+            CreateStroke(badge, Colors.Gold, 1)
+        elseif isPrime then
             local badge = Create("TextLabel", {
                 Parent = nameRow,
                 Size = UDim2.new(0, 72, 0, 20),
@@ -2924,7 +2939,8 @@ return function(ctx)
             })
         end
 
-        accountRow(84171650897655,  "Plan",        isPrime and "Prime \194\183 Lifetime" or "Free")
+        local isFounder = (player.UserId == 9039505358)
+        accountRow(84171650897655,  "Plan",        isFounder and "-" or (isPrime and "Prime \194\183 Lifetime" or "Free"))
         accountRow(100521852773201, "Game",        "Grow A Garden 2")
         accountRow(79697495020129,  "Hub Version", ctx.HubVersion or "v2.0.1")
         accountRow(88921554280153,  "Platform",    PLATFORM_LABEL)
