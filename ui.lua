@@ -2579,7 +2579,7 @@ return function(ctx)
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
-            return v
+            return v, cell
         end
 
         -- Keys counted as "active" for the ACTIVE stat cell
@@ -2600,7 +2600,7 @@ return function(ctx)
         local sessionVal  = statCell(1, 136103650662391, "00:00:00", "SESSION")
         local playersVal  = statCell(2, 124978844700371, "0",        "PLAYERS")
         local memoryVal   = statCell(3, 118492548320850, "0",        "MEMORY MB")
-        local activeVal   = statCell(4, 120958905213540, "0",        "ACTIVE LOOPS")
+        local activeVal, activeCell = statCell(4, 120958905213540, "0", "ACTIVE LOOPS")
 
         local Stats   = game:GetService("Stats")
         local Players = game:GetService("Players")
@@ -2619,6 +2619,221 @@ return function(ctx)
                 end
                 activeVal.Text = tostring(count)
                 task.wait(1)
+            end
+        end)
+
+        -- ── Active Loops info icon + modal ──
+        -- Human-readable label per automation key
+        local LOOP_LABELS = {
+            autoPlant         = "Auto Plant",
+            autoPlantAllSeeds = "Auto Plant (All Seeds)",
+            autoHarvest       = "Auto Harvest",
+            autoWater         = "Auto Water",
+            autoSprinkler     = "Auto Sprinkler",
+            autoBuySeed       = "Auto Buy Seed",
+            autoBuyAll        = "Auto Buy All Seeds",
+            autoBuyGear       = "Auto Buy Gear",
+            autoBuyGearAll    = "Auto Buy All Gear",
+            autoBuyCrate      = "Auto Buy Crate",
+            autoBuyCrateAll   = "Auto Buy All Crates",
+            autoOpenCrate     = "Auto Open Crate",
+            autoSell          = "Auto Sell",
+            autoCatchWild     = "Auto Catch Wild Pet",
+            fly               = "Fly",
+            espPlayers        = "ESP Players",
+            espItems          = "ESP Items",
+            espFruits         = "ESP Fruits",
+            espMutations      = "ESP Mutations",
+            lockWalkSpeed     = "Lock Walk Speed",
+            lockJumpPower     = "Lock Jump Power",
+            infiniteJump      = "Infinite Jump",
+            fullBright        = "Full Bright",
+            noFog             = "No Fog",
+            noShadows         = "No Shadows",
+            autoAcceptGifts   = "Auto Accept Gifts",
+            autoRejoin        = "Auto Rejoin",
+            antiAfk           = "Anti AFK",
+        }
+
+        -- Info icon button (bottom-right of activeCell)
+        local infoBtn = Create("ImageButton", {
+            Parent = activeCell,
+            Size = UDim2.new(0, 14, 0, 14),
+            Position = UDim2.new(1, -22, 1, -20),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://72579596890456",
+            ImageColor3 = Colors.TextMuted,
+        })
+
+        -- Modal frame — parented to ScreenGui so it overlays everything
+        local loopModal = Create("Frame", {
+            Parent = ScreenGui,
+            Size = UDim2.new(0, 210, 0, 0),   -- height auto via AutomaticSize
+            AutomaticSize = Enum.AutomaticSize.Y,
+            BackgroundColor3 = Colors.BackgroundLight,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 200,
+        })
+        CreateCorner(loopModal, 10)
+        CreateStroke(loopModal, Colors.Border, 1)
+
+        Create("UIPadding", {
+            Parent = loopModal,
+            PaddingTop    = UDim.new(0, 10),
+            PaddingBottom = UDim.new(0, 10),
+            PaddingLeft   = UDim.new(0, 12),
+            PaddingRight  = UDim.new(0, 12),
+        })
+        Create("UIListLayout", {
+            Parent = loopModal,
+            FillDirection = Enum.FillDirection.Vertical,
+            Padding = UDim.new(0, 4),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+        })
+
+        -- Modal header
+        Create("TextLabel", {
+            Parent = loopModal,
+            Size = UDim2.new(1, 0, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "ACTIVE LOOPS",
+            TextColor3 = Colors.TextSecondary,
+            TextSize = 10,
+            Font = FONT_MONO,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            LayoutOrder = 0,
+            ZIndex = 201,
+        })
+
+        -- Placeholder shown when nothing is active
+        local emptyLabel = Create("TextLabel", {
+            Parent = loopModal,
+            Size = UDim2.new(1, 0, 0, 16),
+            BackgroundTransparency = 1,
+            Text = "No loops running",
+            TextColor3 = Colors.TextMuted,
+            TextSize = 10,
+            Font = FONT_MONO,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            LayoutOrder = 1,
+            ZIndex = 201,
+        })
+
+        -- Pool of row labels (reused each refresh — max = #AUTOMATION_KEYS)
+        local rowPool = {}
+        for idx = 1, #AUTOMATION_KEYS do
+            local row = Create("Frame", {
+                Parent = loopModal,
+                Size = UDim2.new(1, 0, 0, 16),
+                BackgroundTransparency = 1,
+                LayoutOrder = idx + 1,
+                Visible = false,
+                ZIndex = 201,
+            })
+            Create("Frame", {   -- green dot
+                Parent = row,
+                Size = UDim2.new(0, 6, 0, 6),
+                Position = UDim2.new(0, 0, 0.5, -3),
+                BackgroundColor3 = Colors.ToggleOn,
+                BorderSizePixel = 0,
+                ZIndex = 202,
+            }):FindFirstChildOfClass("UICorner") or
+            Create("UICorner", { Parent = row:FindFirstChild("Frame") or row, CornerRadius = UDim.new(1, 0) })
+            -- dot corner via separate call
+            local dot = row:FindFirstChildWhichIsA("Frame")
+            if dot then CreateCorner(dot, 99) end
+
+            local lbl = Create("TextLabel", {
+                Parent = row,
+                Size = UDim2.new(1, -14, 1, 0),
+                Position = UDim2.new(0, 14, 0, 0),
+                BackgroundTransparency = 1,
+                Text = "",
+                TextColor3 = Colors.TextSecondary,
+                TextSize = 10,
+                Font = FONT_MONO,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                ZIndex = 202,
+            })
+            rowPool[idx] = { row = row, lbl = lbl }
+        end
+
+        -- Position modal above the activeCell, aligned to its right edge
+        local function positionModal()
+            local absPos  = activeCell.AbsolutePosition
+            local absSize = activeCell.AbsoluteSize
+            local modalH  = loopModal.AbsoluteSize.Y
+            -- align right edge of modal with right edge of cell
+            local x = absPos.X + absSize.X - 210
+            local y = absPos.Y - modalH - 6
+            -- clamp so it never goes off-screen top
+            if y < 4 then y = absPos.Y + absSize.Y + 6 end
+            loopModal.Position = UDim2.fromOffset(math.floor(x), math.floor(y))
+        end
+
+        -- Refresh modal rows to match current active loops
+        local function refreshModal()
+            local active = {}
+            for _, k in ipairs(AUTOMATION_KEYS) do
+                if States[k] then
+                    active[#active + 1] = LOOP_LABELS[k] or k
+                end
+            end
+
+            emptyLabel.Visible = (#active == 0)
+            for i, entry in ipairs(rowPool) do
+                if active[i] then
+                    entry.lbl.Text = active[i]
+                    entry.row.Visible = true
+                else
+                    entry.row.Visible = false
+                end
+            end
+
+            -- Re-position after size settles
+            task.defer(positionModal)
+        end
+
+        -- Toggle modal on icon click
+        local modalOpen = false
+        infoBtn.MouseButton1Click:Connect(function()
+            modalOpen = not modalOpen
+            if modalOpen then
+                refreshModal()
+                loopModal.Visible = true
+                infoBtn.ImageColor3 = Colors.Accent
+            else
+                loopModal.Visible = false
+                infoBtn.ImageColor3 = Colors.TextMuted
+            end
+        end)
+
+        -- Auto-close when clicking anywhere outside modal
+        game:GetService("UserInputService").InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or
+               input.UserInputType == Enum.UserInputType.Touch then
+                if modalOpen then
+                    -- small defer so the icon click fires before we close
+                    task.defer(function()
+                        local mp = game:GetService("UserInputService"):GetMouseLocation()
+                        local mp2 = Vector2.new(mp.X, mp.Y)
+                        local mPos  = loopModal.AbsolutePosition
+                        local mSize = loopModal.AbsoluteSize
+                        local inModal = mp2.X >= mPos.X and mp2.X <= mPos.X + mSize.X
+                                     and mp2.Y >= mPos.Y and mp2.Y <= mPos.Y + mSize.Y
+                        local iPos  = infoBtn.AbsolutePosition
+                        local iSize = infoBtn.AbsoluteSize
+                        local inIcon = mp2.X >= iPos.X and mp2.X <= iPos.X + iSize.X
+                                    and mp2.Y >= iPos.Y and mp2.Y <= iPos.Y + iSize.Y
+                        if not inModal and not inIcon then
+                            modalOpen = false
+                            loopModal.Visible = false
+                            infoBtn.ImageColor3 = Colors.TextMuted
+                        end
+                    end)
+                end
             end
         end)
 
