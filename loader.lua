@@ -1,99 +1,122 @@
 -- ======================================================================
--- Miracle Hub — loader.lua
--- This is the ONLY file you inject. It fetches every module from the
--- public GitLab raw endpoint, builds a shared `ctx` table, and runs the
--- modules in dependency order:
---   core  -> ui -> logic -> pages -> bootstrap
+-- Miracle Hub — loader.lua  [FIXED v2]
+-- This is the ONLY file you inject. Fetches every module from GitHub,
+-- builds a shared `ctx` table, runs modules in dependency order:
+--   core -> ui -> ultralow -> logic -> pages -> bootstrap
 --
 -- Inject with:
 --   loadstring(game:HttpGet("https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/loader.lua"))()
 --
--- NOTE: modules below are loaded incrementally during the refactor.
--- Only modules that already exist on the branch are listed in MODULES.
+-- FIX v2: BytecodePatchWatcherT crash diatasi dengan:
+--   1. Delay PROPORSIONAL ke ukuran file SEBELUM loadstring()
+--      → Workers Xeno butuh waktu lebih lama reset untuk file besar (>50KB)
+--   2. task.wait() TAMBAHAN setelah pcall(fn) untuk modul besar
+--      → fn() menjalankan outer wrapper, moduleFn(ctx) build seluruh UI/logic
+--        yang juga melibatkan banyak upvalue/closure patches
+--   3. Delay ANTAR modul juga disesuaikan ukuran modul sebelumnya
 -- ======================================================================
 
--- Base raw URL for this repo (public). Trailing slash required.
 local BASE = "https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/"
 
--- Modules in load order. Append new ones here as the refactor progresses.
+-- MODULES: { name, preCompileDelay, postInitDelay }
+-- preCompileDelay : detik wait SEBELUM loadstring()  (worker recovery)
+-- postInitDelay   : detik wait SETELAH moduleFn(ctx) (closure patch recovery)
+-- Aturan thumb: ~1 detik per 25KB source. Minimum 1.0 untuk semua modul.
 local MODULES = {
-    "core.lua",
-    "ui.lua",
-    "ultralow.lua",
-    "logic.lua",
-    "pages.lua",
-    "bootstrap.lua",
+    { name = "core.lua",      preDelay = 0.5,  postDelay = 0.5  },  -- 13 KB  → ringan
+    { name = "ui.lua",        preDelay = 2.5,  postDelay = 2.0  },  -- 112 KB → BESAR
+    { name = "ultralow.lua",  preDelay = 1.0,  postDelay = 0.5  },  -- 24 KB  → sedang
+    { name = "logic.lua",     preDelay = 2.5,  postDelay = 2.0  },  -- 116 KB → BESAR
+    { name = "pages.lua",     preDelay = 2.0,  postDelay = 1.5  },  -- 83 KB  → besar
+    { name = "bootstrap.lua", preDelay = 1.0,  postDelay = 0.0  },  -- 33 KB  → last, no post
 }
 
--- Shared context passed to every module.
 local ctx = {}
 
--- Helper: fetch + compile + run a module, passing ctx.
-local function loadModule(name)
-    local url = BASE .. name
+-- ====================== LOAD HELPER ======================
+local function loadModule(mod)
+    local name       = mod.name
+    local preDelay   = mod.preDelay
+    local postDelay  = mod.postDelay
+
+    -- 1. Fetch source dari GitHub
     local src
     local ok, err = pcall(function()
-        src = game:HttpGet(url, true)
+        src = game:HttpGet(BASE .. name, true)
     end)
     if not ok or not src then
-        warn("[Miracle Hub] Failed to fetch " .. name .. ": " .. tostring(err))
+        warn("[MiracleHub] FETCH FAILED — " .. name .. ": " .. tostring(err))
         return false
     end
 
-    -- Strip UTF-8 BOM (U+FEFF = EF BB BF) if present — some editors/GitHub
-    -- uploads include it, which makes loadstring crash at :1 with "got Unicode U+FEFF".
+    -- 2. Strip UTF-8 BOM jika ada
     if src:sub(1, 3) == "\239\187\191" then
         src = src:sub(4)
     end
 
-    -- FIX: Yield before compiling each module.
-    -- Xeno's BytecodePatchWatcherT has a threshold on rapid bytecode patches.
-    -- Without this yield, 6 large loadstring() calls back-to-back causes
-    -- "Threshold reached. Workers failed to call restore" → client crash.
-    task.wait(0.1)
+    -- 3. PRE-COMPILE DELAY — beri waktu BytecodePatchWatcher workers recover
+    --    Ini adalah fix UTAMA: delay proporsional ukuran file, bukan flat 0.1s
+    print("[MiracleHub] Compiling " .. name .. " (" .. #src .. " bytes) — waiting " .. preDelay .. "s …")
+    task.wait(preDelay)
 
+    -- 4. Compile
     local fn, compileErr = loadstring(src, "=" .. name)
     if not fn then
-        warn("[Miracle Hub] Compile error in " .. name .. ": " .. tostring(compileErr))
+        warn("[MiracleHub] COMPILE ERROR — " .. name .. ": " .. tostring(compileErr))
         return false
     end
 
+    -- 5. Run outer wrapper (returns moduleFn)
     local runOk, moduleFn = pcall(fn)
     if not runOk then
-        warn("[Miracle Hub] Run error in " .. name .. ": " .. tostring(moduleFn))
+        warn("[MiracleHub] RUN ERROR — " .. name .. ": " .. tostring(moduleFn))
         return false
     end
-
-    -- Each module returns `function(ctx) ... end`.
     if type(moduleFn) ~= "function" then
-        warn("[Miracle Hub] " .. name .. " did not return a function.")
+        warn("[MiracleHub] " .. name .. " did not return a function.")
         return false
     end
 
+    -- 6. Init module — untuk ui.lua/logic.lua ini membangun ratusan closures
+    --    Yield singkat SEBELUM init agar patcher punya napas
+    task.wait(0.2)
     local initOk, initErr = pcall(moduleFn, ctx)
     if not initOk then
-        warn("[Miracle Hub] Init error in " .. name .. ": " .. tostring(initErr))
+        warn("[MiracleHub] INIT ERROR — " .. name .. ": " .. tostring(initErr))
         return false
+    end
+
+    -- 7. POST-INIT DELAY — beri waktu patch closures selesai sebelum modul berikutnya
+    if postDelay > 0 then
+        print("[MiracleHub] " .. name .. " OK — cooling down " .. postDelay .. "s …")
+        task.wait(postDelay)
+    else
+        print("[MiracleHub] " .. name .. " OK.")
     end
 
     return true
 end
 
--- Run all modules in order. Abort early if a critical module fails.
--- FIX: task.wait(0.5) between each module load — lets Xeno's BytecodePatchWatcher
--- workers fully recover between loadstring calls. Without this, compiling 6 large
--- scripts in rapid succession hits the patcher threshold and crashes the client.
-for i, name in ipairs(MODULES) do
-    local ok = loadModule(name)
+-- ====================== MAIN LOAD CHAIN ======================
+-- Beri sinyal awal
+print("[MiracleHub] Starting load — " .. #MODULES .. " modules.")
+print("[MiracleHub] Load akan memakan ~18-22 detik. Jangan inject ulang!")
+
+local loaded = 0
+for _, mod in ipairs(MODULES) do
+    local ok = loadModule(mod)
     if not ok then
-        warn("[Miracle Hub] Aborting load chain at module: " .. name)
+        warn("[MiracleHub] Load chain ABORTED at: " .. mod.name)
+        warn("[MiracleHub] " .. loaded .. "/" .. #MODULES .. " modules loaded before abort.")
         break
     end
-    if i < #MODULES then
-        task.wait(0.5)
-    end
+    loaded = loaded + 1
 end
 
-print("[Miracle Hub] Loader finished. Modules loaded: " .. tostring(#MODULES))
+if loaded == #MODULES then
+    print("[MiracleHub] ✓ All " .. loaded .. " modules loaded successfully!")
+else
+    warn("[MiracleHub] Only " .. loaded .. "/" .. #MODULES .. " modules loaded.")
+end
 
 return ctx
