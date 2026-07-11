@@ -2585,23 +2585,21 @@ return function(ctx)
         end
 
         local sessionVal  = statCell(1, "\226\143\177", "00:00:00", "SESSION")
-        local scriptVal   = statCell(2, "\226\154\161", "Running",  "SCRIPT STATUS")
-        local serverVal   = statCell(3, "\226\151\148", "...",       "SERVER")
+        local playersVal  = statCell(2, "\226\154\161", "0",        "PLAYERS")
+        local memoryVal   = statCell(3, "\226\151\148", "0",        "MEMORY MB")
         statCell(4, "\226\136\191", "99.8%", "UPTIME")
 
-        -- Detect server type once on inject (no loop needed — menu re-injects on rejoin/server change)
-        if game.PrivateServerId ~= "" then
-            serverVal.Text = game.PrivateServerOwnerId ~= 0 and "Private" or "Reserved"
-        else
-            serverVal.Text = "Public"
-        end
+        local Stats   = game:GetService("Stats")
+        local Players = game:GetService("Players")
 
-        -- Live session clock
+        -- Live session clock + players + memory
         task.spawn(function()
             while sessionVal.Parent do
                 local el = os.clock() - sessionStart
                 sessionVal.Text = string.format("%02d:%02d:%02d",
                     math.floor(el/3600), math.floor(el%3600/60), math.floor(el%60))
+                playersVal.Text = tostring(#Players:GetPlayers())
+                memoryVal.Text  = tostring(math.floor(Stats:GetTotalMemoryUsageMb()))
                 task.wait(1)
             end
         end)
