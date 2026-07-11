@@ -647,70 +647,41 @@ return function(ctx)
         end
     end)
 
-    -- ====================== LOADING SCREEN ======================
-    local loadSteps = {
-        {text = "Initializing core systems...", d = 0.3},
-        {text = "Reading player attributes...", d = 0.3},
-        {text = "Detecting PlotId = " .. MY_PLOT_ID .. "...", d = 0.3},
-        {text = "Scanning backpack (Seeds, Pets, Gear)...", d = 0.4},
-        {text = "Mapping Gardens.Plot" .. MY_PLOT_ID .. ".Plants...", d = 0.3},
-        {text = "Locating Packet RemoteEvent...", d = 0.3},
-        {text = "Building Farm & Harvest features...", d = 0.25},
-        {text = "Building Shop & Auto-Buy...", d = 0.25},
-        {text = "Building Sell & Bag Inspector...", d = 0.25},
-        {text = "Building Pet Manager & Wild Pet Catcher...", d = 0.25},
-        {text = "Building Visuals ESP system...", d = 0.25},
-        {text = "Connecting search & keybinds...", d = 0.2},
-        {text = "Finalizing Miracle Hub...", d = 0.3},
-    }
+    -- ====================== LOADING SCREEN REVEAL ======================
+    -- loader.lua sudah mengisi LoadingBarFill/Percent/Status secara real-time.
+    -- Bootstrap tinggal: snap bar ke 100%, teks "Ready!", fade out, reveal window.
+    do
+        -- Snap bar ke 100% dengan tween singkat (biar smooth dari ~83% ke 100%)
+        Tween(LoadingBarFill, {Size = UDim2.new(1, 0, 1, 0)}, 0.3)
+        LoadingPercent.Text = "100%"
+        LoadingStatus.Text  = "Ready!"
 
-    local totalDur = 0
-    for _, s in ipairs(loadSteps) do totalDur += s.d end
+        task.wait(0.5)
 
-    local elapsed = 0
-    local conn
-    conn = RunService.Heartbeat:Connect(function(dt)
-        elapsed = elapsed + dt
-        local pct = math.clamp(elapsed / totalDur, 0, 1)
-        Tween(LoadingBarFill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
-        LoadingPercent.Text = math.floor(pct * 100) .. "%"
-
-        local acc = 0
-        for _, s in ipairs(loadSteps) do
-            acc += s.d
-            if elapsed <= acc then
-                LoadingStatus.Text = s.text
-                break
+        -- Fade out loading container
+        Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
+        for _, c in ipairs(LoadingContainer:GetDescendants()) do
+            if c:IsA("TextLabel") then
+                Tween(c, {TextTransparency = 1}, 0.4)
+            elseif c:IsA("Frame") then
+                Tween(c, {BackgroundTransparency = 1}, 0.4)
             end
         end
+        task.wait(0.5)
+        LoadingScreen:Destroy()
 
-        if pct >= 1 then
-            conn:Disconnect()
-            LoadingStatus.Text = "Ready!"
-            task.wait(0.4)
-            Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
-            for _, c in ipairs(LoadingContainer:GetDescendants()) do
-                if c:IsA("TextLabel") then Tween(c, {TextTransparency = 1}, 0.4)
-                elseif c:IsA("Frame") then Tween(c, {BackgroundTransparency = 1}, 0.4) end
-            end
-            task.wait(0.5)
-            LoadingScreen:Destroy()
+        -- Reveal main window
+        MainFrame.Visible = true
+        MainFrame.Size    = UDim2.new(0, 900, 0, 0)
+        Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
-            MainFrame.Visible = true
-            MainFrame.Size = UDim2.new(0, 900, 0, 0)
-            Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+        task.wait(0.3)
+        SetActivePage("Profile")
 
-            task.wait(0.3)
-            SetActivePage("Profile")
-
-            task.wait(0.8)
-            local remoteStatus = ctx.PacketRemote and "Remote" or "Remote \226\154\160 (check console)"
-            Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | [Insert] toggle | [F] fly", Colors.Success, 6)
-        end
-    end)
-
-    print("[Miracle Hub] Full modular build loaded \226\128\148 Player: " .. player.Name)
-    print("[Miracle Hub] Keybinds: [Insert] = toggle GUI | [F] = toggle Fly")
+        task.wait(0.8)
+        local remoteStatus = ctx.PacketRemote and "Remote" or "Remote \226\154\160 (check console)"
+        Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | [Insert] toggle | [F] fly", Colors.Success, 6)
+    end
 
     return ctx
 end

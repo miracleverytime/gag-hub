@@ -1,74 +1,120 @@
 -- ======================================================================
--- Miracle Hub — loader.lua  [FIXED v2]
--- This is the ONLY file you inject. Fetches every module from GitHub,
--- builds a shared `ctx` table, runs modules in dependency order:
---   core -> ui -> ultralow -> logic -> pages -> bootstrap
+-- Miracle Hub — loader.lua  [FIXED v3]
+-- ONLY file to inject. Loads modules in order, updates the in-game
+-- loading screen (LoadingBarFill / LoadingPercent / LoadingStatus) yang
+-- sudah dibangun oleh ui.lua secara real-time.
 --
--- Inject with:
+-- Inject:
 --   loadstring(game:HttpGet("https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/loader.lua"))()
---
--- FIX v2: BytecodePatchWatcherT crash diatasi dengan:
---   1. Delay PROPORSIONAL ke ukuran file SEBELUM loadstring()
---      → Workers Xeno butuh waktu lebih lama reset untuk file besar (>50KB)
---   2. task.wait() TAMBAHAN setelah pcall(fn) untuk modul besar
---      → fn() menjalankan outer wrapper, moduleFn(ctx) build seluruh UI/logic
---        yang juga melibatkan banyak upvalue/closure patches
---   3. Delay ANTAR modul juga disesuaikan ukuran modul sebelumnya
 -- ======================================================================
 
 local BASE = "https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/"
 
--- MODULES: { name, preCompileDelay, postInitDelay }
--- preCompileDelay : detik wait SEBELUM loadstring()  (worker recovery)
--- postInitDelay   : detik wait SETELAH moduleFn(ctx) (closure patch recovery)
--- Aturan thumb: ~1 detik per 25KB source. Minimum 1.0 untuk semua modul.
+-- Konfigurasi per modul:
+--   label     = teks yang muncul di LoadingStatus saat modul sedang diproses
+--   preDelay  = detik wait SEBELUM loadstring() — BytecodePatchWatcher recovery
+--   postDelay = detik wait SETELAH moduleFn(ctx) — closure patch cooldown
 local MODULES = {
-    { name = "core.lua",      preDelay = 0.5,  postDelay = 0.5  },  -- 13 KB  → ringan
-    { name = "ui.lua",        preDelay = 2.5,  postDelay = 2.0  },  -- 112 KB → BESAR
-    { name = "ultralow.lua",  preDelay = 1.0,  postDelay = 0.5  },  -- 24 KB  → sedang
-    { name = "logic.lua",     preDelay = 2.5,  postDelay = 2.0  },  -- 116 KB → BESAR
-    { name = "pages.lua",     preDelay = 2.0,  postDelay = 1.5  },  -- 83 KB  → besar
-    { name = "bootstrap.lua", preDelay = 1.0,  postDelay = 0.0  },  -- 33 KB  → last, no post
+    {
+        name      = "core.lua",
+        label     = "Initializing core systems...",
+        preDelay  = 0.5,
+        postDelay = 0.5,
+    },
+    {
+        name      = "ui.lua",
+        label     = "Building UI framework...",
+        preDelay  = 2.5,
+        postDelay = 2.0,
+    },
+    {
+        name      = "ultralow.lua",
+        label     = "Loading performance module...",
+        preDelay  = 1.0,
+        postDelay = 0.5,
+    },
+    {
+        name      = "logic.lua",
+        label     = "Loading game logic & features...",
+        preDelay  = 2.5,
+        postDelay = 2.0,
+    },
+    {
+        name      = "pages.lua",
+        label     = "Building UI pages...",
+        preDelay  = 2.0,
+        postDelay = 1.5,
+    },
+    {
+        name      = "bootstrap.lua",
+        label     = "Finalizing Miracle Hub...",
+        preDelay  = 1.0,
+        postDelay = 0.0,
+    },
 }
 
-local ctx = {}
+local TOTAL = #MODULES
+local ctx   = {}
+
+-- ====================== LOADING SCREEN HELPER ======================
+-- Dipanggil setelah ui.lua selesai (ctx.LoadingBarFill dll sudah ada).
+-- Aman dipanggil kapanpun — guard nil di dalam.
+local function setLoadingUI(stepIndex, statusText)
+    local barFill  = ctx.LoadingBarFill
+    local pctLabel = ctx.LoadingPercent
+    local stLabel  = ctx.LoadingStatus
+
+    if not (barFill and pctLabel and stLabel) then return end
+
+    local pct = stepIndex / TOTAL
+    -- Tween bar fill
+    local TweenService = game:GetService("TweenService")
+    local info = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+    TweenService:Create(barFill, info, {Size = UDim2.new(pct, 0, 1, 0)}):Play()
+
+    pctLabel.Text = math.floor(pct * 100) .. "%"
+    stLabel.Text  = statusText
+end
 
 -- ====================== LOAD HELPER ======================
-local function loadModule(mod)
-    local name       = mod.name
-    local preDelay   = mod.preDelay
-    local postDelay  = mod.postDelay
+local function loadModule(mod, stepIndex)
+    local name      = mod.name
+    local preDelay  = mod.preDelay
+    local postDelay = mod.postDelay
 
-    -- 1. Fetch source dari GitHub
+    -- Update status: "Fetching …"
+    setLoadingUI(stepIndex - 0.8, "Fetching " .. name .. "...")
+
+    -- 1. Fetch
     local src
     local ok, err = pcall(function()
         src = game:HttpGet(BASE .. name, true)
     end)
     if not ok or not src then
+        setLoadingUI(stepIndex - 0.8, "ERROR: Failed to fetch " .. name)
         warn("[MiracleHub] FETCH FAILED — " .. name .. ": " .. tostring(err))
         return false
     end
 
-    -- 2. Strip UTF-8 BOM jika ada
-    if src:sub(1, 3) == "\239\187\191" then
-        src = src:sub(4)
-    end
+    -- 2. Strip UTF-8 BOM
+    if src:sub(1, 3) == "\239\187\191" then src = src:sub(4) end
 
-    -- 3. PRE-COMPILE DELAY — beri waktu BytecodePatchWatcher workers recover
-    --    Ini adalah fix UTAMA: delay proporsional ukuran file, bukan flat 0.1s
-    print("[MiracleHub] Compiling " .. name .. " (" .. #src .. " bytes) — waiting " .. preDelay .. "s …")
+    -- 3. PRE-COMPILE DELAY — BytecodePatchWatcher worker recovery
+    setLoadingUI(stepIndex - 0.5, "Compiling " .. name .. "...")
     task.wait(preDelay)
 
     -- 4. Compile
     local fn, compileErr = loadstring(src, "=" .. name)
     if not fn then
+        setLoadingUI(stepIndex - 0.5, "ERROR: Compile failed — " .. name)
         warn("[MiracleHub] COMPILE ERROR — " .. name .. ": " .. tostring(compileErr))
         return false
     end
 
-    -- 5. Run outer wrapper (returns moduleFn)
+    -- 5. Run outer wrapper
     local runOk, moduleFn = pcall(fn)
     if not runOk then
+        setLoadingUI(stepIndex - 0.5, "ERROR: Run failed — " .. name)
         warn("[MiracleHub] RUN ERROR — " .. name .. ": " .. tostring(moduleFn))
         return false
     end
@@ -77,46 +123,44 @@ local function loadModule(mod)
         return false
     end
 
-    -- 6. Init module — untuk ui.lua/logic.lua ini membangun ratusan closures
-    --    Yield singkat SEBELUM init agar patcher punya napas
+    -- 6. Yield lagi sebelum init (closure patches butuh jeda)
+    setLoadingUI(stepIndex - 0.2, mod.label)
     task.wait(0.2)
+
+    -- 7. Init module
     local initOk, initErr = pcall(moduleFn, ctx)
     if not initOk then
+        setLoadingUI(stepIndex - 0.2, "ERROR: Init failed — " .. name)
         warn("[MiracleHub] INIT ERROR — " .. name .. ": " .. tostring(initErr))
         return false
     end
 
-    -- 7. POST-INIT DELAY — beri waktu patch closures selesai sebelum modul berikutnya
+    -- 8. POST-INIT COOLDOWN
+    setLoadingUI(stepIndex, mod.label)
     if postDelay > 0 then
-        print("[MiracleHub] " .. name .. " OK — cooling down " .. postDelay .. "s …")
         task.wait(postDelay)
-    else
-        print("[MiracleHub] " .. name .. " OK.")
     end
 
     return true
 end
 
 -- ====================== MAIN LOAD CHAIN ======================
--- Beri sinyal awal
-print("[MiracleHub] Starting load — " .. #MODULES .. " modules.")
-print("[MiracleHub] Load akan memakan ~18-22 detik. Jangan inject ulang!")
-
 local loaded = 0
-for _, mod in ipairs(MODULES) do
-    local ok = loadModule(mod)
+for i, mod in ipairs(MODULES) do
+    local ok = loadModule(mod, i)
     if not ok then
         warn("[MiracleHub] Load chain ABORTED at: " .. mod.name)
-        warn("[MiracleHub] " .. loaded .. "/" .. #MODULES .. " modules loaded before abort.")
         break
     end
     loaded = loaded + 1
 end
 
-if loaded == #MODULES then
-    print("[MiracleHub] ✓ All " .. loaded .. " modules loaded successfully!")
-else
-    warn("[MiracleHub] Only " .. loaded .. "/" .. #MODULES .. " modules loaded.")
+-- Loader selesai — bootstrap.lua sudah berjalan dan akan handle
+-- animasi reveal (fade out loading screen → show MainFrame).
+-- Tidak perlu print ke console lagi.
+if loaded < TOTAL then
+    -- Kalau ada yang gagal, tetap tampilkan error di loading screen
+    setLoadingUI(loaded, "Load failed at module " .. loaded + 1 .. "/" .. TOTAL .. ". Check console.")
 end
 
 return ctx
