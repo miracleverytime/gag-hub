@@ -43,62 +43,88 @@ return function(ctx)
 
     local Logic = {}
 
-    -- ====================== SPRINKLER REMOTE HOOK (DEBUG) ======================
-    -- Hook sementara: intercept semua :Fire ke PlaceSprinkler dan log args-nya
-    -- Aktif hanya kalau _G.SprinklerHookEnabled = true
+    -- ====================== GLOBAL REMOTE HOOK (DEBUG) ======================
+    -- Hook SEMUA RemoteEvent:FireServer di game untuk cari remote sprinkler asli
     _G.SprinklerHookEnabled = true
-    _G.SprinklerHookLog = {}
     task.spawn(function()
-        -- Tunggu Networking ready
-        local deadline = os.clock() + 10
-        while os.clock() < deadline do
-            if Networking and Networking.Place and Networking.Place.PlaceSprinkler then
-                break
-            end
-            task.wait(0.5)
-        end
-        if not (Networking and Networking.Place and Networking.Place.PlaceSprinkler) then
-            return
-        end
+        local Notify = ctx.Notify
+        local hooked = {}
 
-        local remote = Networking.Place.PlaceSprinkler
-        local originalFire = remote.Fire
-
-        -- Replace :Fire dengan versi yang log dulu
-        remote.Fire = function(self, ...)
-            local args = {...}
-            local parts = {}
-            for i, v in ipairs(args) do
-                local t = type(v)
-                if t == "userdata" then
-                    -- Vector3, CFrame, Instance, dll
-                    local ok, name = pcall(function() return v.Name end)
-                    if ok and name then
-                        table.insert(parts, "[Instance:" .. name .. "]")
-                    else
-                        local ok2, str = pcall(function() return tostring(v) end)
-                        table.insert(parts, ok2 and str or "[userdata]")
+        local function hookRemote(remote)
+            if hooked[remote] then return end
+            hooked[remote] = true
+            local originalFire = remote.FireServer
+            remote.FireServer = function(self, ...)
+                if _G.SprinklerHookEnabled then
+                    local args = {...}
+                    local parts = {}
+                    for _, v in ipairs(args) do
+                        local t = type(v)
+                        if t == "userdata" then
+                            local ok, str = pcall(tostring, v)
+                            table.insert(parts, ok and str or "[userdata]")
+                        else
+                            table.insert(parts, t .. ":" .. tostring(v))
+                        end
                     end
-                else
-                    table.insert(parts, "[" .. t .. ":" .. tostring(v) .. "]")
+                    local logStr = remote.Name .. " | " .. table.concat(parts, ", ")
+                    print("[RemoteHook]", logStr)
+                    if Notify then
+                        Notify("[Hook] " .. remote.Name, table.concat(parts, ", "), {R=0,G=200,B=255}, 12)
+                    end
                 end
+                return originalFire(self, ...)
             end
-            local logStr = table.concat(parts, ", ")
-            table.insert(_G.SprinklerHookLog, logStr)
-
-            -- Tampilkan notif kalau hook enabled
-            if _G.SprinklerHookEnabled then
-                local Notify = ctx.Notify
-                if Notify then
-                    Notify("HOOK PlaceSprinkler", logStr, {R=0,G=180,B=255}, 15)
-                end
-                print("[SprinklerHook] Fire args:", logStr)
-            end
-
-            -- Tetap forward ke server
-            return originalFire(self, ...)
         end
-        print("[SprinklerHook] Hook terpasang di Networking.Place.PlaceSprinkler")
+
+        -- Hook semua RemoteEvent yang sudah ada
+        local function hookAll(parent)
+            for _, v in ipairs(parent:GetDescendants()) do
+                if v:IsA("RemoteEvent") then
+                    pcall(hookRemote, v)
+                end
+            end
+        end
+        hookAll(game:GetService("ReplicatedStorage"))
+
+        -- Hook remote baru yang muncul setelah init
+        game:GetService("ReplicatedStorage").DescendantAdded:Connect(function(v)
+            if v:IsA("RemoteEvent") then
+                pcall(hookRemote, v)
+            end
+        end)
+
+        -- Juga hook PacketRemote kalau ada (single-remote pattern)
+        local PacketRemote = ctx.PacketRemote
+        if PacketRemote then
+            local origFire = PacketRemote.FireServer
+            PacketRemote.FireServer = function(self, ...)
+                if _G.SprinklerHookEnabled then
+                    local args = {...}
+                    local parts = {}
+                    for _, v in ipairs(args) do
+                        local t = type(v)
+                        if t == "userdata" then
+                            local ok, str = pcall(tostring, v)
+                            table.insert(parts, ok and str or "[userdata]")
+                        else
+                            table.insert(parts, t .. ":" .. tostring(v))
+                        end
+                    end
+                    local logStr = "PacketRemote | " .. table.concat(parts, ", ")
+                    print("[RemoteHook]", logStr)
+                    if Notify then
+                        Notify("[Hook] Packet", table.concat(parts, ", "), {R=255,G=180,B=0}, 12)
+                    end
+                end
+                return origFire(self, ...)
+            end
+        end
+
+        print("[RemoteHook] Semua remote di-hook. Pasang sprinkler manual sekarang!")
+        if Notify then
+            Notify("[Hook] Ready", "Pasang sprinkler manual sekarang, semua remote ter-hook!", {R=0,G=255,B=100}, 8)
+        end
     end)
     -- ====================== END HOOK ======================
 
