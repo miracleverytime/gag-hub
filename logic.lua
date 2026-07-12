@@ -756,25 +756,57 @@ return function(ctx)
     end
     Logic.RaycastToPlantSurface = RaycastToPlantSurface
 
-    -- Ambil posisi world semua sprinkler yang sudah terpasang di plot kita
+    -- Ambil posisi world semua sprinkler yang sudah terpasang di plot kita.
+    -- Scan plot:GetDescendants() untuk Model yang namanya ada di SPRINKLER_RADII
+    -- atau punya attribute "Sprinkler" — persis seperti cara game LocalScript sendiri
+    -- (IsTooCloseToSprinkler scan plot:GetDescendants(), bukan subfolder tertentu).
+    -- Jangan pakai FindFirstChild("Sprinklers") karena folder itu belum tentu exist.
     local function GetExistingSprinklerPositions()
         local myPlot = GetMyPlot()
         local positions = {}
         if not myPlot then return positions end
-        local sprinklersFolder = myPlot:FindFirstChild("Sprinklers")
-        if not sprinklersFolder then return positions end
-        for _, model in ipairs(sprinklersFolder:GetChildren()) do
+
+        -- PATCHED: Scan Sprinklers folder langsung (selalu ada, confirmed dari scan data).
+        -- Komentar lama "belum tentu exist" ternyata salah — folder ini SELALU ada di plot.
+        -- Ini jauh lebih efisien daripada GetDescendants() yang scan ribuan objek.
+        local sprinklerFolder = myPlot:FindFirstChild("Sprinklers")
+        local items = sprinklerFolder and sprinklerFolder:GetChildren() or myPlot:GetDescendants()
+
+        for _, model in ipairs(items) do
             if model:IsA("Model") then
-                local pp = model.PrimaryPart
-                local wpos
-                if pp then
-                    wpos = pp.Position
-                else
-                    local ok, piv = pcall(function() return model:GetPivot() end)
-                    if ok and piv then wpos = piv.Position end
-                end
-                if wpos then
-                    table.insert(positions, Vector2.new(wpos.X, wpos.Z))
+                -- PATCHED: model.Name = UUID (bukan "Common Sprinkler"), jadi SPRINKLER_RADII[model.Name] selalu nil.
+                -- Atribut "Sprinkler" juga tidak ada di game.
+                -- Yang benar dari scan data: Attr.SprinklerId dan Attr.SprinklerName.
+                local sprinklerId   = model:GetAttribute("SprinklerId")
+                local sprinklerName = model:GetAttribute("SprinklerName")
+                local isSprinkler   = sprinklerId ~= nil
+                    or (sprinklerName ~= nil and SPRINKLER_RADII[sprinklerName] ~= nil)
+                    or SPRINKLER_RADII[model.Name] ~= nil  -- fallback lama (just in case)
+
+                if isSprinkler then
+                    local wpos
+                    local pp = model.PrimaryPart
+                    if pp then
+                        wpos = pp.Position
+                    else
+                        local ok, piv = pcall(function() return model:GetPivot() end)
+                        if ok and piv then wpos = piv.Position end
+                    end
+                    -- PATCHED: fallback ke child "Build" (struktur model sprinkler dari scan data [488])
+                    if not wpos then
+                        local build = model:FindFirstChild("Build")
+                        if build then
+                            if build:IsA("BasePart") then
+                                wpos = build.Position
+                            else
+                                local ok2, piv2 = pcall(function() return build:GetPivot() end)
+                                if ok2 and piv2 then wpos = piv2.Position end
+                            end
+                        end
+                    end
+                    if wpos then
+                        table.insert(positions, Vector2.new(wpos.X, wpos.Z))
+                    end
                 end
             end
         end
@@ -799,11 +831,18 @@ return function(ctx)
         local targets = States.sprinklerTargets or {}
         local hasTargets = #targets > 0
 
+        -- PATCHED: cek "Sprinkler" (lama) DAN "SprinklerName" (atribut baru dari game)
+        -- Kalau salah satu ada, tool terdeteksi.
+        local function resolveSprinklerName(tool)
+            local attr = tool:GetAttribute("Sprinkler") or tool:GetAttribute("SprinklerName")
+            if not attr then return nil end
+            return type(attr) == "string" and attr ~= "" and attr or tool.Name
+        end
+
         local function isValidTool(tool)
             if not (tool and tool:IsA("Tool")) then return false end
-            local attr = tool:GetAttribute("Sprinkler")
-            if not attr then return false end
-            local sName = type(attr) == "string" and attr ~= "" and attr or tool.Name
+            local sName = resolveSprinklerName(tool)
+            if not sName then return false end
             if hasTargets then
                 for _, t in ipairs(targets) do
                     if t == sName then return tool, sName end
@@ -827,8 +866,7 @@ return function(ctx)
                 for _, targetName in ipairs(targets) do
                     for _, tool in ipairs(bp:GetChildren()) do
                         if tool:IsA("Tool") then
-                            local attr = tool:GetAttribute("Sprinkler")
-                            local sName = type(attr) == "string" and attr ~= "" and attr or tool.Name
+                            local sName = resolveSprinklerName(tool)
                             if sName == targetName then return tool, sName end
                         end
                     end
@@ -956,7 +994,8 @@ return function(ctx)
         _lastSprinklerFire = os.clock()
 
         -- Tunggu server konfirmasi (sprinkler muncul di folder plot)
-        task.wait(0.7)
+        -- PATCHED: 0.7s → 1.2s untuk antisipasi latency tinggi dan replication delay
+        task.wait(1.2)
 
         local newPos = GetExistingSprinklerPositions()
         return #newPos > countBefore
