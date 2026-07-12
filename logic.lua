@@ -909,79 +909,55 @@ return function(ctx)
     end
     Logic.CalculateCoverage = CalculateCoverage
 
-    -- Fire single placement: equip tool, raycast, fire remote
-    -- Return true jika berhasil (tool berkurang dari inventory)
+    -- Fire single placement: langsung fire Networking.Place.PlaceSprinkler
+    -- dengan hitPos dari raycast kita sendiri ke PlantArea surface.
+    -- Tidak perlu teleport karakter atau firesignal — server terima posisi eksplisit.
+    -- Return true jika berhasil (sprinkler count bertambah di folder plot).
     local _lastSprinklerFire = 0
     local function DoPlaceSprinklerAt(px, pz, plantAreaParts, tool, sprinklerName)
-        -- Rate limit
+        if not Networking then return false end
+
+        -- Rate limit: minimal 0.6s antar fire (server cooldown ~0.5s, +margin)
         local now = os.clock()
-        local gap = 0.7 - (now - _lastSprinklerFire)
+        local gap = 0.6 - (now - _lastSprinklerFire)
         if gap > 0 then task.wait(gap) end
 
-        -- Pastikan tool valid
+        -- Pastikan tool masih valid di inventory
         if not (tool and tool.Parent) then return false end
 
-        -- Equip tool dulu
+        -- Equip tool (server butuh tool instance yang valid & equipped)
         if not IsToolEquipped(tool) then
             if not EquipTool(tool) then return false end
-            task.wait(0.3)
+            task.wait(0.2)
         end
-
-        -- Pastikan tool masih equipped setelah wait
         if not IsToolEquipped(tool) then return false end
 
-        -- Hitung surface Y untuk teleport
-        local surfaceY = nil
-        for _, area in ipairs(plantAreaParts) do
-            local cf = area.CFrame
-            local sz = area.Size
-            local wp = cf:PointToWorldSpace(Vector3.new(0, sz.Y/2, 0))
-            surfaceY = wp.Y
-            break
-        end
-        if not surfaceY then return false end
+        -- Raycast ke bawah dari (px, pz) untuk dapat hitPos surface yang akurat
+        -- Server pakai posisi ini langsung, jadi Y harus tepat dari surface
+        local hitPos = RaycastToPlantSurface(px, pz, plantAreaParts)
+        if not hitPos then return false end
 
-        -- Teleport karakter ke titik target
-        -- Tool LocalScript akan pakai posisi karakter untuk raycast saat Activated
-        local char = player.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return false end
+        -- plotId harus number (NumberU8), bukan string
+        local plotId = tonumber(MY_PLOT_ID)
+        if not plotId then return false end
 
-        local prevCF = root.CFrame
-        root.CFrame = CFrame.new(px, surfaceY + 3, pz)
-        task.wait(0.15)
-
-        -- Hitung existing count sebelum fire
+        -- Hitung existing count sebelum fire untuk verifikasi
         local countBefore = #GetExistingSprinklerPositions()
 
-        -- Trigger tool via firesignal (works desktop + mobile executor)
-        -- Tool LocalScript handle raycast & remote fire sendiri
-        local triggered = false
-        if firesignal then
-            pcall(function()
-                firesignal(tool.Activated)
-                triggered = true
-            end)
-        end
+        -- Fire: Networking.Place.PlaceSprinkler(Vector3F32, String, Instance, NumberU8)
+        local fired = false
+        pcall(function()
+            Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+            fired = true
+        end)
 
-        -- Fallback: coba fire Activated via BindableEvent trick
-        if not triggered then
-            pcall(function()
-                local be = Instance.new("BindableEvent")
-                be.Event:Connect(function() end)
-                tool.Activated:Connect(function() end)
-                -- Tidak bisa fire RBXScriptSignal langsung, skip
-                be:Destroy()
-            end)
-        end
+        if not fired then return false end
 
         _lastSprinklerFire = os.clock()
-        task.wait(0.8)
 
-        -- Kembalikan karakter ke posisi semula
-        pcall(function() root.CFrame = prevCF end)
+        -- Tunggu server konfirmasi (sprinkler muncul di folder plot)
+        task.wait(0.7)
 
-        -- Verifikasi: sprinkler bertambah?
         local newPos = GetExistingSprinklerPositions()
         return #newPos > countBefore
     end
