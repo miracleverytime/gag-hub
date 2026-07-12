@@ -1029,50 +1029,50 @@ return function(ctx)
         HopToNearPos(hitPos)
         task.wait(0.1)
 
-        -- Coba berbagai kombinasi argumen — kita tidak tahu persis mana yang server accept
-        -- Pattern dari PlantSeed: (hitPos, name, tool) tanpa plotId
+        -- Signature dari packet definition: Vector3F32, String, Instance, NumberU8
+        -- plotId harus NumberU8 (integer 0-255)
+        local plotIdU8 = math.floor(tonumber(plotId) or 0) % 256
         local fired = false
-
-        -- Attempt 1: sama seperti PlantSeed — tanpa plotId
-        if not fired and Networking then
-            pcall(function()
-                Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool)
-                fired = true
-            end)
-        end
-
-        -- Attempt 2: dengan plotId (versi lama kita)
-        if not fired and Networking then
-            pcall(function()
-                Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
-                fired = true
-            end)
-        end
-
-        -- Attempt 3: PacketRemote fallback (kalau ada PACKET.PlaceSprinkler)
-        if PacketRemote then
-            local ok = pcall(function()
-                if PACKET.PlaceSprinkler then
-                    PacketRemote:FireServer(PACKET.PlaceSprinkler, hitPos, sprinklerName, tool)
-                end
-            end)
+        pcall(function()
+            Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotIdU8)
+            fired = true
+        end)
+        if not fired then
+            Notify("Sprinkler [DBG]", "Fire remote gagal total", Colors.Error, 4)
+            return false
         end
 
         _lastSprinklerFire = os.clock()
 
-        -- Tunggu server confirm
-        task.wait(0.8)
-
-        -- Verifikasi: sprinkler folder bertambah?
-        local newPos = GetExistingSprinklerPositions()
-        local success = #newPos > countBefore
-        if not success then
-            Notify("Sprinkler [DBG]",
-                "Fire OK tapi sprinkler tidak bertambah (before=" .. countBefore ..
-                ", after=" .. #newPos .. ") hitY=" .. math.floor(hitPos.Y),
-                Colors.Warning, 5)
+        -- Verifikasi via GardenSprinklerAdded event (lebih reliable dari cek folder)
+        local confirmed = false
+        local conn
+        local gardenRemote = Networking and Networking.Garden and Networking.Garden.SprinklerAdded
+        if gardenRemote then
+            conn = gardenRemote.OnClientEvent:Connect(function()
+                confirmed = true
+            end)
         end
-        return success
+
+        -- Tunggu konfirmasi max 1.5 detik
+        local deadline = os.clock() + 1.5
+        while os.clock() < deadline and not confirmed do
+            task.wait(0.1)
+        end
+        if conn then conn:Disconnect() end
+
+        -- Fallback: kalau tidak ada event, cek folder seperti biasa
+        if not confirmed then
+            task.wait(0.2)
+            local newPos = GetExistingSprinklerPositions()
+            confirmed = #newPos > countBefore
+        end
+
+        if not confirmed then
+            Notify("Sprinkler [DBG]", "Fire OK tapi tidak ada konfirmasi dari server (hitY=" .. math.floor(hitPos.Y) .. ", plotId=" .. tostring(plotId) .. ")", Colors.Warning, 6)
+        end
+
+        return confirmed
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
 
