@@ -43,70 +43,7 @@ return function(ctx)
 
     local Logic = {}
 
-    -- ====================== GLOBAL REMOTE HOOK (DEBUG) ======================
-    _G.SprinklerHookEnabled = true
-    task.spawn(function()
-        local Notify = ctx.Notify
-        local hooked = {}
 
-        local function serializeArgs(...)
-            local parts = {}
-            for _, v in ipairs({...}) do
-                local t = type(v)
-                if t == "userdata" then
-                    local ok, str = pcall(tostring, v)
-                    table.insert(parts, ok and str or "[userdata]")
-                else
-                    table.insert(parts, t .. ":" .. tostring(v))
-                end
-            end
-            return table.concat(parts, ", ")
-        end
-
-        local function hookRemote(remote)
-            if hooked[remote] then return end
-            -- Coba override FireServer; skip kalau protected
-            local originalFire
-            local ok = pcall(function()
-                originalFire = remote.FireServer
-                remote.FireServer = function(self, ...)
-                    if _G.SprinklerHookEnabled then
-                        local logStr = remote:GetFullName() .. " | " .. serializeArgs(...)
-                        print("[RemoteHook]", logStr)
-                        if Notify then
-                            Notify("[Hook]" .. remote.Name, serializeArgs(...), {R=0,G=200,B=255}, 12)
-                        end
-                    end
-                    return originalFire(self, ...)
-                end
-                hooked[remote] = true
-            end)
-            if not ok then
-                -- Remote protected, skip saja
-                hooked[remote] = "skip"
-            end
-        end
-
-        -- Hook semua RemoteEvent yang sudah ada di ReplicatedStorage
-        for _, v in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
-            if v:IsA("RemoteEvent") then
-                hookRemote(v)
-            end
-        end
-
-        -- Hook remote baru yang muncul setelahnya
-        game:GetService("ReplicatedStorage").DescendantAdded:Connect(function(v)
-            if v:IsA("RemoteEvent") then
-                hookRemote(v)
-            end
-        end)
-
-        print("[RemoteHook] Ready. Pasang sprinkler manual sekarang!")
-        if Notify then
-            Notify("[Hook] Ready", "Pasang sprinkler manual sekarang!", {R=0,G=255,B=100}, 8)
-        end
-    end)
-    -- ====================== END HOOK ======================
 
     -- ====================== PROXIMITY PROMPT HELPERS ======================
     local _fireprox = fireproximityprompt or function(p)
@@ -976,103 +913,77 @@ return function(ctx)
     -- Return true jika berhasil (tool berkurang dari inventory)
     local _lastSprinklerFire = 0
     local function DoPlaceSprinklerAt(px, pz, plantAreaParts, tool, sprinklerName)
-        -- Rate limit 0.6 detik (sedikit lebih dari game 0.5 untuk aman)
+        -- Rate limit
         local now = os.clock()
-        local gap = 0.6 - (now - _lastSprinklerFire)
+        local gap = 0.7 - (now - _lastSprinklerFire)
         if gap > 0 then task.wait(gap) end
 
-        -- Pastikan tool masih valid
-        if not (tool and tool.Parent) then
-            Notify("Sprinkler [DBG]", "Tool invalid/nil", Colors.Error, 4)
-            return false
-        end
+        -- Pastikan tool valid
+        if not (tool and tool.Parent) then return false end
 
-        -- Equip tool
+        -- Equip tool dulu
         if not IsToolEquipped(tool) then
-            if not EquipTool(tool) then
-                Notify("Sprinkler [DBG]", "EquipTool gagal", Colors.Error, 4)
-                return false
-            end
-            task.wait(0.15)
+            if not EquipTool(tool) then return false end
+            task.wait(0.3)
         end
 
-        -- Raycast ke surface PlantArea
-        local hitPos = RaycastToPlantSurface(px, pz, plantAreaParts)
-        if not hitPos then
-            Notify("Sprinkler [DBG]", "Raycast nil @ ("..math.floor(px)..","..math.floor(pz)..") areas="..#plantAreaParts, Colors.Warning, 5)
-            return false
+        -- Pastikan tool masih equipped setelah wait
+        if not IsToolEquipped(tool) then return false end
+
+        -- Hitung surface Y untuk teleport
+        local surfaceY = nil
+        for _, area in ipairs(plantAreaParts) do
+            local cf = area.CFrame
+            local sz = area.Size
+            local wp = cf:PointToWorldSpace(Vector3.new(0, sz.Y/2, 0))
+            surfaceY = wp.Y
+            break
         end
+        if not surfaceY then return false end
 
-        -- Ambil plotId
-        local myPlot = GetMyPlot()
-        local plotId = GetPlotId(myPlot)
-        if not plotId then
-            -- Fallback: coba extract dari MY_PLOT_ID langsung
-            plotId = tonumber(MY_PLOT_ID)
-        end
-        if not plotId then
-            Notify("Sprinkler [DBG]", "plotId nil, plot=" .. tostring(myPlot and myPlot.Name), Colors.Error, 4)
-            return false
-        end
+        -- Teleport karakter ke titik target
+        -- Tool LocalScript akan pakai posisi karakter untuk raycast saat Activated
+        local char = player.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return false end
 
-        -- Cek too-close LAGI tepat sebelum fire
-        local existingPos = GetExistingSprinklerPositions()
-        if IsTooCloseToExistingSprinkler(hitPos, existingPos) then
-            -- Bukan error, titik ini memang sudah ada sprinkler
-            return false
-        end
+        local prevCF = root.CFrame
+        root.CFrame = CFrame.new(px, surfaceY + 3, pz)
+        task.wait(0.15)
 
-        -- Hitung jumlah sprinkler sebelum fire (untuk verifikasi success)
-        local countBefore = #existingPos
+        -- Hitung existing count sebelum fire
+        local countBefore = #GetExistingSprinklerPositions()
 
-        -- Hop ke dekat hitPos agar server validasi jarak lolos
-        HopToNearPos(hitPos)
-        task.wait(0.1)
-
-        -- Signature dari packet definition: Vector3F32, String, Instance, NumberU8
-        -- plotId harus NumberU8 (integer 0-255)
-        local plotIdU8 = math.floor(tonumber(plotId) or 0) % 256
-        local fired = false
-        pcall(function()
-            Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotIdU8)
-            fired = true
-        end)
-        if not fired then
-            Notify("Sprinkler [DBG]", "Fire remote gagal total", Colors.Error, 4)
-            return false
-        end
-
-        _lastSprinklerFire = os.clock()
-
-        -- Verifikasi via GardenSprinklerAdded event (lebih reliable dari cek folder)
-        local confirmed = false
-        local conn
-        local gardenRemote = Networking and Networking.Garden and Networking.Garden.SprinklerAdded
-        if gardenRemote then
-            conn = gardenRemote.OnClientEvent:Connect(function()
-                confirmed = true
+        -- Trigger tool via firesignal (works desktop + mobile executor)
+        -- Tool LocalScript handle raycast & remote fire sendiri
+        local triggered = false
+        if firesignal then
+            pcall(function()
+                firesignal(tool.Activated)
+                triggered = true
             end)
         end
 
-        -- Tunggu konfirmasi max 1.5 detik
-        local deadline = os.clock() + 1.5
-        while os.clock() < deadline and not confirmed do
-            task.wait(0.1)
-        end
-        if conn then conn:Disconnect() end
-
-        -- Fallback: kalau tidak ada event, cek folder seperti biasa
-        if not confirmed then
-            task.wait(0.2)
-            local newPos = GetExistingSprinklerPositions()
-            confirmed = #newPos > countBefore
+        -- Fallback: coba fire Activated via BindableEvent trick
+        if not triggered then
+            pcall(function()
+                local be = Instance.new("BindableEvent")
+                be.Event:Connect(function() end)
+                tool.Activated:Connect(function() end)
+                -- Tidak bisa fire RBXScriptSignal langsung, skip
+                be:Destroy()
+            end)
         end
 
-        if not confirmed then
-            Notify("Sprinkler [DBG]", "Fire OK tapi tidak ada konfirmasi dari server (hitY=" .. math.floor(hitPos.Y) .. ", plotId=" .. tostring(plotId) .. ")", Colors.Warning, 6)
-        end
+        _lastSprinklerFire = os.clock()
+        task.wait(0.8)
 
-        return confirmed
+        -- Kembalikan karakter ke posisi semula
+        pcall(function() root.CFrame = prevCF end)
+
+        -- Verifikasi: sprinkler bertambah?
+        local newPos = GetExistingSprinklerPositions()
+        return #newPos > countBefore
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
 
