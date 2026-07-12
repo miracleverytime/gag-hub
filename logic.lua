@@ -757,56 +757,30 @@ return function(ctx)
     Logic.RaycastToPlantSurface = RaycastToPlantSurface
 
     -- Ambil posisi world semua sprinkler yang sudah terpasang di plot kita.
-    -- Scan plot:GetDescendants() untuk Model yang namanya ada di SPRINKLER_RADII
-    -- atau punya attribute "Sprinkler" — persis seperti cara game LocalScript sendiri
-    -- (IsTooCloseToSprinkler scan plot:GetDescendants(), bukan subfolder tertentu).
-    -- Jangan pakai FindFirstChild("Sprinklers") karena folder itu belum tentu exist.
+    -- Konfirmasi dari listener: sprinkler disimpan di myPlot.Sprinklers,
+    -- nama instance format "{UserId}_{UUID}", deteksi via attribute "SprinklerName".
     local function GetExistingSprinklerPositions()
         local myPlot = GetMyPlot()
         local positions = {}
         if not myPlot then return positions end
-
-        -- PATCHED: Scan Sprinklers folder langsung (selalu ada, confirmed dari scan data).
-        -- Komentar lama "belum tentu exist" ternyata salah — folder ini SELALU ada di plot.
-        -- Ini jauh lebih efisien daripada GetDescendants() yang scan ribuan objek.
-        local sprinklerFolder = myPlot:FindFirstChild("Sprinklers")
-        local items = sprinklerFolder and sprinklerFolder:GetChildren() or myPlot:GetDescendants()
-
-        for _, model in ipairs(items) do
-            if model:IsA("Model") then
-                -- PATCHED: model.Name = UUID (bukan "Common Sprinkler"), jadi SPRINKLER_RADII[model.Name] selalu nil.
-                -- Atribut "Sprinkler" juga tidak ada di game.
-                -- Yang benar dari scan data: Attr.SprinklerId dan Attr.SprinklerName.
-                local sprinklerId   = model:GetAttribute("SprinklerId")
-                local sprinklerName = model:GetAttribute("SprinklerName")
-                local isSprinkler   = sprinklerId ~= nil
-                    or (sprinklerName ~= nil and SPRINKLER_RADII[sprinklerName] ~= nil)
-                    or SPRINKLER_RADII[model.Name] ~= nil  -- fallback lama (just in case)
-
-                if isSprinkler then
-                    local wpos
-                    local pp = model.PrimaryPart
+        local sprinklersFolder = myPlot:FindFirstChild("Sprinklers")
+        if not sprinklersFolder then return positions end
+        for _, inst in ipairs(sprinklersFolder:GetChildren()) do
+            if inst:GetAttribute("SprinklerName") ~= nil then
+                local wpos
+                if inst:IsA("BasePart") then
+                    wpos = inst.Position
+                else
+                    local pp = inst:IsA("Model") and inst.PrimaryPart or nil
                     if pp then
                         wpos = pp.Position
                     else
-                        local ok, piv = pcall(function() return model:GetPivot() end)
+                        local ok, piv = pcall(function() return inst:GetPivot() end)
                         if ok and piv then wpos = piv.Position end
                     end
-                    -- PATCHED: fallback ke child "Build" (struktur model sprinkler dari scan data [488])
-                    if not wpos then
-                        local build = model:FindFirstChild("Build")
-                        if build then
-                            if build:IsA("BasePart") then
-                                wpos = build.Position
-                            else
-                                local ok2, piv2 = pcall(function() return build:GetPivot() end)
-                                if ok2 and piv2 then wpos = piv2.Position end
-                            end
-                        end
-                    end
-                    if wpos then
-                        table.insert(positions, Vector2.new(wpos.X, wpos.Z))
-                    end
+                end
+                if wpos then
+                    table.insert(positions, Vector2.new(wpos.X, wpos.Z))
                 end
             end
         end
@@ -831,18 +805,11 @@ return function(ctx)
         local targets = States.sprinklerTargets or {}
         local hasTargets = #targets > 0
 
-        -- PATCHED: cek "Sprinkler" (lama) DAN "SprinklerName" (atribut baru dari game)
-        -- Kalau salah satu ada, tool terdeteksi.
-        local function resolveSprinklerName(tool)
-            local attr = tool:GetAttribute("Sprinkler") or tool:GetAttribute("SprinklerName")
-            if not attr then return nil end
-            return type(attr) == "string" and attr ~= "" and attr or tool.Name
-        end
-
         local function isValidTool(tool)
             if not (tool and tool:IsA("Tool")) then return false end
-            local sName = resolveSprinklerName(tool)
-            if not sName then return false end
+            local attr = tool:GetAttribute("Sprinkler")
+            if not attr then return false end
+            local sName = type(attr) == "string" and attr ~= "" and attr or tool.Name
             if hasTargets then
                 for _, t in ipairs(targets) do
                     if t == sName then return tool, sName end
@@ -866,7 +833,8 @@ return function(ctx)
                 for _, targetName in ipairs(targets) do
                     for _, tool in ipairs(bp:GetChildren()) do
                         if tool:IsA("Tool") then
-                            local sName = resolveSprinklerName(tool)
+                            local attr = tool:GetAttribute("Sprinkler")
+                            local sName = type(attr) == "string" and attr ~= "" and attr or tool.Name
                             if sName == targetName then return tool, sName end
                         end
                     end
@@ -947,10 +915,9 @@ return function(ctx)
     end
     Logic.CalculateCoverage = CalculateCoverage
 
-    -- Fire single placement: langsung fire Networking.Place.PlaceSprinkler
-    -- dengan hitPos dari raycast kita sendiri ke PlantArea surface.
-    -- Tidak perlu teleport karakter atau firesignal — server terima posisi eksplisit.
-    -- Return true jika berhasil (sprinkler count bertambah di folder plot).
+    -- Fire single placement: langsung fire Networking.Place.PlaceSprinkler.
+    -- Verifikasi via ChildAdded pada folder Sprinklers + filter UserId attribute
+    -- (konfirmasi dari listener: setiap sprinkler punya attr UserId = player.UserId).
     local _lastSprinklerFire = 0
     local function DoPlaceSprinklerAt(px, pz, plantAreaParts, tool, sprinklerName)
         if not Networking then return false end
@@ -970,8 +937,7 @@ return function(ctx)
         end
         if not IsToolEquipped(tool) then return false end
 
-        -- Raycast ke bawah dari (px, pz) untuk dapat hitPos surface yang akurat
-        -- Server pakai posisi ini langsung, jadi Y harus tepat dari surface
+        -- Raycast ke bawah untuk dapat hitPos surface yang akurat
         local hitPos = RaycastToPlantSurface(px, pz, plantAreaParts)
         if not hitPos then return false end
 
@@ -979,8 +945,20 @@ return function(ctx)
         local plotId = tonumber(MY_PLOT_ID)
         if not plotId then return false end
 
-        -- Hitung existing count sebelum fire untuk verifikasi
-        local countBefore = #GetExistingSprinklerPositions()
+        -- Setup ChildAdded listener SEBELUM fire agar tidak miss event
+        -- Filter: UserId attribute harus match player kita (bukan sprinkler orang lain)
+        local myPlot = GetMyPlot()
+        local sprinklersFolder = myPlot and myPlot:FindFirstChild("Sprinklers")
+        local placed = false
+        local conn
+        if sprinklersFolder then
+            local myUserId = tostring(player.UserId)
+            conn = sprinklersFolder.ChildAdded:Connect(function(child)
+                if tostring(child:GetAttribute("UserId")) == myUserId then
+                    placed = true
+                end
+            end)
+        end
 
         -- Fire: Networking.Place.PlaceSprinkler(Vector3F32, String, Instance, NumberU8)
         local fired = false
@@ -989,16 +967,21 @@ return function(ctx)
             fired = true
         end)
 
-        if not fired then return false end
+        if not fired then
+            if conn then conn:Disconnect() end
+            return false
+        end
 
         _lastSprinklerFire = os.clock()
 
-        -- Tunggu server konfirmasi (sprinkler muncul di folder plot)
-        -- PATCHED: 0.7s → 1.2s untuk antisipasi latency tinggi dan replication delay
-        task.wait(1.2)
+        -- Tunggu ChildAdded max 2s, lalu disconnect
+        local deadline = os.clock() + 2
+        while not placed and os.clock() < deadline do
+            task.wait(0.05)
+        end
+        if conn then conn:Disconnect() end
 
-        local newPos = GetExistingSprinklerPositions()
-        return #newPos > countBefore
+        return placed
     end
     Logic.DoPlaceSprinklerAt = DoPlaceSprinklerAt
 
