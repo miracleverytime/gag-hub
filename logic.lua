@@ -44,86 +44,66 @@ return function(ctx)
     local Logic = {}
 
     -- ====================== GLOBAL REMOTE HOOK (DEBUG) ======================
-    -- Hook SEMUA RemoteEvent:FireServer di game untuk cari remote sprinkler asli
     _G.SprinklerHookEnabled = true
     task.spawn(function()
         local Notify = ctx.Notify
         local hooked = {}
 
+        local function serializeArgs(...)
+            local parts = {}
+            for _, v in ipairs({...}) do
+                local t = type(v)
+                if t == "userdata" then
+                    local ok, str = pcall(tostring, v)
+                    table.insert(parts, ok and str or "[userdata]")
+                else
+                    table.insert(parts, t .. ":" .. tostring(v))
+                end
+            end
+            return table.concat(parts, ", ")
+        end
+
         local function hookRemote(remote)
             if hooked[remote] then return end
-            hooked[remote] = true
-            local originalFire = remote.FireServer
-            remote.FireServer = function(self, ...)
-                if _G.SprinklerHookEnabled then
-                    local args = {...}
-                    local parts = {}
-                    for _, v in ipairs(args) do
-                        local t = type(v)
-                        if t == "userdata" then
-                            local ok, str = pcall(tostring, v)
-                            table.insert(parts, ok and str or "[userdata]")
-                        else
-                            table.insert(parts, t .. ":" .. tostring(v))
+            -- Coba override FireServer; skip kalau protected
+            local originalFire
+            local ok = pcall(function()
+                originalFire = remote.FireServer
+                remote.FireServer = function(self, ...)
+                    if _G.SprinklerHookEnabled then
+                        local logStr = remote:GetFullName() .. " | " .. serializeArgs(...)
+                        print("[RemoteHook]", logStr)
+                        if Notify then
+                            Notify("[Hook]" .. remote.Name, serializeArgs(...), {R=0,G=200,B=255}, 12)
                         end
                     end
-                    local logStr = remote.Name .. " | " .. table.concat(parts, ", ")
-                    print("[RemoteHook]", logStr)
-                    if Notify then
-                        Notify("[Hook] " .. remote.Name, table.concat(parts, ", "), {R=0,G=200,B=255}, 12)
-                    end
+                    return originalFire(self, ...)
                 end
-                return originalFire(self, ...)
+                hooked[remote] = true
+            end)
+            if not ok then
+                -- Remote protected, skip saja
+                hooked[remote] = "skip"
             end
         end
 
-        -- Hook semua RemoteEvent yang sudah ada
-        local function hookAll(parent)
-            for _, v in ipairs(parent:GetDescendants()) do
-                if v:IsA("RemoteEvent") then
-                    pcall(hookRemote, v)
-                end
+        -- Hook semua RemoteEvent yang sudah ada di ReplicatedStorage
+        for _, v in ipairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+            if v:IsA("RemoteEvent") then
+                hookRemote(v)
             end
         end
-        hookAll(game:GetService("ReplicatedStorage"))
 
-        -- Hook remote baru yang muncul setelah init
+        -- Hook remote baru yang muncul setelahnya
         game:GetService("ReplicatedStorage").DescendantAdded:Connect(function(v)
             if v:IsA("RemoteEvent") then
-                pcall(hookRemote, v)
+                hookRemote(v)
             end
         end)
 
-        -- Juga hook PacketRemote kalau ada (single-remote pattern)
-        local PacketRemote = ctx.PacketRemote
-        if PacketRemote then
-            local origFire = PacketRemote.FireServer
-            PacketRemote.FireServer = function(self, ...)
-                if _G.SprinklerHookEnabled then
-                    local args = {...}
-                    local parts = {}
-                    for _, v in ipairs(args) do
-                        local t = type(v)
-                        if t == "userdata" then
-                            local ok, str = pcall(tostring, v)
-                            table.insert(parts, ok and str or "[userdata]")
-                        else
-                            table.insert(parts, t .. ":" .. tostring(v))
-                        end
-                    end
-                    local logStr = "PacketRemote | " .. table.concat(parts, ", ")
-                    print("[RemoteHook]", logStr)
-                    if Notify then
-                        Notify("[Hook] Packet", table.concat(parts, ", "), {R=255,G=180,B=0}, 12)
-                    end
-                end
-                return origFire(self, ...)
-            end
-        end
-
-        print("[RemoteHook] Semua remote di-hook. Pasang sprinkler manual sekarang!")
+        print("[RemoteHook] Ready. Pasang sprinkler manual sekarang!")
         if Notify then
-            Notify("[Hook] Ready", "Pasang sprinkler manual sekarang, semua remote ter-hook!", {R=0,G=255,B=100}, 8)
+            Notify("[Hook] Ready", "Pasang sprinkler manual sekarang!", {R=0,G=255,B=100}, 8)
         end
     end)
     -- ====================== END HOOK ======================
