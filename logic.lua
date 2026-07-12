@@ -43,6 +43,65 @@ return function(ctx)
 
     local Logic = {}
 
+    -- ====================== SPRINKLER REMOTE HOOK (DEBUG) ======================
+    -- Hook sementara: intercept semua :Fire ke PlaceSprinkler dan log args-nya
+    -- Aktif hanya kalau _G.SprinklerHookEnabled = true
+    _G.SprinklerHookEnabled = true
+    _G.SprinklerHookLog = {}
+    task.spawn(function()
+        -- Tunggu Networking ready
+        local deadline = os.clock() + 10
+        while os.clock() < deadline do
+            if Networking and Networking.Place and Networking.Place.PlaceSprinkler then
+                break
+            end
+            task.wait(0.5)
+        end
+        if not (Networking and Networking.Place and Networking.Place.PlaceSprinkler) then
+            return
+        end
+
+        local remote = Networking.Place.PlaceSprinkler
+        local originalFire = remote.Fire
+
+        -- Replace :Fire dengan versi yang log dulu
+        remote.Fire = function(self, ...)
+            local args = {...}
+            local parts = {}
+            for i, v in ipairs(args) do
+                local t = type(v)
+                if t == "userdata" then
+                    -- Vector3, CFrame, Instance, dll
+                    local ok, name = pcall(function() return v.Name end)
+                    if ok and name then
+                        table.insert(parts, "[Instance:" .. name .. "]")
+                    else
+                        local ok2, str = pcall(function() return tostring(v) end)
+                        table.insert(parts, ok2 and str or "[userdata]")
+                    end
+                else
+                    table.insert(parts, "[" .. t .. ":" .. tostring(v) .. "]")
+                end
+            end
+            local logStr = table.concat(parts, ", ")
+            table.insert(_G.SprinklerHookLog, logStr)
+
+            -- Tampilkan notif kalau hook enabled
+            if _G.SprinklerHookEnabled then
+                local Notify = ctx.Notify
+                if Notify then
+                    Notify("HOOK PlaceSprinkler", logStr, {R=0,G=180,B=255}, 15)
+                end
+                print("[SprinklerHook] Fire args:", logStr)
+            end
+
+            -- Tetap forward ke server
+            return originalFire(self, ...)
+        end
+        print("[SprinklerHook] Hook terpasang di Networking.Place.PlaceSprinkler")
+    end)
+    -- ====================== END HOOK ======================
+
     -- ====================== PROXIMITY PROMPT HELPERS ======================
     local _fireprox = fireproximityprompt or function(p)
         p:InputHoldBegin()
@@ -960,57 +1019,36 @@ return function(ctx)
         -- Hitung jumlah sprinkler sebelum fire (untuk verifikasi success)
         local countBefore = #existingPos
 
-        -- Pastikan tool masih equipped sebelum fire
-        if not IsToolEquipped(tool) then
-            EquipTool(tool)
-            task.wait(0.15)
+        -- Hop ke dekat hitPos agar server validasi jarak lolos
+        HopToNearPos(hitPos)
+        task.wait(0.1)
+
+        -- Coba berbagai kombinasi argumen — kita tidak tahu persis mana yang server accept
+        -- Pattern dari PlantSeed: (hitPos, name, tool) tanpa plotId
+        local fired = false
+
+        -- Attempt 1: sama seperti PlantSeed — tanpa plotId
+        if not fired and Networking then
+            pcall(function()
+                Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool)
+                fired = true
+            end)
         end
 
-        -- Simulasi mouse click di hitPos (sama seperti klik manual player)
-        -- 1. Arahkan kamera ke hitPos
-        -- 2. Konvert world pos ke screen pos
-        -- 3. VirtualUser Button1Down/Up di screen pos itu
-        local clickSuccess = false
-        pcall(function()
-            local cam = workspace.CurrentCamera
-            if not cam then return end
-
-            -- Arahkan kamera supaya hitPos ada di depan
-            local camPos = hitPos + Vector3.new(0, 15, 0)
-            cam.CFrame = CFrame.lookAt(camPos, hitPos)
-            task.wait(0.05)
-
-            -- Konvert ke screen coords
-            local screenPos, onScreen = cam:WorldToViewportPoint(hitPos)
-            if not onScreen then
-                -- Paksa masuk viewport dengan reposisi cam lebih dekat
-                camPos = hitPos + Vector3.new(0, 8, 5)
-                cam.CFrame = CFrame.lookAt(camPos, hitPos)
-                task.wait(0.05)
-                screenPos, onScreen = cam:WorldToViewportPoint(hitPos)
-            end
-
-            local clickPos = Vector2.new(screenPos.X, screenPos.Y)
-
-            -- Coba mouse1click (Synapse/executor function)
-            if mouse1click then
-                mouse1click()
-                clickSuccess = true
-            -- Fallback: VirtualUser Button1
-            elseif game:GetService("VirtualUser") then
-                local vu = game:GetService("VirtualUser")
-                if vu.CaptureController then pcall(function() vu:CaptureController() end) end
-                vu:Button1Down(clickPos, cam.CFrame)
-                task.wait(0.05)
-                vu:Button1Up(clickPos, cam.CFrame)
-                clickSuccess = true
-            end
-        end)
-
-        -- Fallback ke remote langsung kalau click gagal
-        if not clickSuccess then
+        -- Attempt 2: dengan plotId (versi lama kita)
+        if not fired and Networking then
             pcall(function()
                 Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+                fired = true
+            end)
+        end
+
+        -- Attempt 3: PacketRemote fallback (kalau ada PACKET.PlaceSprinkler)
+        if PacketRemote then
+            local ok = pcall(function()
+                if PACKET.PlaceSprinkler then
+                    PacketRemote:FireServer(PACKET.PlaceSprinkler, hitPos, sprinklerName, tool)
+                end
             end)
         end
 
