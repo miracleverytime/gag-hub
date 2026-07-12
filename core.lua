@@ -163,6 +163,7 @@ return function(ctx)
     -- Packet IDs — semua dari Attribute di RemoteEvent (scanner verified)
     Data.PACKET = {
         PlantSeed           = 9,
+        PlaceSprinkler      = 20,    -- place sprinkler (decoded dari buffer capture manual)
         PurchaseSeed        = 120,   -- beli seed dari SeedShop (FIXED)
         SeedShopRestock     = 121,   -- personal restock (opsional)
         PurchaseCrate       = 122,

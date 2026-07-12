@@ -947,13 +947,13 @@ return function(ctx)
     end
     Logic.CalculateCoverage = CalculateCoverage
 
-    -- Fire single placement: langsung fire Networking.Place.PlaceSprinkler
-    -- dengan hitPos dari raycast kita sendiri ke PlantArea surface.
-    -- Tidak perlu teleport karakter atau firesignal — server terima posisi eksplisit.
+    -- Fire single placement: coba Networking dulu, fallback ke PacketRemote (ID=20).
+    -- Dual-path ini handle kasus Networking nil (executor tertentu gagal require module).
     -- Return true jika berhasil (sprinkler count bertambah di folder plot).
     local _lastSprinklerFire = 0
     local function DoPlaceSprinklerAt(px, pz, plantAreaParts, tool, sprinklerName)
-        if not Networking then return false end
+        -- Perlu minimal salah satu channel komunikasi
+        if not Networking and not PacketRemote then return false end
 
         -- Rate limit: minimal 0.6s antar fire (server cooldown ~0.5s, +margin)
         local now = os.clock()
@@ -982,12 +982,25 @@ return function(ctx)
         -- Hitung existing count sebelum fire untuk verifikasi
         local countBefore = #GetExistingSprinklerPositions()
 
+        -- === PATH 1: Networking module (cara ideal, kalau tersedia) ===
         -- Fire: Networking.Place.PlaceSprinkler(Vector3F32, String, Instance, NumberU8)
         local fired = false
-        pcall(function()
-            Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
-            fired = true
-        end)
+        if Networking then
+            pcall(function()
+                Networking.Place.PlaceSprinkler:Fire(hitPos, sprinklerName, tool, plotId)
+                fired = true
+            end)
+        end
+
+        -- === PATH 2: PacketRemote fallback (PACKET.PlaceSprinkler = 20) ===
+        -- Dipakai kalau Networking nil atau Fire() gagal.
+        -- Format dari buffer capture manual: (packetId, hitPos, sprinklerName, tool, plotId)
+        if not fired and PacketRemote then
+            pcall(function()
+                PacketRemote:FireServer(PACKET.PlaceSprinkler, hitPos, sprinklerName, tool, plotId)
+                fired = true
+            end)
+        end
 
         if not fired then return false end
 
