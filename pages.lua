@@ -719,11 +719,13 @@ CreateInfoText(plantContent, "How It Works",
                     if cur ~= _prevTargetCount then
                         _prevTargetCount = cur
                         pcall(function() Logic.ResetNotifiedEmpty() end)
-                        -- Jika target dikosongkan saat Buy ALL OFF & Auto Buy ON → force off
-                        if cur == 0 and not States.autoBuyAll and States.autoBuySeed then
-                            ForceOffAutoBuy()
-                            Notify("Auto Buy", "Semua seed di-deselect — Auto Buy Seeds dinonaktifkan.", Colors.Warning, 4)
-                        end
+                    end
+                    -- Continuous guard: force off jika Auto Buy ON tapi tidak ada coverage
+                    -- (Buy ALL OFF dan tidak ada seed dipilih) — tangkap semua case termasuk
+                    -- Buy ALL yang dimatikan saat target sudah kosong dari awal
+                    if States.autoBuySeed and not States.autoBuyAll and cur == 0 then
+                        ForceOffAutoBuy()
+                        Notify("Auto Buy", "Tidak ada seed dipilih — Auto Buy Seeds dinonaktifkan.", Colors.Warning, 4)
                     end
                 end
             end)
@@ -810,10 +812,11 @@ CreateInfoText(plantContent, "How It Works",
                     if cur ~= _prevGearCount then
                         _prevGearCount = cur
                         pcall(function() Logic.ResetNotifiedEmptyGear() end)
-                        if cur == 0 and not States.autoBuyGearAll and States.autoBuyGear then
-                            ForceOffAutoBuyGear()
-                            Notify("Auto Buy Gear", "Semua gear di-deselect \226\128\148 Auto Buy Gear dinonaktifkan.", Colors.Warning, 4)
-                        end
+                    end
+                    -- Continuous guard: force off jika Auto Buy Gear ON tapi tidak ada coverage
+                    if States.autoBuyGear and not States.autoBuyGearAll and cur == 0 then
+                        ForceOffAutoBuyGear()
+                        Notify("Auto Buy Gear", "Tidak ada gear dipilih \226\128\148 Auto Buy Gear dinonaktifkan.", Colors.Warning, 4)
                     end
                 end
             end)
@@ -900,10 +903,11 @@ CreateInfoText(plantContent, "How It Works",
                     if cur ~= _prevCrateCount then
                         _prevCrateCount = cur
                         pcall(function() Logic.ResetNotifiedEmptyCrate() end)
-                        if cur == 0 and not States.autoBuyCrateAll and States.autoBuyCrate then
-                            ForceOffAutoBuyCrate()
-                            Notify("Auto Buy Crate", "Semua crate di-deselect \226\128\148 Auto Buy Crate dinonaktifkan.", Colors.Warning, 4)
-                        end
+                    end
+                    -- Continuous guard: force off jika Auto Buy Crate ON tapi tidak ada coverage
+                    if States.autoBuyCrate and not States.autoBuyCrateAll and cur == 0 then
+                        ForceOffAutoBuyCrate()
+                        Notify("Auto Buy Crate", "Tidak ada crate dipilih \226\128\148 Auto Buy Crate dinonaktifkan.", Colors.Warning, 4)
                     end
                 end
             end)
@@ -915,7 +919,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Automatically opens all crates in your backpack")
         CreateSlider(openCrateContent, "Delay Between Opens (s)", 1, 30, "crateOpenDelay")
         CreateToggle(openCrateContent, "Notify on Open", "notifyOpenCrate", "Show what item you received when a crate is opened")
-        CreateActionButton(openCrateContent, "Scan Crates in Backpack", function()
+        CreateActionButton(openCrateContent, "\240\159\148\141 Scan Crates in Backpack", function()
             local cratesInBag = GetCratesInInventory()
             if #cratesInBag == 0 then Notify("Scan Crates", "No crates found in backpack.", Colors.TextMuted) return end
             local names = {}
