@@ -93,6 +93,10 @@ CreateInfoText(plantContent, "How It Works",
     .. "Select seeds below before enabling, or turn on 'Plant All' to skip selection."
 )
 
+        -- Shared control bridge: diisi oleh do-block setelah CreateMultiSelect selesai.
+        -- Toggle callback pakai table ini sehingga tidak ada ordering issue (closure capture).
+        local _msPlantControl = { SetDisabled = nil }  -- akan diisi oleh do-block di bawah
+
         CreateToggle(plantContent, "Auto Plant", "autoPlant",
             "Fills empty plot slots, Needs at least one seed selected below (or enable Plant All)",
             function(newVal, revert)
@@ -107,9 +111,30 @@ CreateInfoText(plantContent, "How It Works",
             end)
 
         CreateToggle(plantContent, "Plant All Seeds in Backpack", "autoPlantAllSeeds",
-            "Plants all seeds in backpack, ignoring the selection below")
+            "Plants all seeds in backpack, ignoring the selection below",
+            function(newVal)
+                -- Saat Plant All ON → disable MultiSelect (tidak relevan)
+                -- Saat Plant All OFF → enable kembali MultiSelect
+                if _msPlantControl.SetDisabled then
+                    pcall(function() _msPlantControl.SetDisabled(newVal) end)
+                end
+            end)
 
-        CreateMultiSelect(plantContent, " Choose Seeds to Plant", SEEDS, "autoPlantTargets")
+        -- MultiSelect wrapper dengan initial-state guard
+        do
+            local msPlantResult = CreateMultiSelect(plantContent, " Choose Seeds to Plant", SEEDS, "autoPlantTargets")
+            -- Sambungkan ke shared bridge — toggle callback di atas bisa pakai ini sekarang
+            _msPlantControl.SetDisabled = msPlantResult.SetDisabled
+
+            -- Terapkan disabled state awal jika Plant All sudah ON saat load
+            if States.autoPlantAllSeeds then
+                task.defer(function()
+                    if _msPlantControl.SetDisabled then
+                        pcall(function() _msPlantControl.SetDisabled(true) end)
+                    end
+                end)
+            end
+        end
 
         CreateToggle(plantContent, "Notify on Plant Cycle", "autoPlantNotify",
             "Notifies you each time a planting cycle completes")
@@ -656,8 +681,8 @@ CreateInfoText(plantContent, "How It Works",
             pcall(function() setAutoBuyVisual(false) end)
         end
 
-        -- Toggle Buy ALL available seeds
-        CreateToggle(buyContent, "Buy ALL available seeds", "autoBuyAll",
+        -- Toggle Buy All available seeds
+        CreateToggle(buyContent, "Buy All available seeds", "autoBuyAll",
             "ON: buys every seed that has stock | OFF: only selected seeds",
             function(newVal)
                 pcall(function() Logic.ResetNotifiedEmpty() end)
@@ -749,7 +774,7 @@ CreateInfoText(plantContent, "How It Works",
             pcall(function() setAutoBuyGearVisual(false) end)
         end
 
-        CreateToggle(gearContent, "Buy ALL available gear", "autoBuyGearAll",
+        CreateToggle(gearContent, "Buy All available gear", "autoBuyGearAll",
             "ON: buys every gear that has stock | OFF: only selected gear",
             function(newVal)
                 pcall(function() Logic.ResetNotifiedEmptyGear() end)
@@ -829,7 +854,7 @@ CreateInfoText(plantContent, "How It Works",
             pcall(function() setAutoBuyCrateVisual(false) end)
         end
 
-        CreateToggle(crateContent, "Buy ALL available crates", "autoBuyCrateAll",
+        CreateToggle(crateContent, "Buy All available crates", "autoBuyCrateAll",
             "ON: buys every crate that has stock | OFF: only selected crates",
             function(newVal)
                 pcall(function() Logic.ResetNotifiedEmptyCrate() end)
@@ -879,7 +904,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Automatically opens all crates in your backpack")
         CreateSlider(openCrateContent, "Delay Between Opens (s)", 1, 30, "crateOpenDelay")
         CreateToggle(openCrateContent, "Notify on Open", "notifyOpenCrate", "Show what item you received when a crate is opened")
-        CreateActionButton(openCrateContent, "\240\159\148\141 Scan Crates in Backpack", function()
+        CreateActionButton(openCrateContent, "Scan Crates in Backpack", function()
             local cratesInBag = GetCratesInInventory()
             if #cratesInBag == 0 then Notify("Scan Crates", "No crates found in backpack.", Colors.TextMuted) return end
             local names = {}
