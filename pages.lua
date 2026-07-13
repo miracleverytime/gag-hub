@@ -93,22 +93,37 @@ CreateInfoText(plantContent, "How It Works",
     .. "Select seeds below before enabling, or turn on 'Plant All' to skip selection."
 )
 
+        -- Guard: timestamp notif terakhir "no target" — rate-limit 5 detik
+        local _lastNoTargetPlantNotifTime = 0
+        local NO_TARGET_PLANT_NOTIF_COOLDOWN = 5
+
         -- Shared control bridge: diisi oleh do-block setelah CreateMultiSelect selesai.
         -- Toggle callback pakai table ini sehingga tidak ada ordering issue (closure capture).
         local _msPlantControl = { SetDisabled = nil }  -- akan diisi oleh do-block di bawah
 
-        CreateToggle(plantContent, "Auto Plant", "autoPlant",
+        local autoPlantContainer, _, setAutoPlantVisual = CreateToggle(plantContent, "Auto Plant", "autoPlant",
             "Fills empty plot slots, Needs at least one seed selected below (or enable Plant All)",
             function(newVal, revert)
                 if newVal and not States.autoPlantAllSeeds then
                     local targets = States.autoPlantTargets or {}
                     if #targets == 0 then
                         revert()
-                        Notify("Auto Plant", "\226\154\160\239\184\143 Select seeds in 'Choose Seeds to Plant' before enabling Auto Plant!", Colors.Warning, 5)
+                        -- Rate-limit notif "no target" supaya tidak spam
+                        local now = os.clock()
+                        if now - _lastNoTargetPlantNotifTime >= NO_TARGET_PLANT_NOTIF_COOLDOWN then
+                            _lastNoTargetPlantNotifTime = now
+                            Notify("Auto Plant", "\226\154\160\239\184\143 Select seeds in 'Choose Seeds to Plant' before enabling Auto Plant!", Colors.Warning, 5)
+                        end
                         return
                     end
                 end
             end)
+
+        local function ForceOffAutoPlant()
+            States.autoPlant = false
+            pcall(function() SaveState("autoPlant", false) end)
+            pcall(function() setAutoPlantVisual(false) end)
+        end
 
         CreateToggle(plantContent, "Plant All Seeds in Backpack", "autoPlantAllSeeds",
             "Plants all seeds in backpack, ignoring the selection below",
@@ -120,8 +135,11 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end)
 
-        -- MultiSelect wrapper dengan initial-state guard
+        -- MultiSelect wrapper dengan polling
         do
+            local _prevPlantTargetCount = #(States.autoPlantTargets or {})
+            -- CreateMultiSelect return table {instance, SetDisabled}
+            -- wrapper sudah auto-parented ke plantContent di dalam CreateMultiSelect
             local msPlantResult = CreateMultiSelect(plantContent, " Choose Seeds to Plant", SEEDS, "autoPlantTargets")
             -- Sambungkan ke shared bridge — toggle callback di atas bisa pakai ini sekarang
             _msPlantControl.SetDisabled = msPlantResult.SetDisabled
@@ -134,6 +152,23 @@ CreateInfoText(plantContent, "How It Works",
                     end
                 end)
             end
+
+            task.spawn(function()
+                while true do
+                    task.wait(0.3)
+                    local cur = #(States.autoPlantTargets or {})
+                    if cur ~= _prevPlantTargetCount then
+                        _prevPlantTargetCount = cur
+                    end
+                    -- Continuous guard: force off jika Auto Plant ON tapi tidak ada coverage
+                    -- (Plant All OFF dan tidak ada seed dipilih) — tangkap semua case termasuk
+                    -- Plant All yang dimatikan saat target sudah kosong dari awal
+                    if States.autoPlant and not States.autoPlantAllSeeds and cur == 0 then
+                        ForceOffAutoPlant()
+                        Notify("Auto Plant", "Tidak ada seed dipilih — Auto Plant dinonaktifkan.", Colors.Warning, 4)
+                    end
+                end
+            end)
         end
 
         CreateToggle(plantContent, "Notify on Plant Cycle", "autoPlantNotify",
