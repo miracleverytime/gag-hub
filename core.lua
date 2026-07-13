@@ -84,15 +84,17 @@ return function(ctx)
     -- ====================== GAME DATA (from scanner) ======================
     local Data = {}
 
-    -- Full seed list from ReplicatedStorage.StockValues.SeedShop.Items (scanner verified)
+    -- Full seed list dari SeedShop (RestockShop = true), diurutkan by SeedShopDisplayOrder
+    -- Dihapus: Ghost Pepper, Poison Ivy, Baby Cactus, Glow Mushroom, Romanesco,
+    --          Horned Melon, Gold, Rainbow (tidak/belum ada di shop)
+    -- Ditambah: Fire Fern (order 23), Sun Bloom (order 30), Star Fruit (order 33)
     Data.SEEDS = {
         "Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo",
         "Corn", "Cactus", "Pineapple", "Mushroom", "Green Bean", "Banana", "Grape",
         "Coconut", "Mango", "Dragon Fruit", "Acorn", "Cherry", "Sunflower",
-        "Venus Fly Trap", "Pomegranate", "Poison Apple", "Venom Spitter",
-        "Moon Bloom", "Dragon's Breath", "Ghost Pepper", "Poison Ivy",
-        "Baby Cactus", "Glow Mushroom", "Romanesco", "Horned Melon",
-        "Hypnobloom", "Gold", "Rainbow",
+        "Fire Fern", "Venus Fly Trap", "Pomegranate", "Poison Apple", "Venom Spitter",
+        "Moon Bloom", "Sun Bloom", "Dragon's Breath", "Star Fruit",
+        "Hypnobloom",
     }
 
     -- Gear list dari GearShopData
@@ -149,15 +151,17 @@ return function(ctx)
     Data.PET_SIZES = {"Normal", "Big", "Huge", "Giant"}
 
     -- SellValueData — base harga per fruit dari decompile (fallback jika Networking nil)
+    -- Dihapus: Poison Ivy, Glow Mushroom, Ghost Pepper, Horned Melon, Baby Cactus
+    --          (tidak ada di shop, sell value tidak relevan untuk auto-sell logic)
+    -- Ditambah: Fire Fern, Sun Bloom, Star Fruit (estimasi dari rarity scaling)
     Data.SELL_VALUE_DATA = {
         Carrot=5, Strawberry=3, Tomato=9, Blueberry=5, Apple=12, Bamboo=800,
         Cactus=40, Pineapple=30, ["Green Bean"]=10, Banana=35, Grape=45,
         Mushroom=13000, Coconut=60, Mango=90, ["Dragon Fruit"]=150, Acorn=200,
-        Cherry=350, Sunflower=1750, ["Venus Fly Trap"]=3000, Pomegranate=900,
-        ["Poison Apple"]=900, ["Moon Bloom"]=9000, ["Dragon's Breath"]=3400,
-        ["Poison Ivy"]=1700, ["Glow Mushroom"]=700, ["Ghost Pepper"]=2500,
-        ["Horned Melon"]=200, Corn=34, ["Baby Cactus"]=70, Tulip=60,
-        ["Venom Spitter"]=4000,
+        Cherry=350, Sunflower=1750, ["Fire Fern"]=2000, ["Venus Fly Trap"]=3000,
+        Pomegranate=900, ["Poison Apple"]=900, ["Venom Spitter"]=4000,
+        ["Moon Bloom"]=9000, ["Sun Bloom"]=12000, ["Dragon's Breath"]=3400,
+        ["Star Fruit"]=18000, Corn=34, Tulip=60,
     }
 
     -- Packet IDs — semua dari Attribute di RemoteEvent (scanner verified)
