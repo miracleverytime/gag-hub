@@ -736,6 +736,9 @@ CreateInfoText(plantContent, "How It Works",
         local autoBuyGearToggleBg, autoBuyGearKnob
         local _msGearControl = { SetDisabled = nil }
 
+        -- Guard: rate-limit notif "no target" supaya tidak spam
+        local _lastNoTargetGearNotifTime = 0
+
         local autoBuyGearContainer = CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear",
             "Rapidly buys selected gear, stops when out of stock",
             function(newVal, revert)
@@ -743,7 +746,11 @@ CreateInfoText(plantContent, "How It Works",
                     local targets = States.autoBuyGearTargets or {}
                     if #targets == 0 then
                         revert()
-                        Notify("Auto Buy Gear", "\226\154\160\239\184\143 Select gear below before enabling!", Colors.Warning, 5)
+                        local now = os.clock()
+                        if now - _lastNoTargetGearNotifTime >= NO_TARGET_NOTIF_COOLDOWN then
+                            _lastNoTargetGearNotifTime = now
+                            Notify("Auto Buy Gear", "\226\154\160\239\184\143 Select gear below before enabling!", Colors.Warning, 5)
+                        end
                         return
                     end
                 end
@@ -819,6 +826,9 @@ CreateInfoText(plantContent, "How It Works",
         local autoBuyCrateToggleBg, autoBuyCrateKnob
         local _msCrateControl = { SetDisabled = nil }
 
+        -- Guard: rate-limit notif "no target" supaya tidak spam
+        local _lastNoTargetCrateNotifTime = 0
+
         local autoBuyCrateContainer = CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate",
             "Rapidly buys selected crates, stops when out of stock",
             function(newVal, revert)
@@ -826,7 +836,11 @@ CreateInfoText(plantContent, "How It Works",
                     local targets = States.autoBuyCrateTargets or {}
                     if #targets == 0 then
                         revert()
-                        Notify("Auto Buy Crate", "\226\154\160\239\184\143 Select crates below before enabling!", Colors.Warning, 5)
+                        local now = os.clock()
+                        if now - _lastNoTargetCrateNotifTime >= NO_TARGET_NOTIF_COOLDOWN then
+                            _lastNoTargetCrateNotifTime = now
+                            Notify("Auto Buy Crate", "\226\154\160\239\184\143 Select crates below before enabling!", Colors.Warning, 5)
+                        end
                         return
                     end
                 end
@@ -901,7 +915,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Automatically opens all crates in your backpack")
         CreateSlider(openCrateContent, "Delay Between Opens (s)", 1, 30, "crateOpenDelay")
         CreateToggle(openCrateContent, "Notify on Open", "notifyOpenCrate", "Show what item you received when a crate is opened")
-        CreateActionButton(openCrateContent, "\240\159\148\141 Scan Crates in Backpack", function()
+        CreateActionButton(openCrateContent, "Scan Crates in Backpack", function()
             local cratesInBag = GetCratesInInventory()
             if #cratesInBag == 0 then Notify("Scan Crates", "No crates found in backpack.", Colors.TextMuted) return end
             local names = {}
