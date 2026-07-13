@@ -1578,8 +1578,11 @@ return function(ctx)
                                 -- Stock available → clear out-of-stock flag, buy
                                 _notifiedEmpty[seedName] = false
                                 _notifEmptyTime[seedName] = nil
-                                _notifBuySent[seedName] = true           -- tandai sudah dibeli sesi ini
-                                table.insert(_loopBought, seedName)
+                                -- Masuk _loopBought hanya jika belum notif sesi ini (mirip OOS)
+                                if not _notifBuySent[seedName] then
+                                    _notifBuySent[seedName] = true
+                                    table.insert(_loopBought, seedName)
+                                end
                                 BuySeedPacket(seedName, 1)
                                 task.wait(States.buyDelay or 0.05)
                             else
@@ -1744,8 +1747,10 @@ return function(ctx)
                             if stock > 0 then
                                 _notifiedEmptyGear[gearName] = false
                                 _notifEmptyTimeGear[gearName] = nil
-                                _notifBuySentGear[gearName] = true
-                                table.insert(_loopGearBought, gearName)
+                                if not _notifBuySentGear[gearName] then
+                                    _notifBuySentGear[gearName] = true
+                                    table.insert(_loopGearBought, gearName)
+                                end
                                 BuyGearPacket(gearName, 1)
                                 task.wait(States.buyDelay or 0.05)
                             else
@@ -1895,8 +1900,10 @@ return function(ctx)
                             if stock > 0 then
                                 _notifiedEmptyCrate[crateName] = false
                                 _notifEmptyTimeCrate[crateName] = nil
-                                _notifBuySentCrate[crateName] = true
-                                table.insert(_loopCrateBought, crateName)
+                                if not _notifBuySentCrate[crateName] then
+                                    _notifBuySentCrate[crateName] = true
+                                    table.insert(_loopCrateBought, crateName)
+                                end
                                 BuyCratePacket(crateName, 1)
                                 task.wait(States.buyDelay or 0.05)
                             else
