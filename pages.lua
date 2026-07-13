@@ -895,29 +895,6 @@ CreateInfoText(plantContent, "How It Works",
             end)
         end
         CreateToggle(crateContent, "Notify on Purchase", "notifyBuyCrate", "Show a notification each time a crate is bought")
-        CreateActionButton(crateContent, "\240\159\155\146 Buy Selected Crates Now", function()
-            local targets = States.autoBuyCrateTargets or {}
-            if #targets == 0 then Notify("Buy Crate", "\226\154\160\239\184\143 Select crates first!", Colors.Warning) return end
-            local bought = 0
-            for _, crateName in ipairs(targets) do
-                local stock = GetCrateStock(crateName)
-                if stock > 0 then
-                    BuyCratePacket(crateName, 1)
-                    bought = bought + 1
-                    task.wait(0.1)
-                end
-            end
-            Notify("Buy Crate", "Bought " .. bought .. " crate(s).", Colors.Warning)
-        end, Colors.Warning)
-        CreateActionButton(crateContent, "\240\159\146\176 View Crate Prices", function()
-            local lines = {}
-            for _, name in ipairs(CRATES) do
-                local cost = CRATE_COST[name] or 0
-                local costStr = cost >= 1000000 and string.format("%.1fM", cost/1000000) or string.format("%dk", cost/1000)
-                table.insert(lines, name:gsub(" Crate", "") .. ": \194\162" .. costStr)
-            end
-            Notify("Crate Prices", table.concat(lines, " | "):sub(1, 200), Colors.Gold, 10)
-        end)
 
         -- Auto Open Crate
         local openCrateCard, openCrateContent = CreateSectionCard("\240\159\142\129 Auto Open Crate", 4, Colors.Gold)
@@ -931,40 +908,7 @@ CreateInfoText(plantContent, "How It Works",
             for _, entry in ipairs(cratesInBag) do table.insert(names, entry.name) end
             Notify("Crates in Bag (" .. #cratesInBag .. ")", table.concat(names, ", "):sub(1, 150), Colors.Warning, 6)
         end)
-        CreateActionButton(openCrateContent, "\226\154\161 Open All Crates Now", function()
-            local cratesInBag = GetCratesInInventory()
-            if #cratesInBag == 0 then Notify("Open Crate", "No crates in backpack!", Colors.Error) return end
-            Notify("Open Crate", "Opening " .. #cratesInBag .. " crate(s)...", Colors.Warning)
-            task.spawn(function()
-                for _, entry in ipairs(cratesInBag) do
-                    local tool = entry.tool
-                    local crateName = entry.name
-                    if tool.Parent ~= player.Character then
-                        tool.Parent = player.Character
-                        task.wait(0.2)
-                    end
-                    local ok, result = pcall(function() return OpenCrateViaNetworking(crateName) end)
-                    if ok then
-                        local wonItem = type(result) == "table" and result.WonItem
-                        if wonItem then
-                            Notify("\240\159\147\166 " .. crateName, "Got: " .. (wonItem.Name or "?"), Colors.Gold, 5)
-                        else
-                            Notify("\240\159\147\166 Opened!", crateName, Colors.Warning, 3)
-                        end
-                    end
-                    task.wait(0.5)
-                    if tool and tool.Parent == player.Character then tool.Parent = player.Backpack end
-                    task.wait(States.crateOpenDelay or 8)
-                end
-            end)
-        end, Colors.Gold)
-        CreateActionButton(openCrateContent, "\240\159\147\139 Copy All Packet IDs", function()
-            local ids = {}
-            for k, v in pairs(PACKET) do table.insert(ids, k .. "=" .. v) end
-            table.sort(ids)
-            setclipboard(table.concat(ids, ", "))
-            Notify("Dev", "All Packet IDs copied to clipboard.", Colors.Accent)
-        end)
+
     end)
 
     -- ====================== SELL PAGE ======================
