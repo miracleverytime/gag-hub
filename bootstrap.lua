@@ -635,6 +635,36 @@ return function(ctx)
         ScreenGui:Destroy()
     end)
 
+    -- ====================== SHARED FLY TOGGLE ======================
+    -- Satu fungsi terpusat untuk toggle fly.
+    -- Dipanggil dari:
+    --   (1) Keybind F          → forceState = nil  → flip States.fly + sync visual widget
+    --   (2) UI toggle widget   → forceState = state → States.fly sudah diset widget,
+    --                            cukup kirim Notify (setVisual TIDAK dipanggil agar
+    --                            tidak loop balik ke widget yang baru saja klik sendiri)
+    --
+    -- ctx._setFlyVisual: diset oleh pages.lua setiap kali halaman Player dirender.
+    -- Saat halaman lain aktif nilainya nil (atau menunjuk fungsi widget lama yg sudah
+    -- di-destroy dan aman karena setVisual cek container.Parent == nil lebih dulu).
+    ctx.ToggleFly = function(forceState)
+        local fromKeybind = forceState == nil
+
+        if fromKeybind then
+            -- Keybind F: flip state secara manual (widget tidak terlibat)
+            States.fly = not States.fly
+            -- Sync visual toggle jika halaman Player sedang terbuka
+            if ctx._setFlyVisual then
+                pcall(ctx._setFlyVisual, States.fly)
+            end
+        else
+            -- Dari UI widget: States.fly sudah diset oleh CreateToggle sebelum onToggle
+            -- dipanggil — jangan flip lagi, langsung ke Notify
+            States.fly = forceState
+        end
+
+        Notify("Player", "Fly " .. (States.fly and "ON" or "OFF"), States.fly and Colors.Success or Colors.TextMuted)
+    end
+
     -- ====================== KEYBINDS ======================
     UserInputService.InputBegan:Connect(function(input, gp)
         if gp then return end
@@ -642,8 +672,9 @@ return function(ctx)
             if minimized then DoRestore() else DoMinimize() end
         end
         if input.KeyCode == Enum.KeyCode.F then
-            States.fly = not States.fly
-            Notify("Player", "Fly " .. (States.fly and "ON" or "OFF"), States.fly and Colors.Success or Colors.TextMuted)
+            -- Gunakan ctx.ToggleFly agar state & notif selalu sinkron
+            -- dengan toggle UI di tab Player → tidak ada notif ganda/konflik
+            ctx.ToggleFly()
         end
     end)
 

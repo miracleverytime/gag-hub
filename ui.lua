@@ -1780,7 +1780,21 @@ return function(ctx)
             end
             RefreshPageChip()
         end)
-        return container, function() return state end
+
+        -- setVisual(newState): sync tampilan toggle dari luar (misal keybind F)
+        -- tanpa memicu onToggle lagi — hanya update warna & posisi knob.
+        local function setVisual(newState)
+            if container.Parent == nil then return end  -- widget sudah di-destroy (page ganti)
+            state = newState
+            Tween(toggleBg, {BackgroundColor3 = newState and Colors.ToggleOn or Colors.ToggleOff}, 0.2)
+            Tween(knob, {
+                Position = UDim2.new(0, newState and 21 or 3, 0.5, -8),
+                BackgroundColor3 = newState and Colors.ToggleKnob or Colors.TextSecondary,
+            }, 0.2)
+            RefreshPageChip()
+        end
+
+        return container, function() return state end, setVisual
     end
 
     local function CreateSlider(parent, text, minVal, maxVal, stateKey, suffix, onChange)

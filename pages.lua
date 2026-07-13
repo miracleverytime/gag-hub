@@ -1295,7 +1295,25 @@ CreateInfoText(plantContent, "How It Works",
         -- ── Fly Card ──────────────────────────────────────────────────────
         local utilCard, utilContent = CreateSectionCard("\226\156\136\239\184\143 Fly", 3, Colors.TextSecondary)
         CreateInfoText(utilContent, "Controls", "[F] Toggle Fly | [W/A/S/D] Move | [Space] Up | [Ctrl] Down")
-        CreateToggle(utilContent, "Fly", "fly", "Hold WASD to fly, Space=up, Ctrl=down")
+
+        -- onToggle callback: delegasi Notify ke ctx.ToggleFly agar satu jalur dengan keybind F.
+        -- CreateToggle sudah flip States.fly SEBELUM onToggle dipanggil, jadi kita
+        -- kirim forceState=state (tidak flip ulang) supaya tidak double-toggle.
+        -- Tangkap setVisual (return ke-3) untuk diexpose ke ctx — dipakai oleh keybind F
+        -- supaya visual toggle sinkron saat user tekan F tanpa klik widget.
+        local _, getFlyState, setFlyVisual = CreateToggle(utilContent, "Fly", "fly", "Hold WASD to fly, Space=up, Ctrl=down", function(state)
+            if ctx.ToggleFly then
+                ctx.ToggleFly(state)   -- forceState = state, tidak flip ulang
+            else
+                Notify("Player", "Fly " .. (state and "ON" or "OFF"), state and Colors.Success or Colors.TextMuted)
+            end
+        end)
+
+        -- Simpan setVisual terbaru ke ctx setiap kali halaman Player dirender.
+        -- Keybind F di bootstrap akan memanggil ctx._setFlyVisual(newState) setelah
+        -- mengubah States.fly agar knob & warna toggle ikut berubah.
+        ctx._setFlyVisual = setFlyVisual
+
         CreateSlider(utilContent, "Fly Speed", 1, 300, "flySpeed")
     end)
 
