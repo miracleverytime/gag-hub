@@ -1494,30 +1494,27 @@ return function(ctx)
     -- yang hidup selama sesi beli berlangsung dan di-update tiap loop.
     -- _buyHandle          = handle Notify yang sedang aktif (loading toast)
     -- _buyHandleSeeds     = set seed yang sedang dibeli (untuk label)
-    -- _buyHandleTimer     = os.clock() kapan handle terakhir di-update
     -- _buyBatchOOS        = set seed yang out-of-stock tapi belum dirangkum
     -- _buyOOSHandle       = handle Notify "out of stock" summary yang aktif
     local _notifiedEmpty  = {}
-    local _notifEmptyTime = {}
-    local _notifBuySent   = {}
-    local NOTIF_EMPTY_COOLDOWN = 3  -- minimum seconds between two "out of stock" notifs for the same seed
+    local _notifEmptyTime = {}   -- timestamp terakhir notif OOS per seed
+    local _notifBuySent   = {}   -- flag: notif "buying" sudah terkirim sesi ini
+    local _notifBuyTime   = {}   -- timestamp terakhir notif "buying" per seed
+    local NOTIF_EMPTY_COOLDOWN = 3  -- cooldown detik antar notif OOS per seed
+    local NOTIF_BUY_COOLDOWN   = 3  -- cooldown detik antar notif "buying" per seed (sama dengan OOS)
 
     -- Batched buy summary state
-    local _buyHandle      = nil   -- handle notif ringkasan "sedang beli"
-    local _buyHandleSeeds = {}    -- seed yang sedang aktif dibeli sesi ini
-    local _buyHandleTimer = 0     -- os.clock() terakhir notif di-refresh
-    local _buyBatchOOS    = {}    -- seed out-of-stock yang pending dirangkum
-    local _buyOOSHandle   = nil   -- handle notif ringkasan "out of stock"
-    local _buyOOSTimer    = 0     -- os.clock() terakhir OOS summary di-update
-    local BUY_HANDLE_REFRESH = 2  -- detik: seberapa sering summary di-refresh
-    local BUY_OOS_DEBOUNCE  = 1.5 -- detik: tunggu sebelum rangkum OOS baru
+    local _buyHandle    = nil  -- handle notif ringkasan "sedang beli"
+    local _buyOOSHandle = nil  -- handle notif ringkasan "out of stock"
 
     -- Called when toggle is turned ON or targets change.
-    -- Only resets the "out of stock" flag so that notif can fire again.
-    -- _notifBuySent is NOT cleared here — only reset via restock event from server.
+    -- Reset KEDUA flag (OOS & buying) supaya notif bisa muncul lagi setelah toggle ON.
+    -- Cooldown timestamp (_notifEmptyTime & _notifBuyTime) TIDAK di-clear —
+    -- ini yang menjaga rate-limit sehingga spam toggle tidak langsung tembak notif.
     local function ResetNotifiedEmpty()
         table.clear(_notifiedEmpty)
-        -- _notifEmptyTime & _notifBuySent intentionally NOT cleared
+        table.clear(_notifBuySent)
+        -- _notifEmptyTime & _notifBuyTime sengaja tidak di-clear → cooldown tetap jalan
     end
     Logic.ResetNotifiedEmpty = ResetNotifiedEmpty
 
@@ -1534,10 +1531,11 @@ return function(ctx)
             if not child:IsA("NumberValue") then return end
             child.Changed:Connect(function(newVal)
                 if newVal > 0 then
-                    -- New restock → reset all flags, buy & out-of-stock notifs ready to fire again
+                    -- New restock → reset semua flag & timestamp, notif siap tembak lagi
                     _notifiedEmpty[child.Name]  = nil
                     _notifEmptyTime[child.Name] = nil
                     _notifBuySent[child.Name]   = nil
+                    _notifBuyTime[child.Name]   = nil
                 end
             end)
         end
@@ -1567,28 +1565,34 @@ return function(ctx)
                         targets = States.autoBuySeedTargets or {}
                         if #targets == 0 then return end
                     end
-                    -- ── Batch notif: kumpulkan seed yang dibeli & OOS di loop ini ──
-                    local _loopBought = {}   -- seed berhasil dibeli loop ini
-                    local _loopOOS    = {}   -- seed out-of-stock loop ini
+                    -- ── Batch notif: kumpulkan seed yang perlu notif di loop ini ──
+                    local _loopBought = {}  -- seed baru dibeli yang belum pernah notif (atau cooldown habis)
+                    local _loopOOS    = {}  -- seed OOS yang belum pernah notif (atau cooldown habis)
+                    local now = os.clock()
 
                     for _, seedName in ipairs(targets) do
                         if States.autoBuySeed then
                             local stock = GetSeedStock(seedName)
                             if stock > 0 then
-                                -- Stock available → clear out-of-stock flag, buy
+                                -- Stock ada → clear flag OOS, beli
                                 _notifiedEmpty[seedName] = false
                                 _notifEmptyTime[seedName] = nil
-                                -- Masuk _loopBought hanya jika belum notif sesi ini (mirip OOS)
+                                -- Notif "buying" hanya jika: belum pernah notif sesi ini
+                                -- DAN cooldown NOTIF_BUY_COOLDOWN detik sejak notif terakhir sudah lewat
+                                -- (persis logika OOS: flag + timestamp cooldown)
                                 if not _notifBuySent[seedName] then
-                                    _notifBuySent[seedName] = true
-                                    table.insert(_loopBought, seedName)
+                                    local lastT = _notifBuyTime[seedName] or 0
+                                    if now - lastT >= NOTIF_BUY_COOLDOWN then
+                                        _notifBuySent[seedName] = true
+                                        _notifBuyTime[seedName] = now
+                                        table.insert(_loopBought, seedName)
+                                    end
                                 end
                                 BuySeedPacket(seedName, 1)
                                 task.wait(States.buyDelay or 0.05)
                             else
-                                -- Out of stock → catat untuk rangkuman, jangan notif satu-satu
+                                -- OOS → notif hanya jika belum notif DAN cooldown sudah lewat
                                 if not _notifiedEmpty[seedName] then
-                                    local now = os.clock()
                                     local lastT = _notifEmptyTime[seedName] or 0
                                     if now - lastT >= NOTIF_EMPTY_COOLDOWN then
                                         _notifiedEmpty[seedName] = true
@@ -1600,10 +1604,8 @@ return function(ctx)
                         end
                     end
 
-                    -- ── Kirim / update SATU notif ringkasan beli ──
+                    -- ── Satu notif ringkasan "buying" ──
                     if States.notifyBuy and #_loopBought > 0 then
-                        local now = os.clock()
-                        -- Buat label ringkasan: "3 seeds: Bamboo, Blueberry, ..."
                         local label
                         if #_loopBought == 1 then
                             label = _loopBought[1]
@@ -1612,33 +1614,12 @@ return function(ctx)
                         else
                             label = #_loopBought .. " seeds"
                         end
-
-                        if _buyHandle == nil or now - _buyHandleTimer >= BUY_HANDLE_REFRESH then
-                            -- Dismiss handle lama jika ada, buat yang baru
-                            if _buyHandle then pcall(function() _buyHandle.Dismiss() end) end
-                            _buyHandle = Notify(
-                                "Auto Buy ✅",
-                                "Buying: " .. label,
-                                Colors.Success, 5
-                            )
-                            _buyHandleTimer = now
-                        else
-                            -- Update pesan di handle yang sudah ada (tanpa notif baru)
-                            pcall(function() _buyHandle.SetMessage("Buying: " .. label) end)
-                        end
-                    elseif _buyHandle ~= nil then
-                        -- Tidak ada yang dibeli loop ini → dismiss summary jika masih hidup
-                        -- (semua seed habis atau autoBuySeed dimatikan)
-                        local allOOS = (#_loopOOS > 0 or #_loopBought == 0)
-                        if allOOS then
-                            pcall(function() _buyHandle.Dismiss() end)
-                            _buyHandle = nil
-                        end
+                        if _buyHandle then pcall(function() _buyHandle.Dismiss() end) end
+                        _buyHandle = Notify("Auto Buy", "Buying: " .. label, Colors.Success, 4)
                     end
 
-                    -- ── Kirim / update SATU notif ringkasan out-of-stock ──
+                    -- ── Satu notif ringkasan "out of stock" ──
                     if States.notifyBuy and #_loopOOS > 0 then
-                        local now = os.clock()
                         local oosLabel
                         if #_loopOOS == 1 then
                             oosLabel = _loopOOS[1] .. " out of stock"
@@ -1647,14 +1628,8 @@ return function(ctx)
                         else
                             oosLabel = #_loopOOS .. " seeds out of stock"
                         end
-
-                        if _buyOOSHandle == nil or now - _buyOOSTimer >= BUY_OOS_DEBOUNCE then
-                            if _buyOOSHandle then pcall(function() _buyOOSHandle.Dismiss() end) end
-                            _buyOOSHandle = Notify("Auto Buy", oosLabel .. ", waiting restock...", Colors.TextMuted, 6)
-                            _buyOOSTimer = now
-                        else
-                            pcall(function() _buyOOSHandle.SetMessage(oosLabel .. ", waiting restock...") end)
-                        end
+                        if _buyOOSHandle then pcall(function() _buyOOSHandle.Dismiss() end) end
+                        _buyOOSHandle = Notify("Auto Buy", oosLabel .. ", waiting restock...", Colors.TextMuted, 4)
                     end
                 end)
             end
@@ -1672,22 +1647,17 @@ return function(ctx)
     local _notifiedEmptyGear  = {}
     local _notifEmptyTimeGear = {}
     local _notifBuySentGear   = {}
-    local NOTIF_GEAR_COOLDOWN = 3  -- minimum seconds between two "out of stock" notifs for the same gear
+    local _notifBuyTimeGear   = {}
+    local NOTIF_GEAR_COOLDOWN     = 3
+    local NOTIF_GEAR_BUY_COOLDOWN = 3
 
-    -- Batched gear summary state
-    local _buyGearHandle      = nil
-    local _buyGearHandleTimer = 0
-    local _buyGearOOSHandle   = nil
-    local _buyGearOOSTimer    = 0
-    local BUY_GEAR_HANDLE_REFRESH = 2
-    local BUY_GEAR_OOS_DEBOUNCE  = 1.5
+    local _buyGearHandle    = nil
+    local _buyGearOOSHandle = nil
 
-    -- Called when toggle is turned ON or targets change.
-    -- Only resets the "out of stock" flag so that notif can fire again.
-    -- _notifBuySentGear is NOT cleared here — only reset via restock event from server.
     local function ResetNotifiedEmptyGear()
         table.clear(_notifiedEmptyGear)
-        -- _notifEmptyTimeGear & _notifBuySentGear intentionally NOT cleared
+        table.clear(_notifBuySentGear)
+        -- _notifEmptyTimeGear & _notifBuyTimeGear tidak di-clear → cooldown tetap jalan
     end
     Logic.ResetNotifiedEmptyGear = ResetNotifiedEmptyGear
 
@@ -1704,10 +1674,10 @@ return function(ctx)
             if not child:IsA("NumberValue") then return end
             child.Changed:Connect(function(newVal)
                 if newVal > 0 then
-                    -- New restock → reset all flags, buy & out-of-stock notifs ready to fire again
                     _notifiedEmptyGear[child.Name]  = nil
                     _notifEmptyTimeGear[child.Name] = nil
                     _notifBuySentGear[child.Name]   = nil
+                    _notifBuyTimeGear[child.Name]   = nil
                 end
             end)
         end
@@ -1740,6 +1710,7 @@ return function(ctx)
                     -- ── Batch notif gear ──
                     local _loopGearBought = {}
                     local _loopGearOOS    = {}
+                    local now = os.clock()
 
                     for _, gearName in ipairs(targets) do
                         if States.autoBuyGear then
@@ -1748,14 +1719,17 @@ return function(ctx)
                                 _notifiedEmptyGear[gearName] = false
                                 _notifEmptyTimeGear[gearName] = nil
                                 if not _notifBuySentGear[gearName] then
-                                    _notifBuySentGear[gearName] = true
-                                    table.insert(_loopGearBought, gearName)
+                                    local lastT = _notifBuyTimeGear[gearName] or 0
+                                    if now - lastT >= NOTIF_GEAR_BUY_COOLDOWN then
+                                        _notifBuySentGear[gearName] = true
+                                        _notifBuyTimeGear[gearName] = now
+                                        table.insert(_loopGearBought, gearName)
+                                    end
                                 end
                                 BuyGearPacket(gearName, 1)
                                 task.wait(States.buyDelay or 0.05)
                             else
                                 if not _notifiedEmptyGear[gearName] then
-                                    local now = os.clock()
                                     local lastT = _notifEmptyTimeGear[gearName] or 0
                                     if now - lastT >= NOTIF_GEAR_COOLDOWN then
                                         _notifiedEmptyGear[gearName] = true
@@ -1768,7 +1742,6 @@ return function(ctx)
                     end
 
                     if States.notifyBuyGear and #_loopGearBought > 0 then
-                        local now = os.clock()
                         local label
                         if #_loopGearBought == 1 then
                             label = _loopGearBought[1]
@@ -1777,20 +1750,11 @@ return function(ctx)
                         else
                             label = #_loopGearBought .. " gears"
                         end
-                        if _buyGearHandle == nil or now - _buyGearHandleTimer >= BUY_GEAR_HANDLE_REFRESH then
-                            if _buyGearHandle then pcall(function() _buyGearHandle.Dismiss() end) end
-                            _buyGearHandle = Notify("Auto Buy Gear ✅", "Buying: " .. label, Colors.Electric, 5)
-                            _buyGearHandleTimer = now
-                        else
-                            pcall(function() _buyGearHandle.SetMessage("Buying: " .. label) end)
-                        end
-                    elseif _buyGearHandle ~= nil and #_loopGearBought == 0 then
-                        pcall(function() _buyGearHandle.Dismiss() end)
-                        _buyGearHandle = nil
+                        if _buyGearHandle then pcall(function() _buyGearHandle.Dismiss() end) end
+                        _buyGearHandle = Notify("Auto Buy Gear", "Buying: " .. label, Colors.Electric, 4)
                     end
 
                     if States.notifyBuyGear and #_loopGearOOS > 0 then
-                        local now = os.clock()
                         local oosLabel
                         if #_loopGearOOS == 1 then
                             oosLabel = _loopGearOOS[1] .. " out of stock"
@@ -1799,13 +1763,8 @@ return function(ctx)
                         else
                             oosLabel = #_loopGearOOS .. " gears out of stock"
                         end
-                        if _buyGearOOSHandle == nil or now - _buyGearOOSTimer >= BUY_GEAR_OOS_DEBOUNCE then
-                            if _buyGearOOSHandle then pcall(function() _buyGearOOSHandle.Dismiss() end) end
-                            _buyGearOOSHandle = Notify("Auto Buy Gear", oosLabel .. ", waiting restock...", Colors.TextMuted, 6)
-                            _buyGearOOSTimer = now
-                        else
-                            pcall(function() _buyGearOOSHandle.SetMessage(oosLabel .. ", waiting restock...") end)
-                        end
+                        if _buyGearOOSHandle then pcall(function() _buyGearOOSHandle.Dismiss() end) end
+                        _buyGearOOSHandle = Notify("Auto Buy Gear", oosLabel .. ", waiting restock...", Colors.TextMuted, 4)
                     end
                 end)
             end
@@ -1822,22 +1781,17 @@ return function(ctx)
     local _notifiedEmptyCrate  = {}
     local _notifEmptyTimeCrate = {}
     local _notifBuySentCrate   = {}
-    local NOTIF_CRATE_COOLDOWN = 3  -- minimum seconds between two "out of stock" notifs for the same crate
+    local _notifBuyTimeCrate   = {}
+    local NOTIF_CRATE_COOLDOWN     = 3
+    local NOTIF_CRATE_BUY_COOLDOWN = 3
 
-    -- Batched crate summary state
-    local _buyCrateHandle      = nil
-    local _buyCrateHandleTimer = 0
-    local _buyCrateOOSHandle   = nil
-    local _buyCrateOOSTimer    = 0
-    local BUY_CRATE_HANDLE_REFRESH = 2
-    local BUY_CRATE_OOS_DEBOUNCE  = 1.5
+    local _buyCrateHandle    = nil
+    local _buyCrateOOSHandle = nil
 
-    -- Called when toggle is turned ON or targets change.
-    -- Only resets the "out of stock" flag so that notif can fire again.
-    -- _notifBuySentCrate is NOT cleared here — only reset via restock event from server.
     local function ResetNotifiedEmptyCrate()
         table.clear(_notifiedEmptyCrate)
-        -- _notifEmptyTimeCrate & _notifBuySentCrate intentionally NOT cleared
+        table.clear(_notifBuySentCrate)
+        -- _notifEmptyTimeCrate & _notifBuyTimeCrate tidak di-clear → cooldown tetap jalan
     end
     Logic.ResetNotifiedEmptyCrate = ResetNotifiedEmptyCrate
 
@@ -1854,10 +1808,10 @@ return function(ctx)
             if not child:IsA("NumberValue") then return end
             child.Changed:Connect(function(newVal)
                 if newVal > 0 then
-                    -- New restock → reset all flags, buy & out-of-stock notifs ready to fire again
                     _notifiedEmptyCrate[child.Name]  = nil
                     _notifEmptyTimeCrate[child.Name] = nil
                     _notifBuySentCrate[child.Name]   = nil
+                    _notifBuyTimeCrate[child.Name]   = nil
                 end
             end)
         end
@@ -1893,6 +1847,7 @@ return function(ctx)
                     -- ── Batch notif crate ──
                     local _loopCrateBought = {}
                     local _loopCrateOOS    = {}
+                    local now = os.clock()
 
                     for _, crateName in ipairs(targets) do
                         if States.autoBuyCrate then
@@ -1901,14 +1856,17 @@ return function(ctx)
                                 _notifiedEmptyCrate[crateName] = false
                                 _notifEmptyTimeCrate[crateName] = nil
                                 if not _notifBuySentCrate[crateName] then
-                                    _notifBuySentCrate[crateName] = true
-                                    table.insert(_loopCrateBought, crateName)
+                                    local lastT = _notifBuyTimeCrate[crateName] or 0
+                                    if now - lastT >= NOTIF_CRATE_BUY_COOLDOWN then
+                                        _notifBuySentCrate[crateName] = true
+                                        _notifBuyTimeCrate[crateName] = now
+                                        table.insert(_loopCrateBought, crateName)
+                                    end
                                 end
                                 BuyCratePacket(crateName, 1)
                                 task.wait(States.buyDelay or 0.05)
                             else
                                 if not _notifiedEmptyCrate[crateName] then
-                                    local now = os.clock()
                                     local lastT = _notifEmptyTimeCrate[crateName] or 0
                                     if now - lastT >= NOTIF_CRATE_COOLDOWN then
                                         _notifiedEmptyCrate[crateName] = true
@@ -1921,7 +1879,6 @@ return function(ctx)
                     end
 
                     if States.notifyBuyCrate and #_loopCrateBought > 0 then
-                        local now = os.clock()
                         local label
                         if #_loopCrateBought == 1 then
                             label = _loopCrateBought[1]
@@ -1930,20 +1887,11 @@ return function(ctx)
                         else
                             label = #_loopCrateBought .. " crates"
                         end
-                        if _buyCrateHandle == nil or now - _buyCrateHandleTimer >= BUY_CRATE_HANDLE_REFRESH then
-                            if _buyCrateHandle then pcall(function() _buyCrateHandle.Dismiss() end) end
-                            _buyCrateHandle = Notify("Auto Buy Crate ✅", "Buying: " .. label, Colors.Warning, 5)
-                            _buyCrateHandleTimer = now
-                        else
-                            pcall(function() _buyCrateHandle.SetMessage("Buying: " .. label) end)
-                        end
-                    elseif _buyCrateHandle ~= nil and #_loopCrateBought == 0 then
-                        pcall(function() _buyCrateHandle.Dismiss() end)
-                        _buyCrateHandle = nil
+                        if _buyCrateHandle then pcall(function() _buyCrateHandle.Dismiss() end) end
+                        _buyCrateHandle = Notify("Auto Buy Crate", "Buying: " .. label, Colors.Warning, 4)
                     end
 
                     if States.notifyBuyCrate and #_loopCrateOOS > 0 then
-                        local now = os.clock()
                         local oosLabel
                         if #_loopCrateOOS == 1 then
                             oosLabel = _loopCrateOOS[1] .. " out of stock"
@@ -1952,13 +1900,8 @@ return function(ctx)
                         else
                             oosLabel = #_loopCrateOOS .. " crates out of stock"
                         end
-                        if _buyCrateOOSHandle == nil or now - _buyCrateOOSTimer >= BUY_CRATE_OOS_DEBOUNCE then
-                            if _buyCrateOOSHandle then pcall(function() _buyCrateOOSHandle.Dismiss() end) end
-                            _buyCrateOOSHandle = Notify("Auto Buy Crate", oosLabel .. ", waiting restock...", Colors.TextMuted, 6)
-                            _buyCrateOOSTimer = now
-                        else
-                            pcall(function() _buyCrateOOSHandle.SetMessage(oosLabel .. ", waiting restock...") end)
-                        end
+                        if _buyCrateOOSHandle then pcall(function() _buyCrateOOSHandle.Dismiss() end) end
+                        _buyCrateOOSHandle = Notify("Auto Buy Crate", oosLabel .. ", waiting restock...", Colors.TextMuted, 4)
                     end
                 end)
             end
