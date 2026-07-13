@@ -622,13 +622,12 @@ CreateInfoText(plantContent, "How It Works",
         local _lastNoTargetNotifTime = 0
         local NO_TARGET_NOTIF_COOLDOWN = 5
 
-        local autoBuyToggleBg, autoBuyKnob  -- referensi visual toggle Auto Buy Seeds
         -- Shared control bridge: diisi oleh do-block setelah CreateMultiSelect selesai.
         -- Toggle callback pakai table ini sehingga tidak ada ordering issue (closure capture).
         local _msControl = { SetDisabled = nil }  -- akan diisi oleh do-block di bawah
 
         -- Toggle Auto Buy Seeds
-        local autoBuyContainer, getAutoBuyState = CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed",
+        local autoBuyContainer, _, setAutoBuyVisual = CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed",
             "Rapidly buys selected seeds, stops when out of stock",
             function(newVal, revert)
                 if newVal and not States.autoBuyAll then
@@ -651,27 +650,10 @@ CreateInfoText(plantContent, "How It Works",
             end
         )
 
-        -- Simpan referensi visual toggle untuk force-off dari luar
-        -- (toggleBg = child Frame ke-3, knob = child-nya toggleBg)
-        pcall(function()
-            for _, ch in ipairs(autoBuyContainer:GetChildren()) do
-                if ch:IsA("Frame") and ch.Size == UDim2.new(0, 48, 0, 26) then
-                    autoBuyToggleBg = ch
-                    autoBuyKnob = ch:FindFirstChildWhichIsA("Frame")
-                    break
-                end
-            end
-        end)
-
         local function ForceOffAutoBuy()
             States.autoBuySeed = false
             pcall(function() SaveState("autoBuySeed", false) end)
-            if autoBuyToggleBg then
-                Tween(autoBuyToggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2)
-            end
-            if autoBuyKnob then
-                Tween(autoBuyKnob, {Position = UDim2.new(0, 3, 0.5, -10)}, 0.2)
-            end
+            pcall(function() setAutoBuyVisual(false) end)
         end
 
         -- Toggle Buy ALL available seeds
@@ -735,13 +717,12 @@ CreateInfoText(plantContent, "How It Works",
         -- Auto Buy Gear
         local gearCard, gearContent = CreateSectionCard("\226\154\153\239\184\143 Auto Buy Gear", 2, Colors.Electric)
 
-        local autoBuyGearToggleBg, autoBuyGearKnob
         local _msGearControl = { SetDisabled = nil }
 
         -- Guard: rate-limit notif "no target" supaya tidak spam
         local _lastNoTargetGearNotifTime = 0
 
-        local autoBuyGearContainer = CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear",
+        local autoBuyGearContainer, _, setAutoBuyGearVisual = CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear",
             "Rapidly buys selected gear, stops when out of stock",
             function(newVal, revert)
                 if newVal and not States.autoBuyGearAll then
@@ -762,20 +743,10 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end
         )
-        pcall(function()
-            for _, ch in ipairs(autoBuyGearContainer:GetChildren()) do
-                if ch:IsA("Frame") and ch.Size == UDim2.new(0, 48, 0, 26) then
-                    autoBuyGearToggleBg = ch
-                    autoBuyGearKnob = ch:FindFirstChildWhichIsA("Frame")
-                    break
-                end
-            end
-        end)
         local function ForceOffAutoBuyGear()
             States.autoBuyGear = false
             pcall(function() SaveState("autoBuyGear", false) end)
-            if autoBuyGearToggleBg then Tween(autoBuyGearToggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2) end
-            if autoBuyGearKnob then Tween(autoBuyGearKnob, {Position = UDim2.new(0, 3, 0.5, -10)}, 0.2) end
+            pcall(function() setAutoBuyGearVisual(false) end)
         end
 
         CreateToggle(gearContent, "Buy ALL available gear", "autoBuyGearAll",
@@ -826,13 +797,12 @@ CreateInfoText(plantContent, "How It Works",
         -- Auto Buy Crate
         local crateCard, crateContent = CreateSectionCard("\240\159\147\166 Auto Buy Crate", 3, Colors.Warning)
 
-        local autoBuyCrateToggleBg, autoBuyCrateKnob
         local _msCrateControl = { SetDisabled = nil }
 
         -- Guard: rate-limit notif "no target" supaya tidak spam
         local _lastNoTargetCrateNotifTime = 0
 
-        local autoBuyCrateContainer = CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate",
+        local autoBuyCrateContainer, _, setAutoBuyCrateVisual = CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate",
             "Rapidly buys selected crates, stops when out of stock",
             function(newVal, revert)
                 if newVal and not States.autoBuyCrateAll then
@@ -853,20 +823,10 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end
         )
-        pcall(function()
-            for _, ch in ipairs(autoBuyCrateContainer:GetChildren()) do
-                if ch:IsA("Frame") and ch.Size == UDim2.new(0, 48, 0, 26) then
-                    autoBuyCrateToggleBg = ch
-                    autoBuyCrateKnob = ch:FindFirstChildWhichIsA("Frame")
-                    break
-                end
-            end
-        end)
         local function ForceOffAutoBuyCrate()
             States.autoBuyCrate = false
             pcall(function() SaveState("autoBuyCrate", false) end)
-            if autoBuyCrateToggleBg then Tween(autoBuyCrateToggleBg, {BackgroundColor3 = Colors.ToggleOff}, 0.2) end
-            if autoBuyCrateKnob then Tween(autoBuyCrateKnob, {Position = UDim2.new(0, 3, 0.5, -10)}, 0.2) end
+            pcall(function() setAutoBuyCrateVisual(false) end)
         end
 
         CreateToggle(crateContent, "Buy ALL available crates", "autoBuyCrateAll",
