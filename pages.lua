@@ -201,8 +201,8 @@ CreateInfoText(plantContent, "How It Works",
         CreateSlider(harvestContent, "Per-Fruit Delay (s)", 0, 2, "perFruitDelay")
         CreateSlider(harvestContent, "Loop Delay (s)", 0, 30, "harvestLoopDelay")
         CreateSubHeader(harvestContent, "Mutation Filter")
-        CreateMultiSelect(harvestContent, "Skip Mutation", MUTATIONS, "harvestFilterMutation")
-        CreateActionButton(harvestContent, "Scan Fruits Ready", function()
+        CreateMultiSelect(harvestContent, "⏭️Skip Mutation", MUTATIONS, "harvestFilterMutation")
+        CreateActionButton(harvestContent, "\240\159\148\141 Scan Fruits Ready", function()
             local myPlot = GetMyPlot()
             if not myPlot then Notify("Scan", "Your plot was not found!", Colors.Error) return end
             local readyList, total = {}, 0
