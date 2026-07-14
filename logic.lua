@@ -2457,10 +2457,8 @@ return function(ctx)
                     local dist = myRoot
                         and math.floor((rootPart.Position - myRoot.Position).Magnitude)
                         or 0
-                    local distLabel = dist > 0 and ("
-" .. dist .. "m") or ""
-                    local fullLabel = p.DisplayName .. "
-@" .. p.Name .. distLabel
+                    local distLabel = dist > 0 and ("\n" .. dist .. "m") or ""
+                    local fullLabel = p.DisplayName .. "\n@" .. p.Name .. distLabel
                     if rootPart:FindFirstChild("MiracleESP_Player") then
                         -- refresh distance setiap tick
                         for _, tracked in ipairs(espLabels) do
@@ -2496,8 +2494,7 @@ return function(ctx)
                             if petName and #petName > 20 then petName = nil end
                             local col = RarityColor and RarityColor[rarity] or Colors.Warning
                             local label = petName
-                                and ("🐾 " .. petName .. "
-" .. rarity)
+                                and ("🐾 " .. petName .. "\n" .. rarity)
                                 or  ("🐾 " .. rarity)
                             MakeESPLabel(part, label, col)
                             AttachESPMarker(part, "MiracleESP_WP")
@@ -2534,8 +2531,7 @@ return function(ctx)
                         label = label .. string.format(" %.2fkg", weight)
                     end
                     if States.espFruits and mut and mut ~= "" and mut ~= "None" then
-                        label = mut .. "
-" .. label
+                        label = mut .. "\n" .. label
                     end
                     local color = (mut and mut ~= "" and mut ~= "None")
                         and ctx.UI.GetMutationColor(mut)
@@ -2575,8 +2571,7 @@ return function(ctx)
                             local sn = plant:GetAttribute("SeedName")
                                 or plant:GetAttribute("SeedTool")
                                 or "Plant"
-                            local label = mut .. "
-" .. sn
+                            local label = mut .. "\n" .. sn
                             local color = ctx.UI.GetMutationColor(mut)
                             if rootPart:FindFirstChild("MiracleESP_Mut") then
                                 -- refresh: mutation bisa berubah (multiple stacked mutations)
@@ -2610,8 +2605,7 @@ return function(ctx)
                             or "Plant"
                         local pct   = math.floor((age / maxAge) * 100)
                         local ready = age >= maxAge
-                        local label = sn .. "
-" .. age .. "/" .. maxAge .. " (" .. pct .. "%)"
+                        local label = sn .. "\n" .. age .. "/" .. maxAge .. " (" .. pct .. "%)"
                         local color = ready and Colors.Success or Colors.TextMuted
                         -- BUG FIX: Age berubah setiap tick → harus update label, bukan skip
                         if rootPart:FindFirstChild("MiracleESP_Age") then
