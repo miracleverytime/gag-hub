@@ -2111,9 +2111,10 @@ return function(ctx)
     -- Multi-select — Neo: header pill "Label · summary" + inline list,
     -- checkmark on the RIGHT, lime tint on selected rows.
     -- Returns { instance, SetDisabled } (same as before).
-    local function CreateMultiSelect(parent, label, options, stateKey)
+    local function CreateMultiSelect(parent, label, options, stateKey, displayLabels)
         if type(States[stateKey]) ~= "table" then States[stateKey] = {} end
         local selected = States[stateKey]
+        displayLabels = displayLabels or {}
 
         -- strip leading emoji from label (Neo uses clean text labels)
         local pillText = label:gsub("^[%z\1-\127\194-\244][\128-\191]*%s*", "")
@@ -2125,7 +2126,9 @@ return function(ctx)
             end
             if #selected <= 2 then
                 local names = {}
-                for _, s in ipairs(selected) do names[#names+1] = s end
+                for _, s in ipairs(selected) do
+                    names[#names+1] = displayLabels[s] or s
+                end
                 return pillText .. '  <font color="#6A6D68">\194\183 ' .. table.concat(names, ", ") .. '</font>'
             end
             return pillText .. '  <font color="#6A6D68">\194\183 ' .. #selected .. ' selected</font>'
@@ -2254,7 +2257,7 @@ return function(ctx)
                 Size = UDim2.new(1, -40, 1, 0),
                 Position = UDim2.new(0, 10, 0, 0),
                 BackgroundTransparency = 1,
-                Text = opt,
+                Text = displayLabels[opt] or opt,
                 TextColor3 = sel and Colors.Accent or Colors.TextSecondary,
                 TextSize = 13,
                 Font = sel and FONT_BOLD or FONT_BODY,

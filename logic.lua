@@ -2210,11 +2210,21 @@ return function(ctx)
                     or part:GetAttribute("Pet")
                     or part:GetAttribute("Species")
                     or part.Name
+                local petSize = part:GetAttribute("PetSize") or "Normal"
+                local petType = part:GetAttribute("PetType") or ""
                 if #sel > 0 then
                     local match = false
                     local normalizedPetName = NormalizePetName(petName)
                     for _, target in ipairs(sel) do
-                        if NormalizePetName(target) == normalizedPetName then
+                        if target == "__SIZE_Big" and petSize == "Big" then
+                            match = true; break
+                        elseif target == "__SIZE_Huge" and petSize == "Huge" then
+                            match = true; break
+                        elseif target == "__SIZE_Giant" and petSize == "Giant" then
+                            match = true; break
+                        elseif target == "__TYPE_Rainbow" and petType == "Rainbow" then
+                            match = true; break
+                        elseif NormalizePetName(target) == normalizedPetName then
                             match = true; break
                         end
                     end
@@ -2222,13 +2232,21 @@ return function(ctx)
                 end
                 local rarity = part:GetAttribute("Rarity") or "Unknown"
                 local price  = part:GetAttribute("Price") or 0
-                table.insert(targets, {part=part, petName=tostring(petName), rarity=rarity, price=price})
+                table.insert(targets, {part=part, petName=tostring(petName), rarity=rarity, price=price, petSize=petSize, petType=petType})
             end
             if #targets == 0 then
                 local now = tick()
                 if now - lastWaitingNotif >= 15 then
                     lastWaitingNotif = now
-                    local filterStr = #sel > 0 and table.concat(sel, ", ") or "semua pet"
+                    local filterParts = {}
+                    for _, t in ipairs(sel) do
+                        if t == "__SIZE_Big" then table.insert(filterParts, "All Big")
+                        elseif t == "__SIZE_Huge" then table.insert(filterParts, "All Huge")
+                        elseif t == "__SIZE_Giant" then table.insert(filterParts, "All Giant")
+                        elseif t == "__TYPE_Rainbow" then table.insert(filterParts, "All Rainbow")
+                        else table.insert(filterParts, t) end
+                    end
+                    local filterStr = #filterParts > 0 and table.concat(filterParts, ", ") or "semua pet"
                     Notify("Auto Catch", "\226\143\179 Menunggu spawn: " .. filterStr, Colors.TextMuted, 5)
                 end
                 continue
@@ -2245,8 +2263,10 @@ return function(ctx)
                 if not IsWildPetFree(part) then continue end
                 local ok = BuyWildPet(part)
                 if ok then
+                    local sizeLabel = (entry.petSize and entry.petSize ~= "Normal" and entry.petSize ~= "") and (" [" .. entry.petSize .. "]") or ""
+                    local rainbowLabel = (entry.petType == "Rainbow") and " 🌈" or ""
                     Notify("Auto Catch",
-                        "\240\159\142\175 " .. HumanizePetName(petName) .. " (" .. rarity .. ") | " .. tostring(price) .. "\194\162",
+                        "\240\159\142\175 " .. HumanizePetName(petName) .. sizeLabel .. rainbowLabel .. " (" .. rarity .. ") | " .. tostring(price) .. "\194\162",
                         RarityColor[rarity] or Colors.Warning, 4)
                     task.wait(1.5)
                 end

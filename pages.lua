@@ -837,11 +837,23 @@ return function(ctx)
         -- ── Auto Catch Wild card ──────────────────────────────────────────
         local _, wildContent = CreateSectionCard("\240\159\142\175 Auto Catch Wild", 3, Colors.Warning)
         local WILD_PET_NAMES = {
+            -- Global filters (key = internal sentinel yang dicek logic.lua)
+            "__SIZE_Big", "__SIZE_Huge", "__SIZE_Giant",
+            "__TYPE_Rainbow",
+            -- Per species
             "Frog", "Bunny", "Owl", "Deer", "Turtle", "Robin", "Bee",
-            "Monkey", "Bear", "Unicorn", "Golden Dragonfly", "Raccoon",
+            "Monkey", "Bear", "Unicorn", "Golden Dragonfly",
             "Firefly", "Bald Eagle",
+            "Raccoon",
         }
-        CreateMultiSelect(wildContent, "\240\159\144\190Choose Target Pets", WILD_PET_NAMES, "wildCatchTargets")
+        -- Label display yang tampil di UI (key → display text)
+        local WILD_PET_DISPLAY = {
+            __SIZE_Big     = "\240\159\148\183 All Big",
+            __SIZE_Huge    = "\240\159\148\182 All Huge",
+            __SIZE_Giant   = "\240\159\146\160 All Giant",
+            __TYPE_Rainbow = "\240\159\140\136 All Rainbow",
+        }
+        CreateMultiSelect(wildContent, "\240\159\144\190Choose Target Pets", WILD_PET_NAMES, "wildCatchTargets", WILD_PET_DISPLAY)
         CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild",
             "ON: keeps running, chasing any matching pet that spawns | OFF: stops the loop",
             function(newVal)
