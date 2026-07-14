@@ -223,7 +223,7 @@ return function(ctx)
         CreateSubHeader(harvestContent, "Mutation Filter")
         CreateMultiSelect(harvestContent, "\226\143\175\239\184\143Skip Mutation", MUTATIONS, "harvestFilterMutation")
 
-        CreateActionButton(harvestContent, "\240\159\148\141 Scan Fruits Ready", function()
+        CreateActionButton(harvestContent, "Scan Fruits Ready", function()
             local myPlot = GetMyPlot()
             if not myPlot then Notify("Scan", "Your plot was not found!", Colors.Error) return end
             local readyList, total = {}, 0

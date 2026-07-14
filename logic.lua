@@ -2373,12 +2373,16 @@ return function(ctx)
         return TrackESP(marker)
     end
 
+    -- lineCount: hitung baris dari \n untuk set tinggi billboard
     local function MakeESPLabel(adornee, text, color)
+        local lineCount = 1
+        for _ in text:gmatch("\n") do lineCount = lineCount + 1 end
+        local bbHeight = math.max(20, lineCount * 16 + 6)
         local billboard = Create("BillboardGui", {
             Parent = game:GetService("Workspace"),
             Adornee = adornee,
-            Size = UDim2.new(0, 120, 0, 30),
-            StudsOffset = Vector3.new(0, 3, 0),
+            Size = UDim2.new(0, 160, 0, bbHeight),
+            StudsOffset = Vector3.new(0, 3.5, 0),
             AlwaysOnTop = true,
             ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         })
@@ -2386,21 +2390,40 @@ return function(ctx)
             Parent = billboard,
             Size = UDim2.new(1, 0, 1, 0),
             BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-            BackgroundTransparency = 0.5,
+            BackgroundTransparency = 0.45,
             BorderSizePixel = 0,
         })
-        CreateCorner(frame, 5)
+        CreateCorner(frame, 4)
         Create("TextLabel", {
             Parent = frame,
-            Size = UDim2.new(1, 0, 1, 0),
+            Size = UDim2.new(1, -6, 1, 0),
+            Position = UDim2.new(0, 3, 0, 0),
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = color or Colors.TextPrimary,
             TextSize = 11,
             Font = Enum.Font.GothamBold,
             TextXAlignment = Enum.TextXAlignment.Center,
+            TextYAlignment = Enum.TextYAlignment.Center,
+            TextWrapped = true,
+            RichText = false,
         })
         return TrackESP(billboard)
+    end
+
+    -- UpdateESPLabel: update teks + warna label yg sudah ada (tanpa buat baru)
+    local function UpdateESPLabel(billboard, text, color)
+        if not billboard then return end
+        local frame = billboard:FindFirstChildWhichIsA("Frame")
+        if not frame then return end
+        local lbl = frame:FindFirstChildWhichIsA("TextLabel")
+        if not lbl then return end
+        lbl.Text = text
+        if color then lbl.TextColor3 = color end
+        -- resize billboard sesuai baris baru
+        local lineCount = 1
+        for _ in text:gmatch("\n") do lineCount = lineCount + 1 end
+        billboard.Size = UDim2.new(0, 160, 0, math.max(20, lineCount * 16 + 6))
     end
 
     RunService.Heartbeat:Connect(function()
@@ -2425,11 +2448,29 @@ return function(ctx)
         end
 
         if States.espPlayers then
+            local myRoot = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
             for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
                 if p ~= player and p.Character then
                     local rootPart = p.Character:FindFirstChild("HumanoidRootPart")
-                    if rootPart and not rootPart:FindFirstChild("MiracleESP_Player") then
-                        local bb = MakeESPLabel(rootPart, p.DisplayName .. "\n@" .. p.Name, Colors.Electric)
+                    if not rootPart then continue end
+                    -- hitung distance untuk label
+                    local dist = myRoot
+                        and math.floor((rootPart.Position - myRoot.Position).Magnitude)
+                        or 0
+                    local distLabel = dist > 0 and ("
+" .. dist .. "m") or ""
+                    local fullLabel = p.DisplayName .. "
+@" .. p.Name .. distLabel
+                    if rootPart:FindFirstChild("MiracleESP_Player") then
+                        -- refresh distance setiap tick
+                        for _, tracked in ipairs(espLabels) do
+                            if tracked:IsA("BillboardGui") and tracked.Adornee == rootPart then
+                                UpdateESPLabel(tracked, fullLabel, Colors.Electric)
+                                break
+                            end
+                        end
+                    else
+                        local bb = MakeESPLabel(rootPart, fullLabel, Colors.Electric)
                         bb.Name = "MiracleESP_Player_" .. p.Name
                         AttachESPMarker(rootPart, "MiracleESP_Player")
                     end
@@ -2446,9 +2487,19 @@ return function(ctx)
                         local owner = tonumber(part:GetAttribute("OwnerUserId")) or 0
                         if owner ~= 0 then continue end
                         if not part:FindFirstChild("MiracleESP_WP") then
-                            local rarity = part:GetAttribute("Rarity") or "?"
+                            local rarity  = part:GetAttribute("Rarity") or "?"
+                            local petName = part:GetAttribute("PetName")
+                                or part:GetAttribute("Name")
+                                or part:GetAttribute("PetType")
+                                or part.Name
+                            -- bersihkan instance name acak (hanya pakai kalau terlihat wajar)
+                            if petName and #petName > 20 then petName = nil end
                             local col = RarityColor and RarityColor[rarity] or Colors.Warning
-                            MakeESPLabel(part, "\240\159\144\190 " .. rarity, col)
+                            local label = petName
+                                and ("🐾 " .. petName .. "
+" .. rarity)
+                                or  ("🐾 " .. rarity)
+                            MakeESPLabel(part, label, col)
                             AttachESPMarker(part, "MiracleESP_WP")
                         end
                     end
@@ -2466,18 +2517,41 @@ return function(ctx)
                     if not (fruit and fruit:IsA("Model")) then continue end
 
                     local rootPart = GetModelRootPart(fruit)
-                    if rootPart and not rootPart:FindFirstChild("MiracleESP_Fruit") then
-                        local seedName = fruit:GetAttribute("SeedName") or fruit.Name or "Fruit"
-                        local weight = fruit:GetAttribute("Weight")
-                        local mut = GetMutation(fruit)
-                        local label = seedName
-                        if States.showFruitWeight and weight then
-                            label = label .. string.format(" %.2fkg", weight)
+                    if not rootPart then continue end
+
+                    -- BUG FIX: fruit.Name bisa jadi instance-id acak dari server.
+                    -- Prioritaskan atribut semantik; fallback "Fruit" jika semua nil.
+                    local seedName = fruit:GetAttribute("SeedName")
+                        or fruit:GetAttribute("SeedTool")
+                        or fruit:GetAttribute("PlantType")
+                        or fruit:GetAttribute("FruitName")
+                        or "Fruit"
+
+                    local weight = fruit:GetAttribute("Weight")
+                    local mut    = GetMutation(fruit)
+                    local label  = seedName
+                    if States.showFruitWeight and weight then
+                        label = label .. string.format(" %.2fkg", weight)
+                    end
+                    if States.espFruits and mut and mut ~= "" and mut ~= "None" then
+                        label = mut .. "
+" .. label
+                    end
+                    local color = (mut and mut ~= "" and mut ~= "None")
+                        and ctx.UI.GetMutationColor(mut)
+                        or Colors.Warning
+
+                    -- Refresh: kalau label sudah ada, update teks (weight/mut bisa berubah)
+                    local existingMarker = rootPart:FindFirstChild("MiracleESP_Fruit")
+                    if existingMarker then
+                        -- cari billboard yang terhubung ke rootPart ini dan update
+                        for _, tracked in ipairs(espLabels) do
+                            if tracked:IsA("BillboardGui") and tracked.Adornee == rootPart then
+                                UpdateESPLabel(tracked, label, color)
+                                break
+                            end
                         end
-                        if States.espFruits and mut and mut ~= "" and mut ~= "None" then
-                            label = mut .. " " .. label
-                        end
-                        local color = mut and mut ~= "" and mut ~= "None" and ctx.UI.GetMutationColor(mut) or Colors.Warning
+                    else
                         MakeESPLabel(rootPart, label, color)
                         AttachESPMarker(rootPart, "MiracleESP_Fruit")
                     end
@@ -2486,16 +2560,36 @@ return function(ctx)
         end
 
         if States.espMutations then
-            local plants = GetPlantsFolder()
-            if plants then
-                for _, plant in ipairs(plants:GetChildren()) do
-                    local mut = GetMutation(plant)
-                    if mut and mut ~= "" and mut ~= "None" then
-                        local rootPart = GetModelRootPart(plant)
-                        if rootPart and not rootPart:FindFirstChild("MiracleESP_Mut") then
-                            local sn = plant:GetAttribute("SeedName") or "Plant"
-                            MakeESPLabel(rootPart, mut .. " " .. sn, ctx.UI.GetMutationColor(mut))
-                            AttachESPMarker(rootPart, "MiracleESP_Mut")
+            -- BUG FIX: GetPlantsFolder() hanya cek plot sendiri.
+            -- Scan semua plot di Gardens agar mutation player lain juga terdeteksi.
+            local gardens = workspace:FindFirstChild("Gardens")
+            if gardens then
+                for _, plot in ipairs(gardens:GetChildren()) do
+                    local plantsFolder = plot:FindFirstChild("Plants")
+                    if not plantsFolder then continue end
+                    for _, plant in ipairs(plantsFolder:GetChildren()) do
+                        local mut = GetMutation(plant)
+                        if mut and mut ~= "" and mut ~= "None" then
+                            local rootPart = GetModelRootPart(plant)
+                            if not rootPart then continue end
+                            local sn = plant:GetAttribute("SeedName")
+                                or plant:GetAttribute("SeedTool")
+                                or "Plant"
+                            local label = mut .. "
+" .. sn
+                            local color = ctx.UI.GetMutationColor(mut)
+                            if rootPart:FindFirstChild("MiracleESP_Mut") then
+                                -- refresh: mutation bisa berubah (multiple stacked mutations)
+                                for _, tracked in ipairs(espLabels) do
+                                    if tracked:IsA("BillboardGui") and tracked.Adornee == rootPart then
+                                        UpdateESPLabel(tracked, label, color)
+                                        break
+                                    end
+                                end
+                            else
+                                MakeESPLabel(rootPart, label, color)
+                                AttachESPMarker(rootPart, "MiracleESP_Mut")
+                            end
                         end
                     end
                 end
@@ -2506,13 +2600,29 @@ return function(ctx)
             local plants = GetPlantsFolder()
             if plants then
                 for _, plant in ipairs(plants:GetChildren()) do
-                    local age = plant:GetAttribute("Age")
+                    local age    = plant:GetAttribute("Age")
                     local maxAge = plant:GetAttribute("MaxAge")
                     if age and maxAge then
                         local rootPart = GetModelRootPart(plant)
-                        if rootPart and not rootPart:FindFirstChild("MiracleESP_Age") then
-                            local sn = plant:GetAttribute("SeedName") or "Plant"
-                            MakeESPLabel(rootPart, sn .. " " .. age .. "/" .. maxAge, age >= maxAge and Colors.Success or Colors.TextMuted)
+                        if not rootPart then continue end
+                        local sn = plant:GetAttribute("SeedName")
+                            or plant:GetAttribute("SeedTool")
+                            or "Plant"
+                        local pct   = math.floor((age / maxAge) * 100)
+                        local ready = age >= maxAge
+                        local label = sn .. "
+" .. age .. "/" .. maxAge .. " (" .. pct .. "%)"
+                        local color = ready and Colors.Success or Colors.TextMuted
+                        -- BUG FIX: Age berubah setiap tick → harus update label, bukan skip
+                        if rootPart:FindFirstChild("MiracleESP_Age") then
+                            for _, tracked in ipairs(espLabels) do
+                                if tracked:IsA("BillboardGui") and tracked.Adornee == rootPart then
+                                    UpdateESPLabel(tracked, label, color)
+                                    break
+                                end
+                            end
+                        else
+                            MakeESPLabel(rootPart, label, color)
                             AttachESPMarker(rootPart, "MiracleESP_Age")
                         end
                     end
