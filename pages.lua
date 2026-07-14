@@ -132,11 +132,18 @@ return function(ctx)
                 if cur ~= prevCount then
                     prevCount = cur
                     if onChangeCb then pcall(onChangeCb) end
-                end
-                -- Safety guard: if feature is ON but has no coverage, force it off.
-                if States[activeKey] and not States[allKey] and cur == 0 then
-                    forceOff()
-                    Notify(notifyTitle, "No items selected — " .. notifyTitle .. " disabled.", Colors.Warning, 4)
+                    -- Bug fix: force-off was in a separate bottom-of-loop check, so
+                    -- it only fired on the next iteration and was also gated behind
+                    -- `not States[allKey]` — meaning clearing selection while
+                    -- "Buy/Plant All" was ON never triggered force-off at all.
+                    -- Now: fires immediately on the same tick selection changes,
+                    -- and intentionally ignores allKey — if the user explicitly
+                    -- clears the multiselect, the auto feature should always stop
+                    -- regardless of the "All" toggle state.
+                    if States[activeKey] and cur == 0 then
+                        forceOff()
+                        Notify(notifyTitle, "No items selected — " .. notifyTitle .. " disabled.", Colors.Warning, 4)
+                    end
                 end
             end
         end)
