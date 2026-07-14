@@ -839,7 +839,7 @@ return function(ctx)
         local WILD_PET_NAMES = {
             "Frog", "Bunny", "Owl", "Deer", "Turtle", "Robin", "Bee",
             "Monkey", "Bear", "Unicorn", "Golden Dragonfly", "Raccoon",
-            "Black Dragon", "Ice Serpent",
+            "Firefly", "Bald Eagle",
         }
         CreateMultiSelect(wildContent, "\240\159\144\190Choose Target Pets", WILD_PET_NAMES, "wildCatchTargets")
         CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild",
