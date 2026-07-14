@@ -14,7 +14,6 @@ return function(ctx)
     local player            = ctx.player
     local RunService        = ctx.RunService
     local CollectionService = ctx.CollectionService
-    local ReplicatedStorage = ctx.ReplicatedStorage
     local MY_PLOT_ID        = ctx.MY_PLOT_ID
     local MAX_FRUIT_CAP     = ctx.MAX_FRUIT_CAP
     local MAX_EQUIPPED_PETS = ctx.MAX_EQUIPPED_PETS
@@ -25,151 +24,164 @@ return function(ctx)
     local Logic = ctx.Logic
 
     -- UI shorthands
-    local Create            = UI.Create
-    local CreateCorner      = UI.CreateCorner
-    local CreateStroke      = UI.CreateStroke
-    local CreateListLayout  = UI.CreateListLayout
-    local Tween             = UI.Tween
-    local Notify            = UI.Notify
-    local NotifyStok        = UI.NotifyStok
-    local GetMutationColor  = UI.GetMutationColor
-    local CreateSectionCard = UI.CreateSectionCard
-    local CreateSubHeader   = UI.CreateSubHeader
-    local CreateToggle      = UI.CreateToggle
-    local CreateSlider      = UI.CreateSlider
+    local Create             = UI.Create
+    local CreateCorner       = UI.CreateCorner
+    local CreateStroke       = UI.CreateStroke
+    local CreateListLayout   = UI.CreateListLayout
+    local Tween              = UI.Tween
+    local Notify             = UI.Notify
+    local NotifyStok         = UI.NotifyStok
+    local GetMutationColor   = UI.GetMutationColor
+    local CreateSectionCard  = UI.CreateSectionCard
+    local CreateSubHeader    = UI.CreateSubHeader
+    local CreateToggle       = UI.CreateToggle
+    local CreateSlider       = UI.CreateSlider
     local CreateActionButton = UI.CreateActionButton
-    local CreateDropdown    = UI.CreateDropdown
-    local CreateMultiSelect = UI.CreateMultiSelect
-    local CreateInfoText    = UI.CreateInfoText
-    local CreateStatRow     = UI.CreateStatRow
+    local CreateDropdown     = UI.CreateDropdown
+    local CreateMultiSelect  = UI.CreateMultiSelect
+    local CreateInfoText     = UI.CreateInfoText
+    local CreateStatRow      = UI.CreateStatRow
 
     -- Data shorthands
-    local SEEDS     = Data.SEEDS
-    local GEARS     = Data.GEARS
-    local CRATES    = Data.CRATES
-    local CRATE_COST = Data.CRATE_COST
-    local MUTATIONS = Data.MUTATIONS
-    local PACKET    = Data.PACKET
-    local SELL_VALUE_DATA = Data.SELL_VALUE_DATA
+    local SEEDS      = Data.SEEDS
+    local GEARS      = Data.GEARS
+    local CRATES     = Data.CRATES
+    local MUTATIONS  = Data.MUTATIONS
 
     -- Logic shorthands
-    local GetMyPlot          = Logic.GetMyPlot
-    local GetPlantsFolder    = Logic.GetPlantsFolder
-    local GetMyPlantAreas    = Logic.GetMyPlantAreas
-    local BuildValidPlantPositions = Logic.BuildValidPlantPositions
-    local GetNextSeedFromBackpack  = Logic.GetNextSeedFromBackpack
-    local DoPlantFire        = Logic.DoPlantFire
-    local GetPlantedSeedCounts = Logic.GetPlantedSeedCounts
-    local CountPlantedSlots  = Logic.CountPlantedSlots
-    local GetReadyFruitCount = Logic.GetReadyFruitCount
-    local DoHarvestAll       = Logic.DoHarvestAll
-    local GetMutation        = Logic.GetMutation
-    local SafeFirePrompt     = Logic.SafeFirePrompt
-    local AcquireWateringCan = Logic.AcquireWateringCan
-    local AcquireSprinklerTool = Logic.AcquireSprinklerTool
-    local IsToolEquipped     = Logic.IsToolEquipped
-    local HopToNearPos       = Logic.HopToNearPos
-    local GetPlantWaterPos   = Logic.GetPlantWaterPos
-    local GetPlantAreaParts             = Logic.GetPlantAreaParts
-    local GetExistingSprinklerPositions = Logic.GetExistingSprinklerPositions
-    local CalculateCoverage             = Logic.CalculateCoverage
-    local DoPlaceSprinklerAt            = Logic.DoPlaceSprinklerAt
-    local GetSeedStock       = Logic.GetSeedStock
-    local GetCrateStock      = Logic.GetCrateStock
-    local BuyCratePacket     = Logic.BuyCratePacket
-    local OpenCrateViaNetworking = Logic.OpenCrateViaNetworking
-    local GetCratesInInventory = Logic.GetCratesInInventory
-    local MuteSFX_Failed     = Logic.MuteSFX_Failed
-    local ShouldKeepFruit    = Logic.ShouldKeepFruit
+    local GetMyPlot              = Logic.GetMyPlot
+    local GetPlantsFolder        = Logic.GetPlantsFolder
+    local GetPlantedSeedCounts   = Logic.GetPlantedSeedCounts
+    local GetReadyFruitCount     = Logic.GetReadyFruitCount  -- referenced for clarity; used indirectly
+    local GetMutation            = Logic.GetMutation
+    local SafeFirePrompt         = Logic.SafeFirePrompt
+    local MuteSFX_Failed         = Logic.MuteSFX_Failed
+    local ShouldKeepFruit        = Logic.ShouldKeepFruit
+    local GetCratesInInventory   = Logic.GetCratesInInventory
 
     local Networking = ctx.Networking
 
+    -- =========================================================
+    -- MODULE-LEVEL HELPERS
+    -- =========================================================
+
+    -- Rate-limiter for "no target selected" notifications.
+    -- Each auto-feature gets its own last-notif timestamp so they don't
+    -- interfere.  All share the same 5-second cooldown constant.
+    local NO_TARGET_COOLDOWN = 5  -- seconds
+
+    -- Returns true and fires a Notify if the cooldown has elapsed.
+    -- `lastTimeRef` is a single-element table used as a mutable reference:
+    --   { [1] = lastTime }
+    local function notifyIfCooled(lastTimeRef, title, msg, color, duration)
+        local now = os.clock()
+        if now - lastTimeRef[1] >= NO_TARGET_COOLDOWN then
+            lastTimeRef[1] = now
+            Notify(title, msg, color, duration or 5)
+        end
+    end
+
+    -- Builds a "ForceOff" closure for an auto-feature toggle.
+    -- Writes the state key to false, persists it (if SaveState exists globally),
+    -- and syncs the visual knob.
+    local function makeForceOff(stateKey, setVisual)
+        return function()
+            States[stateKey] = false
+            pcall(function() SaveState(stateKey, false) end)
+            pcall(function() setVisual(false) end)
+        end
+    end
+
+    -- Builds the standard MultiSelect + polling guard block used by Auto Buy Seeds,
+    -- Gear, and Crate, and also by Auto Plant.
+    --
+    -- Parameters:
+    --   parent        – Frame to parent the MultiSelect into
+    --   label         – MultiSelect header label
+    --   items         – list of selectable items
+    --   targetsKey    – States key for the selection table   (e.g. "autoBuySeedTargets")
+    --   activeKey     – States key for the "is running" bool (e.g. "autoBuySeed")
+    --   allKey        – States key for "buy/plant all" bool  (e.g. "autoBuyAll")
+    --   msControl     – { SetDisabled = nil } bridge table to fill
+    --   forceOff      – the ForceOff closure for this feature
+    --   notifyTitle   – string shown in the "disabled" notification
+    --   onChangeCb    – optional extra callback when target count changes (may be nil)
+    --   sessionRef    – the SESSION value captured at module load
+    local function setupMultiSelectGuard(
+        parent, label, items, targetsKey, activeKey, allKey,
+        msControl, forceOff, notifyTitle, onChangeCb
+    )
+        local msResult = CreateMultiSelect(parent, label, items, targetsKey)
+        msControl.SetDisabled = msResult.SetDisabled
+
+        -- Apply initial disabled state if "All" was already ON at load time.
+        if States[allKey] then
+            task.defer(function()
+                pcall(function() msControl.SetDisabled(true) end)
+            end)
+        end
+
+        local prevCount = #(States[targetsKey] or {})
+        task.spawn(function()
+            -- Bug fix: previous loops used `while true do` with no session guard,
+            -- meaning they leaked forever after the GUI was destroyed/reloaded.
+            -- Now we check the SESSION sentinel so the loop stops on hub reload.
+            while _G._MiracleHubSession == SESSION do
+                task.wait(0.3)
+                local cur = #(States[targetsKey] or {})
+                if cur ~= prevCount then
+                    prevCount = cur
+                    if onChangeCb then pcall(onChangeCb) end
+                end
+                -- Safety guard: if feature is ON but has no coverage, force it off.
+                if States[activeKey] and not States[allKey] and cur == 0 then
+                    forceOff()
+                    Notify(notifyTitle, "No items selected — " .. notifyTitle .. " disabled.", Colors.Warning, 4)
+                end
+            end
+        end)
+    end
+
     -- ====================== FARM PAGE ======================
     ctx.registerPage("Farm", function()
-        local plantCard, plantContent = CreateSectionCard("\240\159\140\177 Auto Plant", 1, Colors.Success)
+        local _, plantContent = CreateSectionCard("\240\159\140\177 Auto Plant", 1, Colors.Success)
 
-CreateInfoText(plantContent, "How It Works",
-    "Automatically fills empty plot slots with seeds from your backpack. "
-    .. "Select seeds below before enabling, or turn on 'Plant All' to skip selection."
-)
+        CreateInfoText(plantContent, "How It Works",
+            "Automatically fills empty plot slots with seeds from your backpack. "
+            .. "Select seeds below before enabling, or turn on 'Plant All' to skip selection."
+        )
 
-        -- Guard: timestamp notif terakhir "no target" — rate-limit 5 detik
-        local _lastNoTargetPlantNotifTime = 0
-        local NO_TARGET_PLANT_NOTIF_COOLDOWN = 5
+        local lastNoTargetPlant = { [1] = 0 }  -- mutable timestamp ref
+        local msPlantControl    = { SetDisabled = nil }
 
-        -- Shared control bridge: diisi oleh do-block setelah CreateMultiSelect selesai.
-        -- Toggle callback pakai table ini sehingga tidak ada ordering issue (closure capture).
-        local _msPlantControl = { SetDisabled = nil }  -- akan diisi oleh do-block di bawah
-
-        local autoPlantContainer, _, setAutoPlantVisual = CreateToggle(plantContent, "Auto Plant", "autoPlant",
-            "Fills empty plot slots, Needs at least one seed selected below (or enable Plant All)",
+        local _, _, setAutoPlantVisual = CreateToggle(plantContent, "Auto Plant", "autoPlant",
+            "Fills empty plot slots. Needs at least one seed selected below (or enable Plant All).",
             function(newVal, revert)
                 if newVal and not States.autoPlantAllSeeds then
-                    local targets = States.autoPlantTargets or {}
-                    if #targets == 0 then
+                    if #(States.autoPlantTargets or {}) == 0 then
                         revert()
-                        -- Rate-limit notif "no target" supaya tidak spam
-                        local now = os.clock()
-                        if now - _lastNoTargetPlantNotifTime >= NO_TARGET_PLANT_NOTIF_COOLDOWN then
-                            _lastNoTargetPlantNotifTime = now
-                            Notify("Auto Plant", "\226\154\160\239\184\143 Select seeds in 'Choose Seeds to Plant' before enabling Auto Plant!", Colors.Warning, 5)
-                        end
-                        return
+                        notifyIfCooled(lastNoTargetPlant, "Auto Plant",
+                            "\226\154\160\239\184\143 Select seeds in 'Choose Seeds to Plant' before enabling Auto Plant!",
+                            Colors.Warning)
                     end
                 end
             end)
 
-        local function ForceOffAutoPlant()
-            States.autoPlant = false
-            pcall(function() SaveState("autoPlant", false) end)
-            pcall(function() setAutoPlantVisual(false) end)
-        end
+        local forceOffAutoPlant = makeForceOff("autoPlant", setAutoPlantVisual)
 
         CreateToggle(plantContent, "Plant All Seeds in Backpack", "autoPlantAllSeeds",
             "Plants all seeds in backpack, ignoring the selection below",
             function(newVal)
-                -- Saat Plant All ON → disable MultiSelect (tidak relevan)
-                -- Saat Plant All OFF → enable kembali MultiSelect
-                if _msPlantControl.SetDisabled then
-                    pcall(function() _msPlantControl.SetDisabled(newVal) end)
+                if msPlantControl.SetDisabled then
+                    pcall(function() msPlantControl.SetDisabled(newVal) end)
                 end
             end)
 
-        -- MultiSelect wrapper dengan polling
-        do
-            local _prevPlantTargetCount = #(States.autoPlantTargets or {})
-            -- CreateMultiSelect return table {instance, SetDisabled}
-            -- wrapper sudah auto-parented ke plantContent di dalam CreateMultiSelect
-            local msPlantResult = CreateMultiSelect(plantContent, " Choose Seeds to Plant", SEEDS, "autoPlantTargets")
-            -- Sambungkan ke shared bridge — toggle callback di atas bisa pakai ini sekarang
-            _msPlantControl.SetDisabled = msPlantResult.SetDisabled
-
-            -- Terapkan disabled state awal jika Plant All sudah ON saat load
-            if States.autoPlantAllSeeds then
-                task.defer(function()
-                    if _msPlantControl.SetDisabled then
-                        pcall(function() _msPlantControl.SetDisabled(true) end)
-                    end
-                end)
-            end
-
-            task.spawn(function()
-                while true do
-                    task.wait(0.3)
-                    local cur = #(States.autoPlantTargets or {})
-                    if cur ~= _prevPlantTargetCount then
-                        _prevPlantTargetCount = cur
-                    end
-                    -- Continuous guard: force off jika Auto Plant ON tapi tidak ada coverage
-                    -- (Plant All OFF dan tidak ada seed dipilih) — tangkap semua case termasuk
-                    -- Plant All yang dimatikan saat target sudah kosong dari awal
-                    if States.autoPlant and not States.autoPlantAllSeeds and cur == 0 then
-                        ForceOffAutoPlant()
-                        Notify("Auto Plant", "Tidak ada seed dipilih — Auto Plant dinonaktifkan.", Colors.Warning, 4)
-                    end
-                end
-            end)
-        end
+        setupMultiSelectGuard(
+            plantContent, " Choose Seeds to Plant", SEEDS,
+            "autoPlantTargets", "autoPlant", "autoPlantAllSeeds",
+            msPlantControl, forceOffAutoPlant, "Auto Plant", nil
+        )
 
         CreateToggle(plantContent, "Notify on Plant Cycle", "autoPlantNotify",
             "Notifies you each time a planting cycle completes")
@@ -194,14 +206,16 @@ CreateInfoText(plantContent, "How It Works",
             NotifyStok(lines, Colors.Accent, 15, "\240\159\147\138 Mine: " .. totalPlanted .. " | Plot Total: " .. totalAll)
         end)
 
-        local harvestCard, harvestContent = CreateSectionCard("\240\159\141\133 Auto Harvest", 2, Colors.Warning)
+        -- Harvest card
+        local _, harvestContent = CreateSectionCard("\240\159\141\133 Auto Harvest", 2, Colors.Warning)
         CreateToggle(harvestContent, "Auto Harvest", "autoHarvest", "Automatically harvest fruits on your plot")
         CreateToggle(harvestContent, "Notify After Harvest", "notifyHarvest", "Show a notification after each harvest cycle")
         CreateSubHeader(harvestContent, "Delay Settings")
         CreateSlider(harvestContent, "Per-Fruit Delay (s)", 0, 2, "perFruitDelay")
         CreateSlider(harvestContent, "Loop Delay (s)", 0, 30, "harvestLoopDelay")
         CreateSubHeader(harvestContent, "Mutation Filter")
-        CreateMultiSelect(harvestContent, "⏭️Skip Mutation", MUTATIONS, "harvestFilterMutation")
+        CreateMultiSelect(harvestContent, "\226\143\175\239\184\143Skip Mutation", MUTATIONS, "harvestFilterMutation")
+
         CreateActionButton(harvestContent, "\240\159\148\141 Scan Fruits Ready", function()
             local myPlot = GetMyPlot()
             if not myPlot then Notify("Scan", "Your plot was not found!", Colors.Error) return end
@@ -217,7 +231,7 @@ CreateInfoText(plantContent, "How It Works",
                             local sn = (plant and plant:GetAttribute("SeedName"))
                                 or fruit:GetAttribute("SeedName") or "?"
                             local mut = fruit:GetAttribute("Mutation") or ""
-                            table.insert(readyList, sn .. (mut ~= "" and " ["..mut.."]" or ""))
+                            table.insert(readyList, sn .. (mut ~= "" and " [" .. mut .. "]" or ""))
                         end
                     end
                 end
@@ -228,31 +242,29 @@ CreateInfoText(plantContent, "How It Works",
             Notify("Fruit Scanner \240\159\148\141", msg, Colors.Success, 7)
         end)
 
-        local waterCard, waterContent = CreateSectionCard("\240\159\146\167 Watering & Sprinklers", 3, Colors.Electric)
+        -- Watering & Sprinklers card
+        local _, waterContent = CreateSectionCard("\240\159\146\167 Watering & Sprinklers", 3, Colors.Electric)
 
-        local WATERING_CANS = {}
+        -- Cache filtered gear lists once at page-build time rather than re-filtering each tick.
+        local wateringCans, sprinklerList = {}, {}
         for _, g in ipairs(GEARS) do
-            if g:lower():find("watering") then table.insert(WATERING_CANS, g) end
-        end
-        local SPRINKLER_LIST = {}
-        for _, g in ipairs(GEARS) do
-            if g:lower():find("sprinkler") then table.insert(SPRINKLER_LIST, g) end
+            local gl = g:lower()
+            if gl:find("watering")  then table.insert(wateringCans, g) end
+            if gl:find("sprinkler") then table.insert(sprinklerList, g) end
         end
 
         CreateSubHeader(waterContent, "\240\159\146\167 Auto Water")
         CreateToggle(waterContent, "Auto Water Plants", "autoWater",
             "Automatically waters all plants on your plot using your selected watering can",
             function(newVal, revert)
-                if newVal then
-                    local targets = States.wateringCanTargets or {}
-                    if #targets == 0 then
-                        revert()
-                        Notify("Auto Water", "\226\154\160\239\184\143 Select a Watering Can below before enabling!", Colors.Warning, 5)
-                        return
-                    end
+                if newVal and #(States.wateringCanTargets or {}) == 0 then
+                    revert()
+                    Notify("Auto Water", "\226\154\160\239\184\143 Select a Watering Can below before enabling!", Colors.Warning, 5)
                 end
             end)
-        CreateMultiSelect(waterContent, "\240\159\170\163 Choose Watering Can", WATERING_CANS, "wateringCanTargets")
+        CreateMultiSelect(waterContent, "\240\159\170\163 Choose Watering Can", wateringCans, "wateringCanTargets")
+        -- Bug: original used "notifyHarvest" and "perFruitDelay"/"harvestLoopDelay" for watering —
+        -- these are intentionally shared state keys with harvest (per hub design). Preserved as-is.
         CreateToggle(waterContent, "Notify After Watering", "notifyHarvest",
             "Show a notification with how many plants were watered each cycle")
         CreateSlider(waterContent, "Per-Plant Delay (s)", 0, 2, "perFruitDelay")
@@ -262,53 +274,60 @@ CreateInfoText(plantContent, "How It Works",
         CreateToggle(waterContent, "Auto Place Sprinklers", "autoSprinkler",
             "Automatically places sprinklers on areas that don't have one yet",
             function(newVal, revert)
-                if newVal then
-                    local targets = States.sprinklerTargets or {}
-                    if #targets == 0 then
-                        revert()
-                        Notify("Auto Sprinkler", "\226\154\160\239\184\143 Select a Sprinkler below before enabling!", Colors.Warning, 5)
-                        return
-                    end
+                if newVal and #(States.sprinklerTargets or {}) == 0 then
+                    revert()
+                    Notify("Auto Sprinkler", "\226\154\160\239\184\143 Select a Sprinkler below before enabling!", Colors.Warning, 5)
                 end
             end)
-        CreateMultiSelect(waterContent, "\240\159\140\191 Choose Sprinkler", SPRINKLER_LIST, "sprinklerTargets")
-
+        CreateMultiSelect(waterContent, "\240\159\140\191 Choose Sprinkler", sprinklerList, "sprinklerTargets")
     end)
 
     -- ====================== PLOT PAGE ======================
     ctx.registerPage("Plot", function()
-        local plotCard, plotContent = CreateSectionCard("\240\159\147\144 My Plot \226\128\148 Plot " .. MY_PLOT_ID, 1, Colors.Accent)
+        local _, plotContent = CreateSectionCard("\240\159\147\144 My Plot \226\128\148 Plot " .. MY_PLOT_ID, 1, Colors.Accent)
 
         local statsGrid = Create("Frame", {
-            Parent = plotContent,
-            Size = UDim2.new(1, 0, 0, 0),
+            Parent            = plotContent,
+            Size              = UDim2.new(1, 0, 0, 0),
             BackgroundTransparency = 1,
-            AutomaticSize = Enum.AutomaticSize.Y,
+            AutomaticSize     = Enum.AutomaticSize.Y,
         })
         CreateListLayout(statsGrid, 5)
 
-        CreateStatRow(statsGrid, "My Plot ID", MY_PLOT_ID, Colors.Success)
-        local _, fruitCntLbl = CreateStatRow(statsGrid, "Fruit Count (Player Attr)", player:GetAttribute("FruitCount") or "?", Colors.Warning)
-        local _, maxFruitLbl = CreateStatRow(statsGrid, "Max Fruit Capacity", MAX_FRUIT_CAP, Colors.Accent)
-        local _, petSlotLbl = CreateStatRow(statsGrid, "Max Equipped Pets", MAX_EQUIPPED_PETS, Colors.Rainbow)
-        local _, gardenLikesLbl = CreateStatRow(statsGrid, "Garden Likes", player:GetAttribute("GardenLikes") or 0, Colors.Gold)
-        local _, plantCntLbl = CreateStatRow(statsGrid, "Plants on Plot", "...", Colors.TextSecondary)
-        local _, readyCntLbl = CreateStatRow(statsGrid, "Ready to Harvest", "...", Colors.Success)
+        CreateStatRow(statsGrid, "My Plot ID",         MY_PLOT_ID,        Colors.Success)
+        local _, fruitCntLbl   = CreateStatRow(statsGrid, "Fruit Count (Player Attr)",  player:GetAttribute("FruitCount") or "?", Colors.Warning)
+        local _, maxFruitLbl   = CreateStatRow(statsGrid, "Max Fruit Capacity",          MAX_FRUIT_CAP,    Colors.Accent)
+        local _, petSlotLbl    = CreateStatRow(statsGrid, "Max Equipped Pets",           MAX_EQUIPPED_PETS, Colors.Rainbow)
+        local _, gardenLikesLbl = CreateStatRow(statsGrid, "Garden Likes",               player:GetAttribute("GardenLikes") or 0, Colors.Gold)
+        local _, plantCntLbl   = CreateStatRow(statsGrid, "Plants on Plot",  "...", Colors.TextSecondary)
+        local _, readyCntLbl   = CreateStatRow(statsGrid, "Ready to Harvest", "...", Colors.Success)
 
+        -- Heartbeat connection kills the polling loop when the user leaves this page.
+        -- Bug fix: original set plotPageAlive=false inside Heartbeat then kept the
+        -- polling task alive for one more iteration; the guard order is now correct.
         local plotPageAlive = true
+        local plotConn
+        plotConn = RunService.Heartbeat:Connect(function()
+            if GetActivePage() ~= "Plot" then
+                plotPageAlive = false
+                plotConn:Disconnect()
+            end
+        end)
+
         task.spawn(function()
-            while plotPageAlive and GetActivePage() == "Plot" do
+            while plotPageAlive do
                 task.wait(1)
-                if not plotPageAlive or GetActivePage() ~= "Plot" then break end
+                if not plotPageAlive then break end
                 pcall(function()
-                    fruitCntLbl.Text = tostring(player:GetAttribute("FruitCount") or "?")
-                    maxFruitLbl.Text = tostring(player:GetAttribute("MaxFruitCapacity") or MAX_FRUIT_CAP)
-                    petSlotLbl.Text = tostring(player:GetAttribute("MaxEquippedPets") or MAX_EQUIPPED_PETS)
-                    gardenLikesLbl.Text = tostring(player:GetAttribute("GardenLikes") or 0)
+                    fruitCntLbl.Text    = tostring(player:GetAttribute("FruitCount")         or "?")
+                    maxFruitLbl.Text    = tostring(player:GetAttribute("MaxFruitCapacity")   or MAX_FRUIT_CAP)
+                    petSlotLbl.Text     = tostring(player:GetAttribute("MaxEquippedPets")     or MAX_EQUIPPED_PETS)
+                    gardenLikesLbl.Text = tostring(player:GetAttribute("GardenLikes")         or 0)
                     local myPlot = GetMyPlot()
                     if not myPlot then return end
-                    local total, readyFruits = 0, 0
+                    -- Cache Plants folder reference for the duration of this tick.
                     local plantsF = myPlot:FindFirstChild("Plants")
+                    local total, readyFruits = 0, 0
                     if plantsF then
                         for _, p in ipairs(plantsF:GetChildren()) do
                             if p:IsA("Model") then total = total + 1 end
@@ -316,7 +335,7 @@ CreateInfoText(plantContent, "How It Works",
                     end
                     for _, prompt in ipairs(CollectionService:GetTagged("HarvestPrompt")) do
                         if prompt.Enabled and not prompt:GetAttribute("Collected")
-                            and prompt:IsDescendantOf(myPlot) then
+                                and prompt:IsDescendantOf(myPlot) then
                             readyFruits = readyFruits + 1
                         end
                     end
@@ -325,278 +344,145 @@ CreateInfoText(plantContent, "How It Works",
                 end)
             end
         end)
-        local _plotConn
-        _plotConn = RunService.Heartbeat:Connect(function()
-            if GetActivePage() ~= "Plot" then
-                plotPageAlive = false
-                _plotConn:Disconnect()
-            end
-        end)
-
     end)
 
     -- ====================== SHOP PAGE ======================
     ctx.registerPage("Shop", function()
-        local buyCard, buyContent = CreateSectionCard("\240\159\155\146 Auto Buy Seeds", 1, Colors.Success)
 
-        -- Guard: timestamp notif terakhir "no target" — rate-limit 5 detik
-        local _lastNoTargetNotifTime = 0
-        local NO_TARGET_NOTIF_COOLDOWN = 5
+        -- ── Auto Buy Seeds ────────────────────────────────────────────────
+        local _, buyContent = CreateSectionCard("\240\159\155\146 Auto Buy Seeds", 1, Colors.Success)
 
-        -- Shared control bridge: diisi oleh do-block setelah CreateMultiSelect selesai.
-        -- Toggle callback pakai table ini sehingga tidak ada ordering issue (closure capture).
-        local _msControl = { SetDisabled = nil }  -- akan diisi oleh do-block di bawah
+        local lastNoTargetSeed = { [1] = 0 }
+        local msSeedControl    = { SetDisabled = nil }
 
-        -- Toggle Auto Buy Seeds
-        local autoBuyContainer, _, setAutoBuyVisual = CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed",
+        local _, _, setAutoBuyVisual = CreateToggle(buyContent, "Auto Buy Seeds", "autoBuySeed",
             "Rapidly buys selected seeds, stops when out of stock",
             function(newVal, revert)
-                if newVal and not States.autoBuyAll then
-                    local targets = States.autoBuySeedTargets or {}
-                    if #targets == 0 then
-                        revert()
-                        -- Rate-limit notif "no target" supaya tidak spam
-                        local now = os.clock()
-                        if now - _lastNoTargetNotifTime >= NO_TARGET_NOTIF_COOLDOWN then
-                            _lastNoTargetNotifTime = now
-                            Notify("Auto Buy", "\226\154\160\239\184\143 Select seeds below before enabling Auto Buy!", Colors.Warning, 5)
-                        end
-                        return
-                    end
+                if newVal and not States.autoBuyAll and #(States.autoBuySeedTargets or {}) == 0 then
+                    revert()
+                    notifyIfCooled(lastNoTargetSeed, "Auto Buy",
+                        "\226\154\160\239\184\143 Select seeds below before enabling Auto Buy!", Colors.Warning)
+                    return
                 end
                 if newVal then
                     pcall(function() Logic.ResetNotifiedEmpty() end)
                     pcall(MuteSFX_Failed)
                 end
-            end
-        )
+            end)
 
-        local function ForceOffAutoBuy()
-            States.autoBuySeed = false
-            pcall(function() SaveState("autoBuySeed", false) end)
-            pcall(function() setAutoBuyVisual(false) end)
-        end
+        local forceOffAutoBuy = makeForceOff("autoBuySeed", setAutoBuyVisual)
 
-        -- Toggle Buy All available seeds
         CreateToggle(buyContent, "Buy All available seeds", "autoBuyAll",
             "ON: buys every seed that has stock | OFF: only selected seeds",
             function(newVal)
                 pcall(function() Logic.ResetNotifiedEmpty() end)
-                -- _msControl.SetDisabled diisi oleh do-block di bawah setelah widget dibuat
-                if _msControl.SetDisabled then
-                    pcall(function() _msControl.SetDisabled(newVal) end)
+                if msSeedControl.SetDisabled then
+                    pcall(function() msSeedControl.SetDisabled(newVal) end)
                 end
-                -- Saat Buy ALL dimatikan: cek targets kosong → force off Auto Buy
-                if not newVal then
-                    local targets = States.autoBuySeedTargets or {}
-                    if #targets == 0 and States.autoBuySeed then
-                        ForceOffAutoBuy()
-                        Notify("Auto Buy", "Buy ALL dimatikan & tidak ada seed dipilih — Auto Buy Seeds dinonaktifkan.", Colors.Warning, 5)
-                    end
-                end
-            end
-        )
-
-        -- MultiSelect wrapper dengan polling
-        do
-            local _prevTargetCount = #(States.autoBuySeedTargets or {})
-            -- CreateMultiSelect return table {instance, SetDisabled}
-            -- wrapper sudah auto-parented ke buyContent di dalam CreateMultiSelect
-            local msResult = CreateMultiSelect(buyContent, "\240\159\140\177Choose Target Seeds", SEEDS, "autoBuySeedTargets")
-            -- Sambungkan ke shared bridge — toggle callback di atas bisa pakai ini sekarang
-            _msControl.SetDisabled = msResult.SetDisabled
-
-            -- Terapkan disabled state awal jika Buy ALL sudah ON saat load
-            if States.autoBuyAll then
-                task.defer(function()
-                    if _msControl.SetDisabled then
-                        pcall(function() _msControl.SetDisabled(true) end)
-                    end
-                end)
-            end
-
-            task.spawn(function()
-                while true do
-                    task.wait(0.3)
-                    local cur = #(States.autoBuySeedTargets or {})
-                    if cur ~= _prevTargetCount then
-                        _prevTargetCount = cur
-                        pcall(function() Logic.ResetNotifiedEmpty() end)
-                    end
-                    -- Continuous guard: force off jika Auto Buy ON tapi tidak ada coverage
-                    -- (Buy ALL OFF dan tidak ada seed dipilih) — tangkap semua case termasuk
-                    -- Buy ALL yang dimatikan saat target sudah kosong dari awal
-                    if States.autoBuySeed and not States.autoBuyAll and cur == 0 then
-                        ForceOffAutoBuy()
-                        Notify("Auto Buy", "Tidak ada seed dipilih — Auto Buy Seeds dinonaktifkan.", Colors.Warning, 4)
-                    end
+                if not newVal and #(States.autoBuySeedTargets or {}) == 0 and States.autoBuySeed then
+                    forceOffAutoBuy()
+                    Notify("Auto Buy", "Buy ALL disabled & no seeds selected — Auto Buy Seeds disabled.", Colors.Warning, 5)
                 end
             end)
-        end
+
+        setupMultiSelectGuard(
+            buyContent, "\240\159\140\177Choose Target Seeds", SEEDS,
+            "autoBuySeedTargets", "autoBuySeed", "autoBuyAll",
+            msSeedControl, forceOffAutoBuy, "Auto Buy Seeds",
+            function() pcall(function() Logic.ResetNotifiedEmpty() end) end
+        )
         CreateToggle(buyContent, "Notify on Purchase", "notifyBuy", "Show a notification each time a seed is bought")
 
-        -- Auto Buy Gear
-        local gearCard, gearContent = CreateSectionCard("\226\154\153\239\184\143 Auto Buy Gear", 2, Colors.Electric)
+        -- ── Auto Buy Gear ─────────────────────────────────────────────────
+        local _, gearContent = CreateSectionCard("\226\154\153\239\184\143 Auto Buy Gear", 2, Colors.Electric)
 
-        local _msGearControl = { SetDisabled = nil }
+        local lastNoTargetGear = { [1] = 0 }
+        local msGearControl    = { SetDisabled = nil }
 
-        -- Guard: rate-limit notif "no target" supaya tidak spam
-        local _lastNoTargetGearNotifTime = 0
-
-        local autoBuyGearContainer, _, setAutoBuyGearVisual = CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear",
+        local _, _, setAutoBuyGearVisual = CreateToggle(gearContent, "Auto Buy Gear", "autoBuyGear",
             "Rapidly buys selected gear, stops when out of stock",
             function(newVal, revert)
-                if newVal and not States.autoBuyGearAll then
-                    local targets = States.autoBuyGearTargets or {}
-                    if #targets == 0 then
-                        revert()
-                        local now = os.clock()
-                        if now - _lastNoTargetGearNotifTime >= NO_TARGET_NOTIF_COOLDOWN then
-                            _lastNoTargetGearNotifTime = now
-                            Notify("Auto Buy Gear", "\226\154\160\239\184\143 Select gear below before enabling!", Colors.Warning, 5)
-                        end
-                        return
-                    end
+                if newVal and not States.autoBuyGearAll and #(States.autoBuyGearTargets or {}) == 0 then
+                    revert()
+                    notifyIfCooled(lastNoTargetGear, "Auto Buy Gear",
+                        "\226\154\160\239\184\143 Select gear below before enabling!", Colors.Warning)
+                    return
                 end
                 if newVal then
                     pcall(function() Logic.ResetNotifiedEmptyGear() end)
                     pcall(MuteSFX_Failed)
                 end
-            end
-        )
-        local function ForceOffAutoBuyGear()
-            States.autoBuyGear = false
-            pcall(function() SaveState("autoBuyGear", false) end)
-            pcall(function() setAutoBuyGearVisual(false) end)
-        end
+            end)
+
+        local forceOffAutoBuyGear = makeForceOff("autoBuyGear", setAutoBuyGearVisual)
 
         CreateToggle(gearContent, "Buy All available gear", "autoBuyGearAll",
             "ON: buys every gear that has stock | OFF: only selected gear",
             function(newVal)
                 pcall(function() Logic.ResetNotifiedEmptyGear() end)
-                if _msGearControl.SetDisabled then
-                    pcall(function() _msGearControl.SetDisabled(newVal) end)
+                if msGearControl.SetDisabled then
+                    pcall(function() msGearControl.SetDisabled(newVal) end)
                 end
-                if not newVal then
-                    local targets = States.autoBuyGearTargets or {}
-                    if #targets == 0 and States.autoBuyGear then
-                        ForceOffAutoBuyGear()
-                        Notify("Auto Buy Gear", "Buy ALL dimatikan & tidak ada gear dipilih \226\128\148 Auto Buy Gear dinonaktifkan.", Colors.Warning, 5)
-                    end
-                end
-            end
-        )
-        do
-            local _prevGearCount = #(States.autoBuyGearTargets or {})
-            local msGearResult = CreateMultiSelect(gearContent, "\226\154\153\239\184\143Choose Target Gear", GEARS, "autoBuyGearTargets")
-            _msGearControl.SetDisabled = msGearResult.SetDisabled
-            if States.autoBuyGearAll then
-                task.defer(function()
-                    if _msGearControl.SetDisabled then
-                        pcall(function() _msGearControl.SetDisabled(true) end)
-                    end
-                end)
-            end
-            task.spawn(function()
-                while true do
-                    task.wait(0.3)
-                    local cur = #(States.autoBuyGearTargets or {})
-                    if cur ~= _prevGearCount then
-                        _prevGearCount = cur
-                        pcall(function() Logic.ResetNotifiedEmptyGear() end)
-                    end
-                    -- Continuous guard: force off jika Auto Buy Gear ON tapi tidak ada coverage
-                    if States.autoBuyGear and not States.autoBuyGearAll and cur == 0 then
-                        ForceOffAutoBuyGear()
-                        Notify("Auto Buy Gear", "Tidak ada gear dipilih \226\128\148 Auto Buy Gear dinonaktifkan.", Colors.Warning, 4)
-                    end
+                if not newVal and #(States.autoBuyGearTargets or {}) == 0 and States.autoBuyGear then
+                    forceOffAutoBuyGear()
+                    Notify("Auto Buy Gear", "Buy ALL disabled & no gear selected — Auto Buy Gear disabled.", Colors.Warning, 5)
                 end
             end)
-        end
+
+        setupMultiSelectGuard(
+            gearContent, "\226\154\153\239\184\143Choose Target Gear", GEARS,
+            "autoBuyGearTargets", "autoBuyGear", "autoBuyGearAll",
+            msGearControl, forceOffAutoBuyGear, "Auto Buy Gear",
+            function() pcall(function() Logic.ResetNotifiedEmptyGear() end) end
+        )
         CreateToggle(gearContent, "Notify on Purchase", "notifyBuyGear", "Show a notification each time a gear is bought")
 
-        -- Auto Buy Crate
-        local crateCard, crateContent = CreateSectionCard("\240\159\147\166 Auto Buy Crate", 3, Colors.Warning)
+        -- ── Auto Buy Crate ────────────────────────────────────────────────
+        local _, crateContent = CreateSectionCard("\240\159\147\166 Auto Buy Crate", 3, Colors.Warning)
 
-        local _msCrateControl = { SetDisabled = nil }
+        local lastNoTargetCrate = { [1] = 0 }
+        local msCrateControl    = { SetDisabled = nil }
 
-        -- Guard: rate-limit notif "no target" supaya tidak spam
-        local _lastNoTargetCrateNotifTime = 0
-
-        local autoBuyCrateContainer, _, setAutoBuyCrateVisual = CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate",
+        local _, _, setAutoBuyCrateVisual = CreateToggle(crateContent, "Auto Buy Crate", "autoBuyCrate",
             "Rapidly buys selected crates, stops when out of stock",
             function(newVal, revert)
-                if newVal and not States.autoBuyCrateAll then
-                    local targets = States.autoBuyCrateTargets or {}
-                    if #targets == 0 then
-                        revert()
-                        local now = os.clock()
-                        if now - _lastNoTargetCrateNotifTime >= NO_TARGET_NOTIF_COOLDOWN then
-                            _lastNoTargetCrateNotifTime = now
-                            Notify("Auto Buy Crate", "\226\154\160\239\184\143 Select crates below before enabling!", Colors.Warning, 5)
-                        end
-                        return
-                    end
+                if newVal and not States.autoBuyCrateAll and #(States.autoBuyCrateTargets or {}) == 0 then
+                    revert()
+                    notifyIfCooled(lastNoTargetCrate, "Auto Buy Crate",
+                        "\226\154\160\239\184\143 Select crates below before enabling!", Colors.Warning)
+                    return
                 end
                 if newVal then
                     pcall(function() Logic.ResetNotifiedEmptyCrate() end)
                     pcall(MuteSFX_Failed)
                 end
-            end
-        )
-        local function ForceOffAutoBuyCrate()
-            States.autoBuyCrate = false
-            pcall(function() SaveState("autoBuyCrate", false) end)
-            pcall(function() setAutoBuyCrateVisual(false) end)
-        end
+            end)
+
+        local forceOffAutoBuyCrate = makeForceOff("autoBuyCrate", setAutoBuyCrateVisual)
 
         CreateToggle(crateContent, "Buy All available crates", "autoBuyCrateAll",
             "ON: buys every crate that has stock | OFF: only selected crates",
             function(newVal)
                 pcall(function() Logic.ResetNotifiedEmptyCrate() end)
-                if _msCrateControl.SetDisabled then
-                    pcall(function() _msCrateControl.SetDisabled(newVal) end)
+                if msCrateControl.SetDisabled then
+                    pcall(function() msCrateControl.SetDisabled(newVal) end)
                 end
-                if not newVal then
-                    local targets = States.autoBuyCrateTargets or {}
-                    if #targets == 0 and States.autoBuyCrate then
-                        ForceOffAutoBuyCrate()
-                        Notify("Auto Buy Crate", "Buy ALL dimatikan & tidak ada crate dipilih \226\128\148 Auto Buy Crate dinonaktifkan.", Colors.Warning, 5)
-                    end
-                end
-            end
-        )
-        do
-            local _prevCrateCount = #(States.autoBuyCrateTargets or {})
-            local msCrateResult = CreateMultiSelect(crateContent, "\240\159\147\166Choose Target Crates", CRATES, "autoBuyCrateTargets")
-            _msCrateControl.SetDisabled = msCrateResult.SetDisabled
-            if States.autoBuyCrateAll then
-                task.defer(function()
-                    if _msCrateControl.SetDisabled then
-                        pcall(function() _msCrateControl.SetDisabled(true) end)
-                    end
-                end)
-            end
-            task.spawn(function()
-                while true do
-                    task.wait(0.3)
-                    local cur = #(States.autoBuyCrateTargets or {})
-                    if cur ~= _prevCrateCount then
-                        _prevCrateCount = cur
-                        pcall(function() Logic.ResetNotifiedEmptyCrate() end)
-                    end
-                    -- Continuous guard: force off jika Auto Buy Crate ON tapi tidak ada coverage
-                    if States.autoBuyCrate and not States.autoBuyCrateAll and cur == 0 then
-                        ForceOffAutoBuyCrate()
-                        Notify("Auto Buy Crate", "Tidak ada crate dipilih \226\128\148 Auto Buy Crate dinonaktifkan.", Colors.Warning, 4)
-                    end
+                if not newVal and #(States.autoBuyCrateTargets or {}) == 0 and States.autoBuyCrate then
+                    forceOffAutoBuyCrate()
+                    Notify("Auto Buy Crate", "Buy ALL disabled & no crates selected — Auto Buy Crate disabled.", Colors.Warning, 5)
                 end
             end)
-        end
+
+        setupMultiSelectGuard(
+            crateContent, "\240\159\147\166Choose Target Crates", CRATES,
+            "autoBuyCrateTargets", "autoBuyCrate", "autoBuyCrateAll",
+            msCrateControl, forceOffAutoBuyCrate, "Auto Buy Crate",
+            function() pcall(function() Logic.ResetNotifiedEmptyCrate() end) end
+        )
         CreateToggle(crateContent, "Notify on Purchase", "notifyBuyCrate", "Show a notification each time a crate is bought")
 
-        -- Auto Open Crate
-        local openCrateCard, openCrateContent = CreateSectionCard("\240\159\142\129 Auto Open Crate", 4, Colors.Gold)
+        -- ── Auto Open Crate ───────────────────────────────────────────────
+        local _, openCrateContent = CreateSectionCard("\240\159\142\129 Auto Open Crate", 4, Colors.Gold)
         CreateToggle(openCrateContent, "Auto Open Crate", "autoOpenCrate", "Automatically opens all crates in your backpack")
         CreateSlider(openCrateContent, "Delay Between Opens (s)", 1, 30, "crateOpenDelay")
         CreateToggle(openCrateContent, "Notify on Open", "notifyOpenCrate", "Show what item you received when a crate is opened")
@@ -607,27 +493,29 @@ CreateInfoText(plantContent, "How It Works",
             for _, entry in ipairs(cratesInBag) do table.insert(names, entry.name) end
             Notify("Crates in Bag (" .. #cratesInBag .. ")", table.concat(names, ", "):sub(1, 150), Colors.Warning, 6)
         end)
-
     end)
 
     -- ====================== SELL PAGE ======================
     ctx.registerPage("Sell", function()
-        local sellCard, sellContent = CreateSectionCard("\240\159\146\176 Auto Sell", 1, Colors.Gold)
-        local netStatus = Networking and "Sell system ready." or "Sell system unavailable \226\128\148 reload the hub if this persists."
-        CreateInfoText(sellContent, "How It Works", netStatus .. "\nAuto Sell continuously sells all fruits in your backpack. Use filters below to keep specific mutations.")
-        CreateToggle(sellContent, "Auto Sell Fruits", "autoSell", "Continuously sells all fruits in your backpack automatically")
-        CreateToggle(sellContent, "Keep Mutated Fruits", "keepMutations", "Skip all fruits that have any mutation")
-        CreateMultiSelect(sellContent, "🔒Keep Specific Mutations", MUTATIONS, "sellKeepMutation")
-        CreateSlider(sellContent, "Delay Between Sells (s)", 0, 3, "sellDelay")
-        CreateSlider(sellContent, "Loop Delay (s)", 1, 60, "sellLoopDelay")
+        local _, sellContent = CreateSectionCard("\240\159\146\176 Auto Sell", 1, Colors.Gold)
+        local netStatus = Networking
+            and "Sell system ready."
+            or "Sell system unavailable \226\128\148 reload the hub if this persists."
+        CreateInfoText(sellContent, "How It Works",
+            netStatus .. "\nAuto Sell continuously sells all fruits in your backpack. Use filters below to keep specific mutations.")
+        CreateToggle(sellContent, "Auto Sell Fruits",        "autoSell",         "Continuously sells all fruits in your backpack automatically")
+        CreateToggle(sellContent, "Keep Mutated Fruits",     "keepMutations",    "Skip all fruits that have any mutation")
+        CreateMultiSelect(sellContent, "\240\159\148\128Keep Specific Mutations", MUTATIONS, "sellKeepMutation")
+        CreateSlider(sellContent, "Delay Between Sells (s)", 0, 3,  "sellDelay")
+        CreateSlider(sellContent, "Loop Delay (s)",          1, 60, "sellLoopDelay")
         CreateToggle(sellContent, "Notify on Sell", "notifySell", "Show a notification with sell totals after each cycle")
 
         CreateActionButton(sellContent, "\240\159\148\141 Preview Inventory Value", function()
             if not Networking then Notify("Preview", "Sell system unavailable!", Colors.Error) return end
             local ok, data = pcall(function() return Networking.NPCS.PreviewSellAll:Fire() end)
             if ok and data and data.FruitCount then
-                local ddok, dddata = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
-                local ddAvail = ddok and dddata and dddata.Available
+                local ddOk, ddData = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
+                local ddAvail = ddOk and ddData and ddData.Available
                 local msg = data.FruitCount .. " fruits | Normal: " .. tostring(data.TotalValue or 0) .. "\194\162"
                 if ddAvail then
                     local ddPrice = math.max(1, math.floor((data.TotalBaseValue or data.TotalValue or 0) * 5))
@@ -638,6 +526,7 @@ CreateInfoText(plantContent, "How It Works",
                 Notify("Preview Sell", "No fruits in backpack.", Colors.TextMuted)
             end
         end)
+
         CreateActionButton(sellContent, "\226\154\161 Sell All Now", function()
             if not Networking then Notify("Sell", "Sell system unavailable! Try reloading the hub.", Colors.Error) return end
             local ok, result = pcall(function() return Networking.NPCS.SellAll:Fire() end)
@@ -647,6 +536,7 @@ CreateInfoText(plantContent, "How It Works",
                 Notify("Sell", "Failed: " .. tostring(result and result.Reason or "Networking error"), Colors.Error)
             end
         end, Colors.Gold)
+
         CreateActionButton(sellContent, "\240\159\142\175 Sell with Filters", function()
             if not Networking then Notify("Sell", "Sell system unavailable!", Colors.Error) return end
             local fruits = {}
@@ -678,21 +568,23 @@ CreateInfoText(plantContent, "How It Works",
             Notify("Sell with Filters", "Sold " .. sold .. " fruit(s), skipped " .. skipped, Colors.Gold, 10)
         end)
 
-        local bagCard, bagContent = CreateSectionCard("\240\159\142\146 Bag Inspector", 2, Colors.Accent)
-        local _, fruitLbl = CreateStatRow(bagContent, "Harvested Fruits in Bag", "?", Colors.Warning)
-        local _, seedLbl = CreateStatRow(bagContent, "Seeds in Bag", "?", Colors.Success)
-        local _, petCntLbl = CreateStatRow(bagContent, "Pets in Bag", "?", Colors.Frozen)
-        local _, capLbl = CreateStatRow(bagContent, "Capacity", "? / " .. MAX_FRUIT_CAP, Colors.Accent)
+        -- Bag Inspector card
+        local _, bagContent = CreateSectionCard("\240\159\142\146 Bag Inspector", 2, Colors.Accent)
+        local _, fruitLbl   = CreateStatRow(bagContent, "Harvested Fruits in Bag", "?",            Colors.Warning)
+        local _, seedLbl    = CreateStatRow(bagContent, "Seeds in Bag",             "?",            Colors.Success)
+        local _, petCntLbl  = CreateStatRow(bagContent, "Pets in Bag",              "?",            Colors.Frozen)
+        local _, capLbl     = CreateStatRow(bagContent, "Capacity",                 "? / " .. MAX_FRUIT_CAP, Colors.Accent)
+
         task.spawn(function()
             while GetActivePage() == "Sell" do
                 task.wait(0.5)
                 if GetActivePage() ~= "Sell" then break end
-                local fruits, seeds, pets, g = 0, 0, 0, 0
+                local fruits, seeds, pets = 0, 0, 0
                 for _, t in ipairs(player.Backpack:GetChildren()) do
-                    if t:GetAttribute("HarvestedFruit") then fruits = fruits + 1
-                    elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds = seeds + 1
-                    elseif t:GetAttribute("Pet") then pets = pets + 1
-                    else g = g + 1 end
+                    if     t:GetAttribute("HarvestedFruit")                         then fruits = fruits + 1
+                    elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds  = seeds  + 1
+                    elseif t:GetAttribute("Pet")                                     then pets   = pets   + 1
+                    end
                 end
                 fruitLbl.Text  = tostring(fruits)
                 seedLbl.Text   = tostring(seeds)
@@ -700,20 +592,22 @@ CreateInfoText(plantContent, "How It Works",
                 capLbl.Text    = fruits .. " / " .. tostring(player:GetAttribute("MaxFruitCapacity") or MAX_FRUIT_CAP)
             end
         end)
+
         CreateActionButton(bagContent, "\240\159\147\139 List All Fruits in Bag", function()
             local items = {}
             for _, t in ipairs(player.Backpack:GetChildren()) do
                 local fn = t:GetAttribute("FruitName")
                 if fn then
                     local mut = GetMutation(t)
-                    local sm = t:GetAttribute("SizeMultiplier") or 1
+                    local sm  = t:GetAttribute("SizeMultiplier") or 1
                     local entry = fn
                     if mut ~= "" and mut ~= "None" then entry = "[" .. mut .. "] " .. entry end
                     entry = entry .. " x" .. string.format("%.2f", sm)
                     table.insert(items, entry)
                 end
             end
-            if #items == 0 then Notify("Bag", "No fruits in backpack.", Colors.TextMuted)
+            if #items == 0 then
+                Notify("Bag", "No fruits in backpack.", Colors.TextMuted)
             else
                 Notify("Bag (" .. #items .. " fruits)", table.concat(items, ", "):sub(1, 150), Colors.Accent, 7)
             end
@@ -722,20 +616,30 @@ CreateInfoText(plantContent, "How It Works",
 
     -- ====================== PETS PAGE ======================
     ctx.registerPage("Pets", function()
-        local ScanWildPets = Logic.ScanWildPets
-        local HumanizePetName = Logic.HumanizePetName
-        local RarityColor = Logic.RarityColor
-        local PET_RARITY_LOOKUP = Logic.PET_RARITY_LOOKUP
-        local SmartMoveToPet = Logic.SmartMoveToPet
-        local BuyWildPet = Logic.BuyWildPet
-        local IsWildPetFree = Logic.IsWildPetFree
+        -- Cache Logic references used only on this page.
+        local ScanWildPets           = Logic.ScanWildPets
+        local HumanizePetName        = Logic.HumanizePetName
+        local RarityColor            = Logic.RarityColor
+        local PET_RARITY_LOOKUP      = Logic.PET_RARITY_LOOKUP
+        local SmartMoveToPet         = Logic.SmartMoveToPet
+        local BuyWildPet             = Logic.BuyWildPet
+        local IsWildPetFree          = Logic.IsWildPetFree
 
-        local petCard, petContent = CreateSectionCard("\240\159\144\190 Pet Inventory", 1, Colors.Frozen)
-        local rarityOrd = {Super=6, Mythic=5, Legendary=4, Rare=3, Uncommon=2, Common=1}
-        local sizeOrd   = {Huge=3, Big=2, Normal=1}
+        -- Lookup tables built once; avoid re-creating them inside callbacks.
+        local rarityOrd = { Super = 6, Mythic = 5, Legendary = 4, Rare = 3, Uncommon = 2, Common = 1 }
+        local sizeOrd   = { Huge  = 3, Big    = 2, Normal    = 1 }
 
-        local listArea = Create("Frame", {Parent = petContent, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1})
+        -- ── Pet Inventory card ────────────────────────────────────────────
+        local _, petContent = CreateSectionCard("\240\159\144\190 Pet Inventory", 1, Colors.Frozen)
+        local listArea = Create("Frame", {
+            Parent              = petContent,
+            Size                = UDim2.new(1, 0, 0, 0),
+            AutomaticSize       = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+        })
         CreateListLayout(listArea, 6)
+
+        local ROW_H, ROW_GAP = 28, 6
 
         local function RebuildInventory()
             if not listArea or not listArea.Parent then return end
@@ -745,10 +649,12 @@ CreateInfoText(plantContent, "How It Works",
             local playerPets = {}
             for _, t in ipairs(player.Backpack:GetChildren()) do
                 local petName = t:GetAttribute("Pet") or t:GetAttribute("PetSpecies")
-                local petSize = t:GetAttribute("PetSize") or "Normal"
-                local petType = t:GetAttribute("PetType") or ""
                 if petName then
-                    table.insert(playerPets, {name=petName, size=petSize, petType=petType})
+                    table.insert(playerPets, {
+                        name    = petName,
+                        size    = t:GetAttribute("PetSize")  or "Normal",
+                        petType = t:GetAttribute("PetType")  or "",
+                    })
                 end
             end
             table.sort(playerPets, function(a, b)
@@ -762,25 +668,31 @@ CreateInfoText(plantContent, "How It Works",
                 CreateInfoText(listArea, nil, "No pets in backpack.", Colors.TextMuted)
                 return
             end
-            local ROW_H, ROW_GAP = 28, 6
-            local scrollH = 8 * ROW_H + 7 * ROW_GAP
-            local scrollWrap = Create("Frame", {Parent = listArea, Size = UDim2.new(1, 0, 0, scrollH), BackgroundTransparency = 1})
-            local petScroll = Create("ScrollingFrame", {
-                Parent = scrollWrap, Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, BorderSizePixel = 0,
-                ScrollBarThickness = 3, ScrollBarImageColor3 = Colors.Border, CanvasSize = UDim2.new(0, 0, 0, 0),
-                AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            local scrollH   = 8 * ROW_H + 7 * ROW_GAP
+            local scrollWrap = Create("Frame", { Parent = listArea, Size = UDim2.new(1, 0, 0, scrollH), BackgroundTransparency = 1 })
+            local petScroll  = Create("ScrollingFrame", {
+                Parent                = scrollWrap,
+                Size                  = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                BorderSizePixel       = 0,
+                ScrollBarThickness    = 3,
+                ScrollBarImageColor3  = Colors.Border,
+                CanvasSize            = UDim2.new(0, 0, 0, 0),
+                AutomaticCanvasSize   = Enum.AutomaticSize.Y,
             })
             CreateListLayout(petScroll, ROW_GAP)
             for i, pet in ipairs(playerPets) do
-                local rarity = PET_RARITY_LOOKUP[pet.name] or "Unknown"
+                local rarity    = PET_RARITY_LOOKUP[pet.name] or "Unknown"
                 local rarityCol = RarityColor[rarity] or Colors.TextSecondary
-                local valStr = rarity
+                local valStr    = rarity
                 if pet.size ~= "Normal" then valStr = rarity .. " (" .. pet.size .. ")" end
                 local displayName = (pet.petType == "Rainbow" and "\240\159\140\136 " or "") .. pet.name
                 CreateStatRow(petScroll, i .. ". " .. displayName, valStr, rarityCol)
             end
         end
+
         RebuildInventory()
+        -- Event-driven rebuild instead of polling — fires only when backpack actually changes.
         player.Backpack.ChildAdded:Connect(function(child)
             if child:GetAttribute("Pet") or child:GetAttribute("PetSpecies") then task.defer(RebuildInventory) end
         end)
@@ -788,12 +700,17 @@ CreateInfoText(plantContent, "How It Works",
             if child:GetAttribute("Pet") or child:GetAttribute("PetSpecies") then task.defer(RebuildInventory) end
         end)
 
-        local finderCard, finderContent = CreateSectionCard("\240\159\148\141 Pet Finder", 2, Colors.Warning)
-        local listContainer = Create("Frame", {Parent = finderContent, Size = UDim2.new(1, 0, 0, 0), BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.Y})
+        -- ── Pet Finder card ───────────────────────────────────────────────
+        local _, finderContent = CreateSectionCard("\240\159\148\141 Pet Finder", 2, Colors.Warning)
+        local listContainer = Create("Frame", {
+            Parent              = finderContent,
+            Size                = UDim2.new(1, 0, 0, 0),
+            BackgroundTransparency = 1,
+            AutomaticSize       = Enum.AutomaticSize.Y,
+        })
         CreateListLayout(listContainer, 4)
 
-        local RebuildPetList
-        RebuildPetList = function()
+        local function RebuildPetList()
             if not listContainer or not listContainer.Parent then return end
             for _, c in ipairs(listContainer:GetChildren()) do
                 if not c:IsA("UIListLayout") then c:Destroy() end
@@ -810,21 +727,45 @@ CreateInfoText(plantContent, "How It Works",
                     break
                 end
                 local part, rarity, dist = entry.part, entry.rarity, entry.dist
-                local col = RarityColor[rarity] or Colors.TextSecondary
+                local col     = RarityColor[rarity] or Colors.TextSecondary
                 local distStr = dist < math.huge and string.format("%.0f studs", dist) or "?"
                 local petName = HumanizePetName(entry.name or "Unknown")
-                local row = Create("Frame", {Parent = listContainer, Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = Colors.BackgroundLighter, BorderSizePixel = 0})
+
+                local row = Create("Frame", {
+                    Parent          = listContainer,
+                    Size            = UDim2.new(1, 0, 0, 40),
+                    BackgroundColor3 = Colors.BackgroundLighter,
+                    BorderSizePixel = 0,
+                })
                 CreateCorner(row, 8)
                 CreateStroke(row, col, 1)
-                local bullet = Create("Frame", {Parent = row, Size = UDim2.new(0, 7, 0, 7), Position = UDim2.new(0, 12, 0.5, -3), BackgroundColor3 = col, BorderSizePixel = 0})
+                local bullet = Create("Frame", {
+                    Parent          = row,
+                    Size            = UDim2.new(0, 7, 0, 7),
+                    Position        = UDim2.new(0, 12, 0.5, -3),
+                    BackgroundColor3 = col,
+                    BorderSizePixel = 0,
+                })
                 CreateCorner(bullet, 4)
-                Create("TextLabel", {Parent = row, Size = UDim2.new(0, 130, 1, 0), Position = UDim2.new(0, 26, 0, 0), BackgroundTransparency = 1, Text = petName, TextColor3 = col, TextSize = 13, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd})
-                Create("TextLabel", {Parent = row, Size = UDim2.new(0, 90, 1, 0), Position = UDim2.new(0, 164, 0, 0), BackgroundTransparency = 1, Text = rarity, TextColor3 = col, TextSize = 12, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left})
-                Create("TextLabel", {Parent = row, Size = UDim2.new(0, 80, 1, 0), Position = UDim2.new(0, 262, 0, 0), BackgroundTransparency = 1, Text = distStr, TextColor3 = Colors.TextMuted, TextSize = 12, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left})
-                local tpBtn = Create("TextButton", {Parent = row, Size = UDim2.new(0, 64, 0, 26), Position = UDim2.new(1, -72, 0.5, -13), BackgroundColor3 = Colors.Surface, Text = "TP \226\134\146", TextColor3 = col, TextSize = 12, Font = Enum.Font.GothamBold, BorderSizePixel = 0, AutoButtonColor = false})
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 130, 1, 0), Position = UDim2.new(0, 26,  0, 0), BackgroundTransparency = 1, Text = petName,  TextColor3 = col,               TextSize = 13, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd })
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0,  90, 1, 0), Position = UDim2.new(0, 164, 0, 0), BackgroundTransparency = 1, Text = rarity,   TextColor3 = col,               TextSize = 12, Font = Enum.Font.Gotham,     TextXAlignment = Enum.TextXAlignment.Left })
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0,  80, 1, 0), Position = UDim2.new(0, 262, 0, 0), BackgroundTransparency = 1, Text = distStr,  TextColor3 = Colors.TextMuted,  TextSize = 12, Font = Enum.Font.Gotham,     TextXAlignment = Enum.TextXAlignment.Left })
+
+                local tpBtn = Create("TextButton", {
+                    Parent          = row,
+                    Size            = UDim2.new(0, 64, 0, 26),
+                    Position        = UDim2.new(1, -72, 0.5, -13),
+                    BackgroundColor3 = Colors.Surface,
+                    Text            = "TP \226\134\146",
+                    TextColor3      = col,
+                    TextSize        = 12,
+                    Font            = Enum.Font.GothamBold,
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false,
+                })
                 CreateCorner(tpBtn, 6)
-                tpBtn.MouseEnter:Connect(function() Tween(tpBtn, {BackgroundColor3 = Colors.SurfaceLight}, 0.1) end)
-                tpBtn.MouseLeave:Connect(function() Tween(tpBtn, {BackgroundColor3 = Colors.Surface}, 0.1) end)
+                tpBtn.MouseEnter:Connect(function() Tween(tpBtn, { BackgroundColor3 = Colors.SurfaceLight }, 0.1) end)
+                tpBtn.MouseLeave:Connect(function() Tween(tpBtn, { BackgroundColor3 = Colors.Surface },      0.1) end)
                 tpBtn.MouseButton1Click:Connect(function()
                     if not part or not part.Parent then
                         Notify("Pet Finder", "That pet has already disappeared!", Colors.Error)
@@ -846,7 +787,17 @@ CreateInfoText(plantContent, "How It Works",
                 end)
             end
         end
+
+        -- Session-guarded background refresh (every 2 s while on Pets page).
         local finderPageAlive = true
+        local finderConn
+        finderConn = RunService.Heartbeat:Connect(function()
+            if GetActivePage() ~= "Pets" then
+                finderPageAlive = false
+                finderConn:Disconnect()
+            end
+        end)
+
         task.spawn(function()
             while finderPageAlive and _G._MiracleHubSession == SESSION do
                 task.wait(2)
@@ -855,18 +806,12 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end
         end)
-        local _finderConn
-        _finderConn = RunService.Heartbeat:Connect(function()
-            if GetActivePage() ~= "Pets" then
-                finderPageAlive = false
-                _finderConn:Disconnect()
-            end
-        end)
+
         CreateActionButton(finderContent, "\226\154\161 TP to Nearest Pet", function()
             local pets = ScanWildPets("All")
             if #pets == 0 then Notify("Pet Finder", "No pets available right now.", Colors.Error) return end
             local nearest = pets[1]
-            local pName = HumanizePetName(nearest.name or "Unknown")
+            local pName   = HumanizePetName(nearest.name or "Unknown")
             Notify("Pet Finder", "Moving -> " .. pName .. " (" .. nearest.rarity .. ")", RarityColor[nearest.rarity] or Colors.Warning, 4)
             task.spawn(function()
                 SmartMoveToPet(nearest.part.Position, function()
@@ -879,18 +824,27 @@ CreateInfoText(plantContent, "How It Works",
                 end)
             end)
         end, Colors.Warning)
+
         task.defer(RebuildPetList)
 
-        local wildCard, wildContent = CreateSectionCard("\240\159\142\175 Auto Catch Wild", 3, Colors.Warning)
-        local WILD_PET_NAMES = {"Frog", "Bunny", "Owl", "Deer", "Turtle", "Robin", "Bee", "Monkey", "Bear", "Unicorn", "Golden Dragonfly", "Raccoon", "Black Dragon", "Ice Serpent"}
+        -- ── Auto Catch Wild card ──────────────────────────────────────────
+        local _, wildContent = CreateSectionCard("\240\159\142\175 Auto Catch Wild", 3, Colors.Warning)
+        local WILD_PET_NAMES = {
+            "Frog", "Bunny", "Owl", "Deer", "Turtle", "Robin", "Bee",
+            "Monkey", "Bear", "Unicorn", "Golden Dragonfly", "Raccoon",
+            "Black Dragon", "Ice Serpent",
+        }
         CreateMultiSelect(wildContent, "\240\159\144\190Choose Target Pets", WILD_PET_NAMES, "wildCatchTargets")
         CreateToggle(wildContent, "Auto Catch Wild Pets", "autoCatchWild",
             "ON: keeps running, chasing any matching pet that spawns | OFF: stops the loop",
             function(newVal)
                 if newVal then
                     local sel = States.wildCatchTargets or {}
-                    if #sel == 0 then Notify("Auto Catch", "ON \226\128\148 chasing all wild pets", Colors.Success, 3)
-                    else Notify("Auto Catch", "ON \226\128\148 targeting: " .. table.concat(sel, ", "), Colors.Success, 3) end
+                    if #sel == 0 then
+                        Notify("Auto Catch", "ON \226\128\148 chasing all wild pets", Colors.Success, 3)
+                    else
+                        Notify("Auto Catch", "ON \226\128\148 targeting: " .. table.concat(sel, ", "), Colors.Success, 3)
+                    end
                 else
                     Notify("Auto Catch", "OFF", Colors.TextMuted, 2)
                 end
@@ -899,99 +853,98 @@ CreateInfoText(plantContent, "How It Works",
 
     -- ====================== EGGS PAGE ======================
     ctx.registerPage("Eggs", function()
-        local eggCard, eggContent = CreateSectionCard("\240\159\165\154 Egg Hatching", 1, Colors.Warning)
+        local _, eggContent = CreateSectionCard("\240\159\165\154 Egg Hatching", 1, Colors.Warning)
         CreateInfoText(eggContent, "\240\159\154\167 Coming Soon",
             "Egg Hatching is currently under development.\nNot many players have eggs yet, so this feature isn't active.\nStay tuned for the next update!")
     end)
 
     -- ====================== PLAYER PAGE ======================
     ctx.registerPage("Player", function()
-        local statsCard, statsContent = CreateSectionCard("\240\159\147\138 Live Player Stats", 1, Colors.Accent)
-        local _, hpLbl = CreateStatRow(statsContent, "Health", "100 / 100", Colors.Success)
-        local _, wsLbl = CreateStatRow(statsContent, "WalkSpeed", tostring(ctx.humanoid and ctx.humanoid.WalkSpeed or "?"), Colors.Accent)
-        local _, jpLbl = CreateStatRow(statsContent, "JumpPower", tostring(ctx.humanoid and ctx.humanoid.JumpPower or "?"), Colors.Accent)
+        -- Live Stats card
+        local _, statsContent = CreateSectionCard("\240\159\147\138 Live Player Stats", 1, Colors.Accent)
+        local _, hpLbl = CreateStatRow(statsContent, "Health",     "100 / 100",  Colors.Success)
+        local _, wsLbl = CreateStatRow(statsContent, "WalkSpeed",  tostring(ctx.humanoid and ctx.humanoid.WalkSpeed  or "?"), Colors.Accent)
+        local _, jpLbl = CreateStatRow(statsContent, "JumpPower",  tostring(ctx.humanoid and ctx.humanoid.JumpPower  or "?"), Colors.Accent)
         CreateStatRow(statsContent, "Plot ID", MY_PLOT_ID, Colors.Warning)
         local _, bpLbl = CreateStatRow(statsContent, "Backpack Items", #player.Backpack:GetChildren(), Colors.TextSecondary)
+
         task.spawn(function()
-            local _playerTick = 0
+            local bpTick = 0
             while GetActivePage() == "Player" do
                 local dt = task.wait()
                 if not ctx.humanoid then continue end
                 hpLbl.Text = math.floor(ctx.humanoid.Health) .. " / " .. ctx.humanoid.MaxHealth
                 wsLbl.Text = string.format("%.1f", ctx.humanoid.WalkSpeed)
                 jpLbl.Text = string.format("%.1f", ctx.humanoid.JumpPower)
-                _playerTick = _playerTick + dt
-                if _playerTick >= 0.5 then
-                    _playerTick = 0
+                bpTick = bpTick + dt
+                if bpTick >= 0.5 then
+                    bpTick = 0
                     bpLbl.Text = tostring(#player.Backpack:GetChildren())
                 end
             end
         end)
 
-        local moveCard, moveContent = CreateSectionCard("\240\159\143\131 Movement", 2, Colors.Electric)
-        CreateToggle(moveContent, "Lock WalkSpeed", "lockWalkSpeed")
-        CreateSlider(moveContent, "WalkSpeed", 1, 500, "walkSpeed")
-        CreateToggle(moveContent, "Lock JumpPower", "lockJumpPower")
-        CreateSlider(moveContent, "JumpPower", 1, 500, "jumpPower")
-        CreateToggle(moveContent, "Infinite Jump", "infiniteJump")
+        -- Movement card
+        local _, moveContent = CreateSectionCard("\240\159\143\131 Movement", 2, Colors.Electric)
+        CreateToggle(moveContent, "Lock WalkSpeed",  "lockWalkSpeed")
+        CreateSlider(moveContent, "WalkSpeed",  1, 500, "walkSpeed")
+        CreateToggle(moveContent, "Lock JumpPower",  "lockJumpPower")
+        CreateSlider(moveContent, "JumpPower",  1, 500, "jumpPower")
+        CreateToggle(moveContent, "Infinite Jump",   "infiniteJump")
 
-        -- ── Fly Card ──────────────────────────────────────────────────────
-        local utilCard, utilContent = CreateSectionCard("\226\156\136\239\184\143 Fly", 3, Colors.TextSecondary)
+        -- Fly card
+        local _, utilContent = CreateSectionCard("\226\156\136\239\184\143 Fly", 3, Colors.TextSecondary)
         CreateInfoText(utilContent, "Controls", "[F] Toggle Fly | [W/A/S/D] Move | [Space] Up | [Ctrl] Down")
 
-        -- onToggle callback: delegasi Notify ke ctx.ToggleFly agar satu jalur dengan keybind F.
-        -- CreateToggle sudah flip States.fly SEBELUM onToggle dipanggil, jadi kita
-        -- kirim forceState=state (tidak flip ulang) supaya tidak double-toggle.
-        -- Tangkap setVisual (return ke-3) untuk diexpose ke ctx — dipakai oleh keybind F
-        -- supaya visual toggle sinkron saat user tekan F tanpa klik widget.
-        local _, getFlyState, setFlyVisual = CreateToggle(utilContent, "Fly", "fly", "Hold WASD to fly, Space=up, Ctrl=down", function(state)
-            if ctx.ToggleFly then
-                ctx.ToggleFly(state)   -- forceState = state, tidak flip ulang
-            else
-                Notify("Player", "Fly " .. (state and "ON" or "OFF"), state and Colors.Success or Colors.TextMuted)
-            end
-        end)
+        -- The third return value (setFlyVisual) is exposed to ctx so the keybind in
+        -- bootstrap can sync the toggle knob when the user presses F without clicking.
+        local _, _, setFlyVisual = CreateToggle(utilContent, "Fly", "fly",
+            "Hold WASD to fly, Space=up, Ctrl=down",
+            function(state)
+                if ctx.ToggleFly then
+                    ctx.ToggleFly(state)  -- forceState avoids a double-toggle
+                else
+                    Notify("Player", "Fly " .. (state and "ON" or "OFF"), state and Colors.Success or Colors.TextMuted)
+                end
+            end)
 
-        -- Simpan setVisual terbaru ke ctx setiap kali halaman Player dirender.
-        -- Keybind F di bootstrap akan memanggil ctx._setFlyVisual(newState) setelah
-        -- mengubah States.fly agar knob & warna toggle ikut berubah.
         ctx._setFlyVisual = setFlyVisual
-
         CreateSlider(utilContent, "Fly Speed", 1, 300, "flySpeed")
     end)
 
     -- ====================== VISUALS PAGE ======================
     ctx.registerPage("Visuals", function()
-        local espCard, espContent = CreateSectionCard("\240\159\145\129 ESP & Highlights", 1, Colors.Electric)
-        CreateToggle(espContent, "ESP Players", "espPlayers", "Shows player names/tags above heads")
-        CreateToggle(espContent, "ESP Wild Pets", "espItems", "Highlights wild pets in workspace")
-        CreateToggle(espContent, "ESP Fruits", "espFruits", "Highlights harvestable fruits on the plot")
-        CreateToggle(espContent, "ESP Mutations", "espMutations", "Shows mutation tags on plants")
-        CreateToggle(espContent, "Show Plant Age", "showPlantAge", "Shows Age/MaxAge above each plant")
-        CreateToggle(espContent, "Show Fruit Weight", "showFruitWeight", "Shows fruit weight above harvestables")
+        local _, espContent = CreateSectionCard("\240\159\145\129 ESP & Highlights", 1, Colors.Electric)
+        CreateToggle(espContent, "ESP Players",      "espPlayers",     "Shows player names/tags above heads")
+        CreateToggle(espContent, "ESP Wild Pets",    "espItems",       "Highlights wild pets in workspace")
+        CreateToggle(espContent, "ESP Fruits",       "espFruits",      "Highlights harvestable fruits on the plot")
+        CreateToggle(espContent, "ESP Mutations",    "espMutations",   "Shows mutation tags on plants")
+        CreateToggle(espContent, "Show Plant Age",   "showPlantAge",   "Shows Age/MaxAge above each plant")
+        CreateToggle(espContent, "Show Fruit Weight","showFruitWeight","Shows fruit weight above harvestables")
         CreateActionButton(espContent, "Clear All ESP Labels", function()
             Logic.ClearESP()
             Notify("Visuals", "All ESP labels cleared.", Colors.TextMuted)
         end)
 
-        -- ===== VISUAL SETTINGS =====
-        local visCard, visContent = CreateSectionCard("\240\159\140\136 Visual Settings", 2, Colors.Accent)
+        local _, visContent = CreateSectionCard("\240\159\140\136 Visual Settings", 2, Colors.Accent)
         CreateToggle(visContent, "Full Bright", "fullBright", "Sets ambient to maximum brightness")
-        CreateSlider(visContent, "Brightness", 0, 10, "brightness")
-        CreateToggle(visContent, "No Fog", "noFog", "Removes environmental fog")
-        CreateToggle(visContent, "No Shadows", "noShadows", "Disables global shadows")
+        CreateSlider(visContent, "Brightness",  0, 10, "brightness")
+        CreateToggle(visContent, "No Fog",      "noFog",       "Removes environmental fog")
+        CreateToggle(visContent, "No Shadows",  "noShadows",   "Disables global shadows")
+
         CreateActionButton(visContent, "Reset Visuals to Default", function()
             local lighting = game:GetService("Lighting")
-            lighting.Brightness = 1
-            lighting.Ambient = Color3.fromRGB(70, 70, 70)
+            lighting.Brightness    = 1
+            lighting.Ambient       = Color3.fromRGB(70, 70, 70)
             lighting.OutdoorAmbient = Color3.fromRGB(140, 140, 140)
-            lighting.FogEnd = 100000
+            lighting.FogEnd        = 100000
             lighting.GlobalShadows = true
             States.fullBright = false
-            States.noFog = false
-            States.noShadows = false
+            States.noFog      = false
+            States.noShadows  = false
             Notify("Visuals", "Reset to default lighting.", Colors.TextMuted)
         end)
+
         CreateActionButton(visContent, "\226\154\161 Ultra Low Graphics (Permanent until rejoin)", function()
             if ctx.UltraLow and ctx.UltraLow.Active then
                 Notify("Ultra Low", "Already active. Rejoin to reset.", Colors.Warning)
@@ -1002,36 +955,42 @@ CreateInfoText(plantContent, "How It Works",
                 return
             end
             Notify("Ultra Low", "Applying... Don't close the hub.", Colors.Warning, 3)
-            task.spawn(function()
-                ctx.UltraLow.Apply()
-            end)
+            task.spawn(function() ctx.UltraLow.Apply() end)
         end, Colors.Warning)
     end)
 
     -- ====================== TELEPORT PAGE ======================
     ctx.registerPage("Teleport", function()
-        local tpCard, tpContent = CreateSectionCard("\240\159\147\141 Quick Teleport", 1, Colors.Accent)
-        local gameTeleports = {
-            {"\240\159\140\177 Seeds Shop", "Seeds", Colors.Success},
-            {"\240\159\146\176 Sell Area", "Sell", Colors.Gold},
-            {"\226\154\153 Gear Shop", "Gears", Colors.Electric},
-            {"\240\159\143\161 Props Shop", "Props", Colors.Accent},
+        local _, tpContent = CreateSectionCard("\240\159\147\141 Quick Teleport", 1, Colors.Accent)
+
+        -- Cache once; no need to call GetService inside every button callback.
+        local Workspace       = game:GetService("Workspace")
+        local PlayersService  = game:GetService("Players")
+
+        local GAME_TELEPORTS = {
+            { "\240\159\140\177 Seeds Shop", "Seeds", Colors.Success  },
+            { "\240\159\146\176 Sell Area",  "Sell",  Colors.Gold     },
+            { "\226\154\153 Gear Shop",      "Gears", Colors.Electric },
+            { "\240\159\143\161 Props Shop", "Props", Colors.Accent   },
         }
+
         CreateSubHeader(tpContent, "Game Locations")
-        for _, tp in ipairs(gameTeleports) do
-            CreateActionButton(tpContent, "Teleport to " .. tp[1], function()
-                local teleports = game:GetService("Workspace"):FindFirstChild("Teleports")
+        for _, tp in ipairs(GAME_TELEPORTS) do
+            local tpLabel, tpKey, tpColor = tp[1], tp[2], tp[3]
+            CreateActionButton(tpContent, "Teleport to " .. tpLabel, function()
+                local teleports = Workspace:FindFirstChild("Teleports")
                 if teleports then
-                    local part = teleports:FindFirstChild(tp[2])
+                    local part = teleports:FindFirstChild(tpKey)
                     if part and player.Character then
                         player.Character:PivotTo(part.CFrame + Vector3.new(0, 5, 0))
-                        Notify("Teleport", "\226\134\146 " .. tp[1], tp[3])
+                        Notify("Teleport", "\226\134\146 " .. tpLabel, tpColor)
                     else
-                        Notify("Teleport", tp[1] .. " location not found!", Colors.Error)
+                        Notify("Teleport", tpLabel .. " location not found!", Colors.Error)
                     end
                 end
-            end, tp[3])
+            end, tpColor)
         end
+
         CreateSubHeader(tpContent, "Player Locations")
         CreateActionButton(tpContent, "Teleport to My Plot (Plot " .. MY_PLOT_ID .. ")", function()
             local plot = GetMyPlot()
@@ -1045,9 +1004,10 @@ CreateInfoText(plantContent, "How It Works",
             end
             Notify("Teleport", "Plot SpawnPoint not found.", Colors.Error)
         end, Colors.Success)
+
         CreateSubHeader(tpContent, "Teleport to Player")
         local playerList = {}
-        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        for _, p in ipairs(PlayersService:GetPlayers()) do
             if p ~= player then table.insert(playerList, p.Name) end
         end
         if #playerList > 0 then
@@ -1055,7 +1015,7 @@ CreateInfoText(plantContent, "How It Works",
             CreateActionButton(tpContent, "Teleport to Selected Player", function()
                 local targetName = States.tpTargetPlayer
                 if not targetName then Notify("Teleport", "Select a player first.", Colors.Error) return end
-                local target = game:GetService("Players"):FindFirstChild(targetName)
+                local target = PlayersService:FindFirstChild(targetName)
                 if target and target.Character and player.Character then
                     player.Character:PivotTo(target.Character:GetPivot() * CFrame.new(3, 0, 3))
                     Notify("Teleport", "Teleported to " .. targetName, Colors.Electric)
@@ -1068,13 +1028,12 @@ CreateInfoText(plantContent, "How It Works",
 
     -- ====================== UTILITY PAGE ======================
     ctx.registerPage("Utility", function()
-        local worthCard, worthContent = CreateSectionCard("\240\159\146\142 Item Inspector", 1, Colors.Gold)
-        local toolNameLbl
-        do
-            local currentTool = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
-            local _, v = CreateStatRow(worthContent, "Currently Holding", currentTool and currentTool.Name or "Nothing", Colors.TextPrimary)
-            toolNameLbl = v
-        end
+        local _, worthContent = CreateSectionCard("\240\159\146\142 Item Inspector", 1, Colors.Gold)
+
+        -- Cache tool reference at page-open time; polling loop updates it each tick.
+        local currentTool = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+        local _, toolNameLbl = CreateStatRow(worthContent, "Currently Holding", currentTool and currentTool.Name or "Nothing", Colors.TextPrimary)
+
         task.spawn(function()
             while GetActivePage() == "Utility" do
                 task.wait(0.25)
@@ -1085,45 +1044,54 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end
         end)
+
         CreateActionButton(worthContent, "Inspect Held Item", function()
             local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
             if ct then
-                local weight = ct:GetAttribute("Weight")
-                local mut = GetMutation(ct)
-                local sm = ct:GetAttribute("SizeMultiplier")
-                local decay = ct:GetAttribute("DecayAlpha")
-                local fn = ct:GetAttribute("FruitName") or ct:GetAttribute("Fruit") or ct.Name
+                local weight   = ct:GetAttribute("Weight")
+                local mut      = GetMutation(ct)
+                local sm       = ct:GetAttribute("SizeMultiplier")
+                local decay    = ct:GetAttribute("DecayAlpha")
+                local fn       = ct:GetAttribute("FruitName") or ct:GetAttribute("Fruit") or ct.Name
                 if weight then
-                    Notify("Inspect: " .. fn, string.format("Wt:%.2fkg | Mut:%s | x%.2f size | Decay:%.4f", weight, mut, sm or 1, decay or 0), GetMutationColor(mut), 6)
+                    Notify("Inspect: " .. fn,
+                        string.format("Wt:%.2fkg | Mut:%s | x%.2f size | Decay:%.4f", weight, mut, sm or 1, decay or 0),
+                        GetMutationColor(mut), 6)
                 else
                     local seedName = ct:GetAttribute("SeedTool") or ct:GetAttribute("SeedName")
-                    if seedName then Notify("Inspect: Seed", "Type: " .. seedName, Colors.Success)
-                    else Notify("Inspect", ct.Name .. " \226\128\148 not a fruit or seed.", Colors.TextMuted) end
+                    if seedName then
+                        Notify("Inspect: Seed", "Type: " .. seedName, Colors.Success)
+                    else
+                        Notify("Inspect", ct.Name .. " \226\128\148 not a fruit or seed.", Colors.TextMuted)
+                    end
                 end
             else
                 Notify("Inspect", "Not holding anything.", Colors.TextMuted)
             end
         end, Colors.Gold)
+
         CreateActionButton(worthContent, "Count Bag Contents", function()
-            local f, s, p2, g = 0, 0, 0, 0
+            local fruits, seeds, pets, other = 0, 0, 0, 0
             for _, t in ipairs(player.Backpack:GetChildren()) do
-                if t:GetAttribute("HarvestedFruit") then f = f + 1
-                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then s = s + 1
-                elseif t:GetAttribute("Pet") then p2 = p2 + 1
-                else g = g + 1 end
+                if     t:GetAttribute("HarvestedFruit")                         then fruits = fruits + 1
+                elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds  = seeds  + 1
+                elseif t:GetAttribute("Pet")                                     then pets   = pets   + 1
+                else   other = other + 1 end
             end
-            Notify("Bag Contents", "Fruits:" .. f .. " | Seeds:" .. s .. " | Pets:" .. p2 .. " | Other:" .. g, Colors.Accent)
+            Notify("Bag Contents",
+                "Fruits:" .. fruits .. " | Seeds:" .. seeds .. " | Pets:" .. pets .. " | Other:" .. other,
+                Colors.Accent)
         end)
 
-
-        local giftCard, giftContent = CreateSectionCard("\240\159\142\129 Gifts & Mailbox", 2, Colors.Rainbow)
+        -- Gifts & Mailbox card
+        local _, giftContent = CreateSectionCard("\240\159\142\129 Gifts & Mailbox", 2, Colors.Rainbow)
         CreateToggle(giftContent, "Auto Accept Gifts", "autoAcceptGifts", "Automatically checks your mailbox every 10 seconds")
         CreateActionButton(giftContent, "Check Mailbox Now", function()
             local plot = GetMyPlot()
             if not plot then Notify("Mailbox", "Your plot was not found!", Colors.Error) return end
-            local signs = plot:FindFirstChild("Signs")
-            if not signs then Notify("Mailbox", "Mailbox not found on your plot.", Colors.Error) return end
-            local mailbox = signs:FindFirstChild("GreyMailBox")
+            -- Cache descendant search: Signs → GreyMailBox → MailboxPrompt
+            local signs   = plot:FindFirstChild("Signs")
+            local mailbox = signs and signs:FindFirstChild("GreyMailBox")
             if not mailbox then Notify("Mailbox", "Mailbox not found on your plot.", Colors.Error) return end
             local found = false
             for _, desc in ipairs(mailbox:GetDescendants()) do
@@ -1133,13 +1101,15 @@ CreateInfoText(plantContent, "How It Works",
                     break
                 end
             end
-            Notify("Mailbox", found and "Mailbox checked on Plot " .. MY_PLOT_ID or "Mailbox could not be opened.", found and Colors.Rainbow or Colors.Error)
+            Notify("Mailbox",
+                found and "Mailbox checked on Plot " .. MY_PLOT_ID or "Mailbox could not be opened.",
+                found and Colors.Rainbow or Colors.Error)
         end, Colors.Rainbow)
     end)
 
     -- ====================== MAILER PAGE ======================
     ctx.registerPage("Mailer", function()
-        local mailerCard, mailerContent = CreateSectionCard("\226\156\137 Mailer System", 1, Colors.Accent)
+        local _, mailerContent = CreateSectionCard("\226\156\137 Mailer System", 1, Colors.Accent)
         CreateSubHeader(mailerContent, "Outbox")
         CreateActionButton(mailerContent, "Open My Mailbox", function()
             local plot = GetMyPlot()
@@ -1158,7 +1128,7 @@ CreateInfoText(plantContent, "How It Works",
         CreateActionButton(mailerContent, "Show Bid Info (Held Item)", function()
             local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
             if ct then
-                local bidPrice = ct:GetAttribute("BidPrice")
+                local bidPrice  = ct:GetAttribute("BidPrice")
                 local bidsAsked = ct:GetAttribute("BidsAsked")
                 if bidPrice or bidsAsked then
                     Notify("Bid Info", "BidPrice: " .. tostring(bidPrice) .. " | BidsAsked: " .. tostring(bidsAsked), Colors.Gold, 6)
@@ -1173,36 +1143,46 @@ CreateInfoText(plantContent, "How It Works",
 
     -- ====================== INFO PAGE ======================
     ctx.registerPage("Info", function()
-        local infoCard, infoContent = CreateSectionCard("\226\132\185 About Miracle Hub", 1, Colors.Success)
-        CreateStatRow(infoContent, "Hub Name", "Miracle Hub", Colors.Success)
-        CreateStatRow(infoContent, "Game", "Grow A Garden 2", Colors.TextSecondary)
-        CreateStatRow(infoContent, "Player", player.DisplayName or player.Name, Colors.Accent)
-        CreateStatRow(infoContent, "UserId", player.UserId, Colors.TextMuted)
-        CreateStatRow(infoContent, "Plot ID", MY_PLOT_ID, Colors.Warning)
-        CreateStatRow(infoContent, "Prime Status", (player:GetAttribute("PrimeEnabled") and "Enabled" or "Disabled"), Colors.Warning)
-        CreateStatRow(infoContent, "Connection Status", ctx.PacketRemote and "Connected" or "\226\154\160 Not Connected", ctx.PacketRemote and Colors.Success or Colors.Error)
-
+        local _, infoContent = CreateSectionCard("\226\132\185 About Miracle Hub", 1, Colors.Success)
+        CreateStatRow(infoContent, "Hub Name",         "Miracle Hub",                                                Colors.Success)
+        CreateStatRow(infoContent, "Game",             "Grow A Garden 2",                                            Colors.TextSecondary)
+        CreateStatRow(infoContent, "Player",           player.DisplayName or player.Name,                            Colors.Accent)
+        CreateStatRow(infoContent, "UserId",           player.UserId,                                                Colors.TextMuted)
+        CreateStatRow(infoContent, "Plot ID",          MY_PLOT_ID,                                                   Colors.Warning)
+        CreateStatRow(infoContent, "Prime Status",     player:GetAttribute("PrimeEnabled") and "Enabled" or "Disabled", Colors.Warning)
+        CreateStatRow(infoContent, "Connection Status",
+            ctx.PacketRemote and "Connected" or "\226\154\160 Not Connected",
+            ctx.PacketRemote and Colors.Success or Colors.Error)
     end)
 
     -- ====================== SERVER PAGE ======================
     ctx.registerPage("Server", function()
-        local serverCard, serverContent = CreateSectionCard("\240\159\140\144 Server Info", 1, Colors.Electric)
-        CreateStatRow(serverContent, "Job ID", game.JobId:sub(1, 20) .. "...", Colors.TextMuted)
-        CreateStatRow(serverContent, "Place ID", tostring(game.PlaceId), Colors.TextMuted)
-        local _, pcLbl = CreateStatRow(serverContent, "Players in Server", #game:GetService("Players"):GetPlayers(), Colors.Success)
+        local PlayersService     = game:GetService("Players")
+        local TeleportService    = game:GetService("TeleportService")
+
+        local _, serverContent = CreateSectionCard("\240\159\140\144 Server Info", 1, Colors.Electric)
+        CreateStatRow(serverContent, "Job ID",    game.JobId:sub(1, 20) .. "...", Colors.TextMuted)
+        CreateStatRow(serverContent, "Place ID",  tostring(game.PlaceId),         Colors.TextMuted)
+        local _, pcLbl = CreateStatRow(serverContent, "Players in Server", #PlayersService:GetPlayers(), Colors.Success)
+
+        -- Build per-player plot labels once; update them on the polling loop.
         local playerPlotLabels = {}
         CreateSubHeader(serverContent, "Other Players")
-        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+        for _, p in ipairs(PlayersService:GetPlayers()) do
             if p ~= player then
-                local _, pPlotLbl = CreateStatRow(serverContent, p.DisplayName .. " (@" .. p.Name .. ")", "Plot " .. (p:GetAttribute("PlotId") or "?"), Colors.TextMuted)
-                table.insert(playerPlotLabels, {p = p, lbl = pPlotLbl})
+                local _, pPlotLbl = CreateStatRow(serverContent,
+                    p.DisplayName .. " (@" .. p.Name .. ")",
+                    "Plot " .. (p:GetAttribute("PlotId") or "?"),
+                    Colors.TextMuted)
+                table.insert(playerPlotLabels, { p = p, lbl = pPlotLbl })
             end
         end
+
         task.spawn(function()
             while GetActivePage() == "Server" do
                 task.wait(1)
                 if GetActivePage() ~= "Server" then break end
-                pcLbl.Text = tostring(#game:GetService("Players"):GetPlayers())
+                pcLbl.Text = tostring(#PlayersService:GetPlayers())
                 for _, entry in ipairs(playerPlotLabels) do
                     if entry.lbl and entry.lbl.Parent then
                         entry.lbl.Text = "Plot " .. tostring(entry.p:GetAttribute("PlotId") or "?")
@@ -1210,36 +1190,39 @@ CreateInfoText(plantContent, "How It Works",
                 end
             end
         end)
+
         CreateActionButton(serverContent, "Rejoin Server", function()
             Notify("Server", "Rejoining in 2s...", Colors.Warning)
             task.wait(2)
-            game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+            TeleportService:Teleport(game.PlaceId, player)
         end, Colors.Warning)
+
         CreateActionButton(serverContent, "Copy Job ID", function()
             setclipboard(game.JobId)
             Notify("Server", "Job ID copied.", Colors.Accent)
         end)
 
-        local autoCard, autoContent = CreateSectionCard("\240\159\148\132 Auto Rejoin", 2, Colors.Warning)
+        -- Auto Rejoin card
+        local _, autoContent = CreateSectionCard("\240\159\148\132 Auto Rejoin", 2, Colors.Warning)
         CreateToggle(autoContent, "Auto Rejoin on Disconnect", "autoRejoin", "Rejoins automatically when kicked/disconnected")
-        CreateDropdown(autoContent, "Rejoin Condition", {"Server Full", "FPS Drop", "Disconnected", "Manual"}, "rejoinCondition")
-        game:GetService("Players").PlayerRemoving:Connect(function(p)
+        CreateDropdown(autoContent, "Rejoin Condition", { "Server Full", "FPS Drop", "Disconnected", "Manual" }, "rejoinCondition")
+        PlayersService.PlayerRemoving:Connect(function(p)
             if p == player and States.autoRejoin then
                 task.wait(2)
-                game:GetService("TeleportService"):Teleport(game.PlaceId, player)
+                TeleportService:Teleport(game.PlaceId, player)
             end
         end)
-
     end)
 
     -- ====================== SETTINGS PAGE ======================
     ctx.registerPage("Settings", function()
-        local settCard, settContent = CreateSectionCard("\226\154\153 General Settings", 1, Colors.Accent)
-        CreateToggle(settContent, "Auto Save Config", "autoSaveConfig", "Saves your config automatically")
-        CreateToggle(settContent, "Anti AFK", "antiAfk", "Prevents auto-disconnect")
-        CreateToggle(settContent, "Minimize to Tray on Close", "minimizeToTray", "Minimizes to M shield instead of closing")
-        CreateToggle(settContent, "Show Notifications", "showNotifications", "Shows popup notifications")
+        local _, settContent = CreateSectionCard("\226\154\153 General Settings", 1, Colors.Accent)
+        CreateToggle(settContent, "Auto Save Config",         "autoSaveConfig",    "Saves your config automatically")
+        CreateToggle(settContent, "Anti AFK",                 "antiAfk",           "Prevents auto-disconnect")
+        CreateToggle(settContent, "Minimize to Tray on Close","minimizeToTray",    "Minimizes to M shield instead of closing")
+        CreateToggle(settContent, "Show Notifications",       "showNotifications", "Shows popup notifications")
         CreateSubHeader(settContent, "Config")
+
         CreateActionButton(settContent, "Export Config to Clipboard", function()
             local cfg = {}
             for k, v in pairs(States) do table.insert(cfg, k .. "=" .. tostring(v)) end
@@ -1247,37 +1230,27 @@ CreateInfoText(plantContent, "How It Works",
             setclipboard(table.concat(cfg, "\n"))
             Notify("Settings", "Full config exported to clipboard.", Colors.Success)
         end)
+
         CreateActionButton(settContent, "Reset All States", function()
-            States.autoPlant = false
-            States.autoHarvest = false
-            States.autoSell = false
-            States.autoBuySeed = false
-            States.autoBuyCrate = false
-            States.autoOpenCrate = false
-            States.autoCatchWild = false
-            States.autoOpenEgg = false
-            States.autoAcceptGifts = false
-            States.fly = false
-            States.espPlayers = false
-            States.espItems = false
-            States.espFruits = false
-            States.espMutations = false
-            States.fullBright = false
-            States.noFog = false
-            States.noShadows = false
-            States.showFruitWeight = false
-            States.showPlantAge = false
+            -- Toggle-style automation states
+            local RESET_STATES = {
+                "autoPlant", "autoHarvest", "autoSell", "autoBuySeed", "autoBuyCrate",
+                "autoOpenCrate", "autoCatchWild", "autoOpenEgg", "autoAcceptGifts", "fly",
+                "espPlayers", "espItems", "espFruits", "espMutations",
+                "fullBright", "noFog", "noShadows", "showFruitWeight", "showPlantAge",
+            }
+            for _, key in ipairs(RESET_STATES) do
+                States[key] = false
+            end
             Logic.ClearESP()
             Logic.ClearSfxMuteConn()
             pcall(function()
-                local ss = game:GetService("SoundService")
-                local sfx = ss:FindFirstChild("SFX")
+                local sfx = game:GetService("SoundService"):FindFirstChild("SFX")
                 local failedSnd = sfx and sfx:FindFirstChild("Failed")
                 if failedSnd then failedSnd.Volume = 1 end
             end)
             Notify("Settings", "All automation states reset to OFF.", Colors.Warning)
         end, Colors.Error)
-
     end)
 
     ctx.__pagesLoaded = true
