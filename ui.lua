@@ -660,9 +660,14 @@ return function(ctx)
         elseif mutation == "Electric"   then return Colors.Electric
         elseif mutation == "Rainbow"    then return Colors.Rainbow
         elseif mutation == "Frozen"     then return Colors.Frozen
-        elseif mutation == "Bloodlit"   then return Colors.Bloodlit   or Color3.fromRGB(220, 40,  40)
-        elseif mutation == "Starstruck" then return Colors.Starstruck or Color3.fromRGB(255, 230, 80)
-        elseif mutation == "Aurora"     then return Colors.Aurora     or Color3.fromRGB(80,  255, 200)
+        elseif mutation == "Bloodlit"   then return Color3.fromRGB(220, 40,  40)
+        elseif mutation == "Starstruck" then return Color3.fromRGB(255, 230, 80)
+        elseif mutation == "Aurora"     then return Color3.fromRGB(80,  255, 200)
+        -- Mutations dari decompiled source — belum ada sebelumnya
+        elseif mutation == "Chained"    then return Color3.fromRGB(160, 160, 255)  -- ungu-biru
+        elseif mutation == "Ignited"    then return Color3.fromRGB(255, 100, 30)   -- oranye api
+        elseif mutation == "Glow"       then return Color3.fromRGB(180, 255, 180)  -- hijau terang
+        elseif mutation == "Eclipsed"   then return Color3.fromRGB(90,  30,  120)  -- ungu gelap
         else return Colors.TextMuted end
     end
 
