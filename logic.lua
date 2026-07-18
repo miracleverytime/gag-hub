@@ -2513,7 +2513,6 @@ return function(ctx)
                             Size = UDim2.new(0, 220, 0, 26),
                             StudsOffset = Vector3.new(4, 2, 0),
                             AlwaysOnTop = true,
-                            MaxDistance = 60,
                             ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
                         })
                         local frame = Create("Frame", {
