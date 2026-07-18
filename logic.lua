@@ -2494,15 +2494,53 @@ return function(ctx)
                             or "Fruit"
                         local weight = fruit:GetAttribute("Weight")
                         local mut = GetMutation(fruit)
-                        local label = seedName
-                        if States.showFruitWeight and weight then
-                            label = label .. string.format(" %.2fkg", weight)
+                        local hasMut = mut and mut ~= "" and mut ~= "None"
+                        local mutColor = hasMut and ctx.UI.GetMutationColor(mut) or nil
+
+                        -- Billboard dengan dua baris: nama buah (putih) + mutasi (warna mutasi)
+                        local billboard = Create("BillboardGui", {
+                            Parent = game:GetService("Workspace"),
+                            Adornee = rootPart,
+                            Size = UDim2.new(0, 130, 0, hasMut and 44 or 28),
+                            StudsOffset = Vector3.new(0, 3, 0),
+                            AlwaysOnTop = true,
+                            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+                        })
+                        local frame = Create("Frame", {
+                            Parent = billboard,
+                            Size = UDim2.new(1, 0, 1, 0),
+                            BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+                            BackgroundTransparency = 0.5,
+                            BorderSizePixel = 0,
+                        })
+                        CreateCorner(frame, 5)
+                        -- Baris 1: nama buah (selalu putih/warning)
+                        Create("TextLabel", {
+                            Parent = frame,
+                            Size = UDim2.new(1, 0, 0, 20),
+                            Position = UDim2.new(0, 0, 0, hasMut and 2 or 4),
+                            BackgroundTransparency = 1,
+                            Text = seedName,
+                            TextColor3 = Colors.Warning,
+                            TextSize = 11,
+                            Font = Enum.Font.GothamBold,
+                            TextXAlignment = Enum.TextXAlignment.Center,
+                        })
+                        -- Baris 2: nama mutasi (warna mutasi), hanya jika ada mutasi
+                        if hasMut then
+                            Create("TextLabel", {
+                                Parent = frame,
+                                Size = UDim2.new(1, 0, 0, 16),
+                                Position = UDim2.new(0, 0, 0, 24),
+                                BackgroundTransparency = 1,
+                                Text = mut,
+                                TextColor3 = mutColor or Colors.TextSecondary,
+                                TextSize = 10,
+                                Font = Enum.Font.Gotham,
+                                TextXAlignment = Enum.TextXAlignment.Center,
+                            })
                         end
-                        if States.espFruits and mut and mut ~= "" and mut ~= "None" then
-                            label = mut .. " " .. label
-                        end
-                        local color = mut and mut ~= "" and mut ~= "None" and ctx.UI.GetMutationColor(mut) or Colors.Warning
-                        MakeESPLabel(rootPart, label, color)
+                        TrackESP(billboard)
                         AttachESPMarker(rootPart, "MiracleESP_Fruit")
                     end
                 end
