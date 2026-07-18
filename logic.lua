@@ -2513,9 +2513,7 @@ return function(ctx)
                     local fruit = fruitPart and fruitPart.Parent
                     if not (fruit and fruit:IsA("Model")) then continue end
 
-                    -- fruitPart = prompt.Parent = HarvestPart, posisi TEPAT di buah
-                    -- rootPart hanya untuk dedup marker agar tidak double-create
-                    local rootPart = GetModelRootPart(fruit)
+                    -- Dedup: cek di fruitPart agar per-buah, bukan per-plant
                     if fruitPart and not fruitPart:FindFirstChild("MiracleESP_Fruit") then
                         -- fruit.Parent = Fruits (Folder), fruit.Parent.Parent = plant (Model)
                         local fruitsFolder = fruit.Parent
@@ -2544,10 +2542,8 @@ return function(ctx)
                         local baseWeight = GetFruitBaseWeight(seedName)
 
                         local estWeight = nil
-                        local isExact = false
                         if baseWeight then
                             estWeight = baseWeight * sizeMulti * overtimeGrowth
-                            isExact = true
                         end
 
                         -- Label: nama buah | mutasi (kalau ada) | weight
@@ -2560,8 +2556,12 @@ return function(ctx)
                         end
                         local labelText = table.concat(parts, "  |  ")
 
+                        -- HarvestPart (fruitPart) sudah Anchored=true dari game
+                        -- (lihat getOrCreateHarvestPart di FruitVisualizerController).
+                        -- Langsung adornee ke sana — tidak perlu anchor buatan,
+                        -- tidak ada jitter, posisi tepat di buah.
                         local billboard = Create("BillboardGui", {
-                            Parent = game:GetService("Workspace"),
+                            Parent = workspace,
                             Adornee = fruitPart,
                             Size = UDim2.new(0, 220, 0, 26),
                             StudsOffset = Vector3.new(0, 2, 0),
