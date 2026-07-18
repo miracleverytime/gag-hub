@@ -933,38 +933,12 @@ return function(ctx)
 
     -- ====================== VISUALS PAGE ======================
     ctx.registerPage("Visuals", function()
-        local _, espContent = CreateSectionCard("\240\159\145\129 ESP & Highlights", 1, Colors.Electric)
-        CreateToggle(espContent, "ESP Players",      "espPlayers",     "Shows player names/tags above heads")
-        CreateToggle(espContent, "ESP Wild Pets",    "espItems",       "Highlights wild pets in workspace")
-        CreateToggle(espContent, "ESP Fruits",       "espFruits",      "Highlights harvestable fruits on the plot")
-        CreateToggle(espContent, "ESP Mutations",    "espMutations",   "Shows mutation tags on plants")
-        CreateToggle(espContent, "Show Plant Age",   "showPlantAge",   "Shows Age/MaxAge above each plant")
-        CreateToggle(espContent, "Show Fruit Weight","showFruitWeight","Shows fruit weight above harvestables")
-        CreateActionButton(espContent, "Clear All ESP Labels", function()
-            Logic.ClearESP()
-            Notify("Visuals", "All ESP labels cleared.", Colors.TextMuted)
-        end)
+        local _, espContent = CreateSectionCard("\240\159\145\129 ESP & Visual Settings", 1, Colors.Electric)
+        CreateToggle(espContent, "ESP Players",   "espPlayers", "Shows player names/tags above heads")
+        CreateToggle(espContent, "ESP Wild Pets", "espItems",   "Highlights wild pets in workspace")
+        CreateToggle(espContent, "ESP Fruits",    "espFruits",  "Highlights harvestable fruits on the plot")
 
-        local _, visContent = CreateSectionCard("\240\159\140\136 Visual Settings", 2, Colors.Accent)
-        CreateToggle(visContent, "Full Bright", "fullBright", "Sets ambient to maximum brightness")
-        CreateSlider(visContent, "Brightness",  0, 10, "brightness")
-        CreateToggle(visContent, "No Fog",      "noFog",       "Removes environmental fog")
-        CreateToggle(visContent, "No Shadows",  "noShadows",   "Disables global shadows")
-
-        CreateActionButton(visContent, "Reset Visuals to Default", function()
-            local lighting = game:GetService("Lighting")
-            lighting.Brightness    = 1
-            lighting.Ambient       = Color3.fromRGB(70, 70, 70)
-            lighting.OutdoorAmbient = Color3.fromRGB(140, 140, 140)
-            lighting.FogEnd        = 100000
-            lighting.GlobalShadows = true
-            States.fullBright = false
-            States.noFog      = false
-            States.noShadows  = false
-            Notify("Visuals", "Reset to default lighting.", Colors.TextMuted)
-        end)
-
-        CreateActionButton(visContent, "\226\154\161 Ultra Low Graphics (Permanent until rejoin)", function()
+        CreateActionButton(espContent, "\240\159\232\128 Ultra Low Graphics (Permanent until rejoin)", function()
             if ctx.UltraLow and ctx.UltraLow.Active then
                 Notify("Ultra Low", "Already active. Rejoin to reset.", Colors.Warning)
                 return
@@ -975,7 +949,7 @@ return function(ctx)
             end
             Notify("Ultra Low", "Applying... Don't close the hub.", Colors.Warning, 3)
             task.spawn(function() ctx.UltraLow.Apply() end)
-        end, Colors.Warning)
+        end, Colors.Electric)
     end)
 
     -- ====================== TELEPORT PAGE ======================
@@ -1241,8 +1215,7 @@ return function(ctx)
             local RESET_STATES = {
                 "autoPlant", "autoHarvest", "autoSell", "autoBuySeed", "autoBuyCrate",
                 "autoOpenCrate", "autoCatchWild", "autoOpenEgg", "autoAcceptGifts", "fly",
-                "espPlayers", "espItems", "espFruits", "espMutations",
-                "fullBright", "noFog", "noShadows", "showFruitWeight", "showPlantAge",
+                "espPlayers", "espItems", "espFruits",
             }
             for _, key in ipairs(RESET_STATES) do
                 States[key] = false
