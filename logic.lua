@@ -2507,16 +2507,14 @@ return function(ctx)
                             or (plant and plant:GetAttribute("Weight"))
                             or (plant and plant:GetAttribute("FruitWeight"))
 
-                        -- Kalau weight belum ada, skip dulu — Heartbeat akan coba lagi
-                        -- di frame berikutnya sampai server set attribute Weight-nya
-                        if not weight then continue end
-
                         -- Label satu baris horizontal: nama buah | mutasi (kalau ada) | berat
                         local parts = {seedName}
                         if hasMut then
                             table.insert(parts, mut)
                         end
-                        table.insert(parts, string.format("%.2fkg", weight))
+                        if weight then
+                            table.insert(parts, string.format("%.2fkg", weight))
+                        end
                         local labelText = table.concat(parts, "  |  ")
 
                         local billboard = Create("BillboardGui", {
