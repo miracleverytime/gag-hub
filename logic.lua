@@ -43,7 +43,35 @@ return function(ctx)
 
     local Logic = {}
 
-
+    -- ====================== FRUIT BASE WEIGHT CACHE ======================
+    -- Dibaca langsung dari ReplicatedStorage.PlantGenerationModules.Fruits,
+    -- sama persis dengan yang dipakai FruitVisualizerController milik game.
+    -- Formula: Weight = GrowData.BaseWeight * SizeMulti * OvertimeGrowth
+    local _fruitBaseWeightCache = {}
+    local _fruitBaseWeightLoaded = false
+    local function GetFruitBaseWeight(fruitName)
+        if not _fruitBaseWeightLoaded then
+            _fruitBaseWeightLoaded = true
+            pcall(function()
+                local pgm = ReplicatedStorage:FindFirstChild("PlantGenerationModules")
+                local mods = pgm and pgm:FindFirstChild("Fruits")
+                if mods then
+                    for _, mod in ipairs(mods:GetChildren()) do
+                        if mod:IsA("ModuleScript") then
+                            local ok, data = pcall(require, mod)
+                            if ok and type(data) == "table" then
+                                local bw = data.GrowData and data.GrowData.BaseWeight
+                                if type(bw) == "number" then
+                                    _fruitBaseWeightCache[mod.Name] = bw
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+        return _fruitBaseWeightCache[fruitName]
+    end
 
     -- ====================== PROXIMITY PROMPT HELPERS ======================
     local _fireprox = fireproximityprompt or function(p)
@@ -2506,18 +2534,27 @@ return function(ctx)
                         local hasMut = mut and mut ~= "" and mut ~= "None"
                         local mutColor = hasMut and ctx.UI.GetMutationColor(mut) or nil
 
-                        -- Weight tidak ada di pohon — pakai SizeMulti (confirmed dari scanner)
-                        local sizeMulti = fruit:GetAttribute("SizeMulti")
-                            or fruit:GetAttribute("SizeMultiplier")
-                            or (plant and plant:GetAttribute("SizeMulti"))
+                        -- Weight tidak ada di pohon — hitung pakai formula game:
+                        -- Weight = BaseWeight * SizeMulti * OvertimeGrowth
+                        -- BaseWeight dibaca langsung dari PlantGenerationModules.Fruits
+                        local sizeMulti = fruit:GetAttribute("SizeMulti") or 1
+                        local overtimeGrowth = fruit:GetAttribute("OvertimeGrowth") or 1
+                        local baseWeight = GetFruitBaseWeight(seedName)
 
-                        -- Label: nama buah | mutasi (kalau ada) | x size
+                        local estWeight = nil
+                        local isExact = false
+                        if baseWeight then
+                            estWeight = baseWeight * sizeMulti * overtimeGrowth
+                            isExact = true
+                        end
+
+                        -- Label: nama buah | mutasi (kalau ada) | weight
                         local parts = {seedName}
                         if hasMut then
                             table.insert(parts, mut)
                         end
-                        if sizeMulti then
-                            table.insert(parts, string.format("x%.2f", sizeMulti))
+                        if estWeight then
+                            table.insert(parts, string.format("%.2fkg", estWeight))
                         end
                         local labelText = table.concat(parts, "  |  ")
 
