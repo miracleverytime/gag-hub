@@ -938,7 +938,7 @@ return function(ctx)
         CreateToggle(espContent, "ESP Wild Pets", "espItems",   "Highlights wild pets in workspace")
         CreateToggle(espContent, "ESP Fruits",    "espFruits",  "Highlights harvestable fruits on the plot")
 
-        CreateActionButton(espContent, "\240\159\232\128 Ultra Low Graphics (Permanent until rejoin)", function()
+        CreateActionButton(espContent, "Ultra Low Graphics (Permanent until rejoin)", function()
             if ctx.UltraLow and ctx.UltraLow.Active then
                 Notify("Ultra Low", "Already active. Rejoin to reset.", Colors.Warning)
                 return
@@ -949,7 +949,7 @@ return function(ctx)
             end
             Notify("Ultra Low", "Applying... Don't close the hub.", Colors.Warning, 3)
             task.spawn(function() ctx.UltraLow.Apply() end)
-        end, Colors.Electric)
+        end)
     end)
 
     -- ====================== TELEPORT PAGE ======================
