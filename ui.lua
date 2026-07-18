@@ -26,31 +26,31 @@ return function(ctx)
     -- ====================== NEO PALETTE OVERRIDE ======================
     -- Mutates ctx.Colors in place so core/logic/pages/bootstrap all
     -- inherit the Neo palette without any changes on their side.
-    Colors.Background        = Color3.fromRGB(9, 10, 9)      -- near black
-    Colors.BackgroundLight   = Color3.fromRGB(13, 14, 13)    -- topbar / sidebar
-    Colors.BackgroundLighter = Color3.fromRGB(19, 21, 19)    -- cards / surfaces
-    Colors.Surface           = Color3.fromRGB(27, 29, 27)
-    Colors.SurfaceLight      = Color3.fromRGB(36, 39, 36)
-    Colors.Border            = Color3.fromRGB(36, 38, 36)    -- ~white/10
-    Colors.BorderLight       = Color3.fromRGB(74, 84, 50)    -- lime-tinted border
-    Colors.TextPrimary       = Color3.fromRGB(240, 241, 238)
-    Colors.TextSecondary     = Color3.fromRGB(158, 161, 155)
-    Colors.TextMuted         = Color3.fromRGB(106, 109, 104)
-    Colors.Accent            = Color3.fromRGB(163, 230, 53)  -- lime-400
-    Colors.Success           = Color3.fromRGB(163, 230, 53)  -- lime-400
+    Colors.Background        = Color3.fromRGB(10, 13, 16)    -- gunmetal black
+    Colors.BackgroundLight   = Color3.fromRGB(18, 22, 27)    -- gunmetal panel
+    Colors.BackgroundLighter = Color3.fromRGB(26, 31, 38)    -- gunmetal secondary
+    Colors.Surface           = Color3.fromRGB(32, 38, 46)
+    Colors.SurfaceLight      = Color3.fromRGB(40, 48, 58)
+    Colors.Border            = Color3.fromRGB(30, 37, 45)    -- gunmetal border
+    Colors.BorderLight       = Color3.fromRGB(40, 100, 95)   -- teal-tinted border
+    Colors.TextPrimary       = Color3.fromRGB(209, 213, 219)
+    Colors.TextSecondary     = Color3.fromRGB(148, 155, 165)
+    Colors.TextMuted         = Color3.fromRGB(113, 113, 122)
+    Colors.Accent            = Color3.fromRGB(77, 214, 201)  -- lime-400
+    Colors.Success           = Color3.fromRGB(77, 214, 201)  -- lime-400
     Colors.Warning           = Color3.fromRGB(251, 191, 36)  -- amber-400
     Colors.Error             = Color3.fromRGB(248, 113, 113) -- red-400
     Colors.Electric          = Color3.fromRGB(56, 189, 248)  -- sky-400
     Colors.Rainbow           = Color3.fromRGB(244, 114, 182) -- pink-400
     Colors.Frozen            = Color3.fromRGB(103, 232, 249) -- cyan-300
     Colors.Gold              = Color3.fromRGB(250, 204, 21)  -- yellow-400
-    Colors.ToggleOn          = Color3.fromRGB(163, 230, 53)
-    Colors.ToggleOff         = Color3.fromRGB(38, 40, 38)
-    Colors.ToggleKnob        = Color3.fromRGB(10, 11, 10)
-    Colors.SliderTrack       = Color3.fromRGB(34, 36, 34)
-    Colors.SliderFill        = Color3.fromRGB(163, 230, 53)
+    Colors.ToggleOn          = Color3.fromRGB(77, 214, 201)
+    Colors.ToggleOff         = Color3.fromRGB(30, 37, 45)
+    Colors.ToggleKnob        = Color3.fromRGB(10, 13, 16)
+    Colors.SliderTrack       = Color3.fromRGB(26, 31, 38)
+    Colors.SliderFill        = Color3.fromRGB(77, 214, 201)
 
-    local LIME_HEX   = "#A3E635"
+    local LIME_HEX   = "#4DD6C9"
     local FONT_MONO  = Enum.Font.Code        -- mono labels / values
     local FONT_BODY  = Enum.Font.Gotham
     local FONT_BOLD  = Enum.Font.GothamBold
@@ -161,9 +161,9 @@ return function(ctx)
     local NOTIF_MARGIN = 16
     local UNDERLINE_H  = 2
 
-    local NOTIF_BORDER       = Color3.fromRGB(45, 47, 45)  -- white/10 over panel
+    local NOTIF_BORDER       = Color3.fromRGB(30, 37, 45)  -- gunmetal border
     local NOTIF_BORDER_HOVER = Colors.BorderLight          -- lime-tinted (hover)
-    local NOTIF_TRACK        = Color3.fromRGB(30, 32, 30)  -- white/5 over panel
+    local NOTIF_TRACK        = Color3.fromRGB(20, 26, 32)  -- gunmetal track
 
     local GLYPH_SUCCESS = utf8.char(0x2713) -- ✓
     local GLYPH_WARN    = "!"
@@ -872,7 +872,7 @@ return function(ctx)
         Position = UDim2.new(0, 145, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68">FPS</font>  <font color="'..LIME_HEX..'">--</font>',
+        Text = '<font color="#71717A">FPS</font>  <font color="'..LIME_HEX..'">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
@@ -902,7 +902,7 @@ return function(ctx)
         Position = UDim2.new(0, 237, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#6A6D68">MS</font>  --',
+        Text = '<font color="#71717A">MS</font>  --',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
@@ -920,8 +920,8 @@ return function(ctx)
                 ctx.CurrentFPS = fps
                 local ping = 0
                 pcall(function() ping = player:GetNetworkPing() * 1000 end)
-                FpsSeg.Text = '<font color="#6A6D68">FPS</font>  <font color="'..LIME_HEX..'">' .. fps .. '</font>'
-                MsSeg.Text  = '<font color="#6A6D68">MS</font>  ' .. string.format("%.1f", ping)
+                FpsSeg.Text = '<font color="#71717A">FPS</font>  <font color="'..LIME_HEX..'">' .. fps .. '</font>'
+                MsSeg.Text  = '<font color="#71717A">MS</font>  ' .. string.format("%.1f", ping)
                 frames, acc = 0, 0
             end
         end)
@@ -1072,8 +1072,8 @@ return function(ctx)
     --   Active  : dark translucent green bg + soft lime glow + left accent
     --             bar, lime icon and bright text (integrated, not a block)
     local SIDE_TWEEN      = 0.18                          -- premium, subtle
-    local ACTIVE_BG_COLOR = Color3.fromRGB(52, 72, 24)    -- green surface (lebih jenuh & terbaca)
-    local HOVER_BG_COLOR  = Color3.fromRGB(42, 50, 36)    -- gray w/ green tint (lebih terang)
+    local ACTIVE_BG_COLOR = Color3.fromRGB(22, 48, 50)    -- teal surface (active)
+    local HOVER_BG_COLOR  = Color3.fromRGB(26, 40, 42)    -- gunmetal w/ teal tint
 
     local function CreateSidebarButton(parent, icon, text, layoutOrder)
         local button = Create("TextButton", {
@@ -1975,7 +1975,7 @@ return function(ctx)
             Position = UDim2.new(0, 14, 0, 0),
             BackgroundTransparency = 1,
             RichText = true,
-            Text = label .. '  <font color="#6A6D68">\194\183 ' .. tostring(currentVal) .. '</font>',
+            Text = label .. '  <font color="#71717A">\194\183 ' .. tostring(currentVal) .. '</font>',
             TextColor3 = Colors.TextPrimary,
             TextSize = 14,
             Font = FONT_BODY,
@@ -2075,7 +2075,7 @@ return function(ctx)
                         currentVal = opt
                         States[stateKey] = opt
                         SaveState(stateKey, opt)
-                        lbl.Text = label .. '  <font color="#6A6D68">\194\183 ' .. tostring(opt) .. '</font>'
+                        lbl.Text = label .. '  <font color="#71717A">\194\183 ' .. tostring(opt) .. '</font>'
                         isOpen = false
                         Tween(arr, {Rotation = 0}, 0.2)
                         if dropPanel then dropPanel:Destroy() dropPanel = nil end
@@ -2120,16 +2120,16 @@ return function(ctx)
 
         local function getShortText()
             if #selected == 0 then
-                return pillText .. '  <font color="#6A6D68">\194\183 none</font>'
+                return pillText .. '  <font color="#71717A">\194\183 none</font>'
             end
             if #selected <= 2 then
                 local names = {}
                 for _, s in ipairs(selected) do
                     names[#names+1] = displayLabels[s] or s
                 end
-                return pillText .. '  <font color="#6A6D68">\194\183 ' .. table.concat(names, ", ") .. '</font>'
+                return pillText .. '  <font color="#71717A">\194\183 ' .. table.concat(names, ", ") .. '</font>'
             end
-            return pillText .. '  <font color="#6A6D68">\194\183 ' .. #selected .. ' selected</font>'
+            return pillText .. '  <font color="#71717A">\194\183 ' .. #selected .. ' selected</font>'
         end
 
         local wrapper = Create("Frame", {
@@ -2526,7 +2526,7 @@ return function(ctx)
             local badge = Create("TextLabel", {
                 Parent = nameRow,
                 Size = UDim2.new(0, 72, 0, 20),
-                BackgroundColor3 = Color3.fromRGB(20, 28, 14),  -- dark green-tinted bg like ss2
+                BackgroundColor3 = Color3.fromRGB(10, 35, 38),  -- dark teal-tinted bg
                 Text = "\226\152\134 PRIME",                     -- ☆ outline star
                 TextColor3 = Colors.Accent,
                 TextSize = 11,
