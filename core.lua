@@ -214,7 +214,7 @@ return function(ctx)
         plantRarityFilter = "All",
         perFruitDelay = 0.05,
         harvestLoopDelay = 2.0,
-        notifyHarvest = false,
+        notifyHarvest = true,
         autoPlantNotify = true,     -- notif saat siklus tanam selesai
         autoPlantAllSeeds = false,  -- tanam semua seed di backpack tanpa filter
         autoPlantTargets = {},      -- TABLE: seed yang dipilih untuk ditanam
