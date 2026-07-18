@@ -2490,10 +2490,15 @@ return function(ctx)
                         -- fruit.Parent = Fruits (Folder), fruit.Parent.Parent = plant (Model)
                         local fruitsFolder = fruit.Parent
                         local plant = fruitsFolder and fruitsFolder.Parent
-                        local seedName = (plant and plant:GetAttribute("SeedName"))
+
+                        -- CorePartName = nama buah di pohon (confirmed dari scanner)
+                        -- fallback ke SeedName di plant, FruitName, dst
+                        local seedName = fruit:GetAttribute("CorePartName")
+                            or (plant and plant:GetAttribute("SeedName"))
                             or fruit:GetAttribute("SeedName")
                             or fruit:GetAttribute("FruitName")
                             or "Fruit"
+
                         local mut = GetMutation(fruit)
                         if (mut == nil or mut == "") then
                             mut = (plant and plant:GetAttribute("Mutation")) or ""
@@ -2501,19 +2506,18 @@ return function(ctx)
                         local hasMut = mut and mut ~= "" and mut ~= "None"
                         local mutColor = hasMut and ctx.UI.GetMutationColor(mut) or nil
 
-                        -- Weight: coba di fruit dulu, fallback ke plant
-                        local weight = fruit:GetAttribute("Weight")
-                            or fruit:GetAttribute("FruitWeight")
-                            or (plant and plant:GetAttribute("Weight"))
-                            or (plant and plant:GetAttribute("FruitWeight"))
+                        -- Weight tidak ada di pohon — pakai SizeMulti (confirmed dari scanner)
+                        local sizeMulti = fruit:GetAttribute("SizeMulti")
+                            or fruit:GetAttribute("SizeMultiplier")
+                            or (plant and plant:GetAttribute("SizeMulti"))
 
-                        -- Label satu baris horizontal: nama buah | mutasi (kalau ada) | berat
+                        -- Label: nama buah | mutasi (kalau ada) | x size
                         local parts = {seedName}
                         if hasMut then
                             table.insert(parts, mut)
                         end
-                        if weight then
-                            table.insert(parts, string.format("%.2fkg", weight))
+                        if sizeMulti then
+                            table.insert(parts, string.format("x%.2f", sizeMulti))
                         end
                         local labelText = table.concat(parts, "  |  ")
 
