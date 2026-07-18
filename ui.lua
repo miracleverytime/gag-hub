@@ -1060,7 +1060,6 @@ return function(ctx)
         Teleport = "rbxassetid://102771272796313",  -- MapPin
         Utility  = "rbxassetid://114046395678554",  -- Wrench
         Mailer   = "rbxassetid://131932847752233",  -- Mail
-        Info     = "rbxassetid://77903314482490",  -- Info
         Server   = "rbxassetid://85074479673177",  -- Server
         Settings = "rbxassetid://133886562604149",  -- Cog
     }
@@ -1242,9 +1241,8 @@ return function(ctx)
     CreateSectionHeader(SidebarContent, "MISC", 12)
     sb.Utility  = CreateSidebarButton(SidebarContent, "\226\152\134", "Utility", 13)  -- ☆ star outline (hollow)
     sb.Mailer   = CreateSidebarButton(SidebarContent, "\226\156\137", "Mailer", 14)   -- ✉ envelope outline
-    sb.Info     = CreateSidebarButton(SidebarContent, "\226\132\185", "Info", 15)     -- ℹ info outline
-    sb.Server   = CreateSidebarButton(SidebarContent, "\226\151\183", "Server", 16)   -- ◷ clock outline
-    sb.Settings = CreateSidebarButton(SidebarContent, "\226\152\134", "Settings", 17) -- ☆ cog outline
+    sb.Server   = CreateSidebarButton(SidebarContent, "\226\151\183", "Server", 15)   -- ◷ clock outline
+    sb.Settings = CreateSidebarButton(SidebarContent, "\226\152\134", "Settings", 16) -- ☆ cog outline
     ctx.sidebarButtonRefs = sb
 
     -- ====================== PROFILE CARD (top of sidebar, Neo) ======================

@@ -1160,20 +1160,6 @@ return function(ctx)
         end)
     end)
 
-    -- ====================== INFO PAGE ======================
-    ctx.registerPage("Info", function()
-        local _, infoContent = CreateSectionCard("\226\132\185 About Miracle Hub", 1, Colors.Success)
-        CreateStatRow(infoContent, "Hub Name",         "Miracle Hub",                                                Colors.Success)
-        CreateStatRow(infoContent, "Game",             "Grow A Garden 2",                                            Colors.TextSecondary)
-        CreateStatRow(infoContent, "Player",           player.DisplayName or player.Name,                            Colors.Accent)
-        CreateStatRow(infoContent, "UserId",           player.UserId,                                                Colors.TextMuted)
-        CreateStatRow(infoContent, "Plot ID",          MY_PLOT_ID,                                                   Colors.Warning)
-        CreateStatRow(infoContent, "Prime Status",     player:GetAttribute("PrimeEnabled") and "Enabled" or "Disabled", Colors.Warning)
-        CreateStatRow(infoContent, "Connection Status",
-            ctx.PacketRemote and "Connected" or "\226\154\160 Not Connected",
-            ctx.PacketRemote and Colors.Success or Colors.Error)
-    end)
-
     -- ====================== SERVER PAGE ======================
     ctx.registerPage("Server", function()
         local PlayersService     = game:GetService("Players")
