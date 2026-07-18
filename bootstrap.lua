@@ -52,7 +52,7 @@ return function(ctx)
         [sb.Farm] = "Farm", [sb.Plot] = "Plot", [sb.Shop] = "Shop",
         [sb.Sell] = "Sell", [sb.Pets] = "Pets", [sb.Eggs] = "Eggs",
         [sb.Player] = "Player", [sb.Visuals] = "Visuals", [sb.Teleport] = "Teleport",
-        [sb.Utility] = "Utility", [sb.Mailer] = "Mailer", [sb.Info] = "Info",
+        [sb.Utility] = "Utility", [sb.Mailer] = "Mailer",
         [sb.Server] = "Server", [sb.Settings] = "Settings",
     }
     for btn, pageName in pairs(pageMap) do
