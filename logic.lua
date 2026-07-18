@@ -2497,12 +2497,12 @@ return function(ctx)
                         local hasMut = mut and mut ~= "" and mut ~= "None"
                         local mutColor = hasMut and ctx.UI.GetMutationColor(mut) or nil
 
-                        -- Billboard dengan dua baris: nama buah (putih) + mutasi (warna mutasi)
+                        -- Billboard dengan dua baris: nama buah (atas) + mutasi (bawah)
                         local billboard = Create("BillboardGui", {
                             Parent = game:GetService("Workspace"),
                             Adornee = rootPart,
-                            Size = UDim2.new(0, 130, 0, hasMut and 44 or 28),
-                            StudsOffset = Vector3.new(0, 3, 0),
+                            Size = UDim2.new(0, 160, 0, hasMut and 54 or 34),
+                            StudsOffset = Vector3.new(0, 4, 0),
                             AlwaysOnTop = true,
                             ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
                         })
@@ -2510,19 +2510,19 @@ return function(ctx)
                             Parent = billboard,
                             Size = UDim2.new(1, 0, 1, 0),
                             BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-                            BackgroundTransparency = 0.5,
+                            BackgroundTransparency = 0.35,
                             BorderSizePixel = 0,
                         })
-                        CreateCorner(frame, 5)
-                        -- Baris 1: nama buah (selalu putih/warning)
+                        CreateCorner(frame, 6)
+                        -- Baris 1: nama buah
                         Create("TextLabel", {
                             Parent = frame,
-                            Size = UDim2.new(1, 0, 0, 20),
-                            Position = UDim2.new(0, 0, 0, hasMut and 2 or 4),
+                            Size = UDim2.new(1, -8, 0, 24),
+                            Position = UDim2.new(0, 4, 0, hasMut and 2 or 5),
                             BackgroundTransparency = 1,
                             Text = seedName,
                             TextColor3 = Colors.Warning,
-                            TextSize = 11,
+                            TextSize = 14,
                             Font = Enum.Font.GothamBold,
                             TextXAlignment = Enum.TextXAlignment.Center,
                         })
@@ -2530,13 +2530,13 @@ return function(ctx)
                         if hasMut then
                             Create("TextLabel", {
                                 Parent = frame,
-                                Size = UDim2.new(1, 0, 0, 16),
-                                Position = UDim2.new(0, 0, 0, 24),
+                                Size = UDim2.new(1, -8, 0, 20),
+                                Position = UDim2.new(0, 4, 0, 28),
                                 BackgroundTransparency = 1,
                                 Text = mut,
                                 TextColor3 = mutColor or Colors.TextSecondary,
-                                TextSize = 10,
-                                Font = Enum.Font.Gotham,
+                                TextSize = 12,
+                                Font = Enum.Font.GothamBold,
                                 TextXAlignment = Enum.TextXAlignment.Center,
                             })
                         end
