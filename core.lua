@@ -256,7 +256,7 @@ return function(ctx)
         keepMutations = true,
         sellKeepMutation = {},       -- TABLE: mutasi spesifik yang di-keep saat auto-sell (multi-select)
         keepRarity = "Legendary",
-        notifySell = false,
+        notifySell = true,
         -- Player
         lockWalkSpeed = false,
         walkSpeed = 31,
