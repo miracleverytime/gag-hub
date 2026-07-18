@@ -2513,8 +2513,10 @@ return function(ctx)
                     local fruit = fruitPart and fruitPart.Parent
                     if not (fruit and fruit:IsA("Model")) then continue end
 
+                    -- fruitPart = prompt.Parent = HarvestPart, posisi TEPAT di buah
+                    -- rootPart hanya untuk dedup marker agar tidak double-create
                     local rootPart = GetModelRootPart(fruit)
-                    if rootPart and not rootPart:FindFirstChild("MiracleESP_Fruit") then
+                    if fruitPart and not fruitPart:FindFirstChild("MiracleESP_Fruit") then
                         -- fruit.Parent = Fruits (Folder), fruit.Parent.Parent = plant (Model)
                         local fruitsFolder = fruit.Parent
                         local plant = fruitsFolder and fruitsFolder.Parent
@@ -2560,9 +2562,9 @@ return function(ctx)
 
                         local billboard = Create("BillboardGui", {
                             Parent = game:GetService("Workspace"),
-                            Adornee = rootPart,
+                            Adornee = fruitPart,
                             Size = UDim2.new(0, 220, 0, 26),
-                            StudsOffset = Vector3.new(4, 2, 0),
+                            StudsOffset = Vector3.new(0, 2, 0),
                             AlwaysOnTop = true,
                             ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
                         })
@@ -2587,7 +2589,7 @@ return function(ctx)
                             TextTruncate = Enum.TextTruncate.AtEnd,
                         })
                         TrackESP(billboard)
-                        AttachESPMarker(rootPart, "MiracleESP_Fruit")
+                        AttachESPMarker(fruitPart, "MiracleESP_Fruit")
                     end
                 end
             end
