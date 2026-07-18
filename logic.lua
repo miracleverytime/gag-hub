@@ -2492,54 +2492,50 @@ return function(ctx)
                             or fruit:GetAttribute("SeedName")
                             or fruit:GetAttribute("FruitName")
                             or "Fruit"
-                        local weight = fruit:GetAttribute("Weight")
                         local mut = GetMutation(fruit)
                         local hasMut = mut and mut ~= "" and mut ~= "None"
                         local mutColor = hasMut and ctx.UI.GetMutationColor(mut) or nil
 
-                        -- Billboard dengan dua baris: nama buah (atas) + mutasi (bawah)
+                        -- Label satu baris horizontal: nama buah | mutasi | berat
+                        local parts = {seedName}
+                        if hasMut then
+                            table.insert(parts, mut)
+                        end
+                        local weight = fruit:GetAttribute("Weight")
+                        if weight then
+                            table.insert(parts, string.format("%.2fkg", weight))
+                        end
+                        local labelText = table.concat(parts, "  |  ")
+
                         local billboard = Create("BillboardGui", {
                             Parent = game:GetService("Workspace"),
                             Adornee = rootPart,
-                            Size = UDim2.new(0, 160, 0, hasMut and 54 or 34),
-                            StudsOffset = Vector3.new(0, 4, 0),
+                            Size = UDim2.new(0, 220, 0, 26),
+                            StudsOffset = Vector3.new(4, 2, 0),
                             AlwaysOnTop = true,
+                            MaxDistance = 60,
                             ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
                         })
                         local frame = Create("Frame", {
                             Parent = billboard,
                             Size = UDim2.new(1, 0, 1, 0),
                             BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-                            BackgroundTransparency = 0.35,
+                            BackgroundTransparency = 0.4,
                             BorderSizePixel = 0,
                         })
-                        CreateCorner(frame, 6)
-                        -- Baris 1: nama buah
+                        CreateCorner(frame, 5)
                         Create("TextLabel", {
                             Parent = frame,
-                            Size = UDim2.new(1, -8, 0, 24),
-                            Position = UDim2.new(0, 4, 0, hasMut and 2 or 5),
+                            Size = UDim2.new(1, -8, 1, 0),
+                            Position = UDim2.new(0, 4, 0, 0),
                             BackgroundTransparency = 1,
-                            Text = seedName,
-                            TextColor3 = Colors.Warning,
-                            TextSize = 14,
+                            Text = labelText,
+                            TextColor3 = hasMut and (mutColor or Colors.TextPrimary) or Colors.Warning,
+                            TextSize = 11,
                             Font = Enum.Font.GothamBold,
-                            TextXAlignment = Enum.TextXAlignment.Center,
+                            TextXAlignment = Enum.TextXAlignment.Left,
+                            TextTruncate = Enum.TextTruncate.AtEnd,
                         })
-                        -- Baris 2: nama mutasi (warna mutasi), hanya jika ada mutasi
-                        if hasMut then
-                            Create("TextLabel", {
-                                Parent = frame,
-                                Size = UDim2.new(1, -8, 0, 20),
-                                Position = UDim2.new(0, 4, 0, 28),
-                                BackgroundTransparency = 1,
-                                Text = mut,
-                                TextColor3 = mutColor or Colors.TextSecondary,
-                                TextSize = 12,
-                                Font = Enum.Font.GothamBold,
-                                TextXAlignment = Enum.TextXAlignment.Center,
-                            })
-                        end
                         TrackESP(billboard)
                         AttachESPMarker(rootPart, "MiracleESP_Fruit")
                     end
