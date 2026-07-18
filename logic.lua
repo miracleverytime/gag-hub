@@ -2487,24 +2487,36 @@ return function(ctx)
 
                     local rootPart = GetModelRootPart(fruit)
                     if rootPart and not rootPart:FindFirstChild("MiracleESP_Fruit") then
-                        local plant = fruit.Parent and fruit.Parent.Parent
+                        -- fruit.Parent = Fruits (Folder), fruit.Parent.Parent = plant (Model)
+                        local fruitsFolder = fruit.Parent
+                        local plant = fruitsFolder and fruitsFolder.Parent
                         local seedName = (plant and plant:GetAttribute("SeedName"))
                             or fruit:GetAttribute("SeedName")
                             or fruit:GetAttribute("FruitName")
                             or "Fruit"
                         local mut = GetMutation(fruit)
+                        if (mut == nil or mut == "") then
+                            mut = (plant and plant:GetAttribute("Mutation")) or ""
+                        end
                         local hasMut = mut and mut ~= "" and mut ~= "None"
                         local mutColor = hasMut and ctx.UI.GetMutationColor(mut) or nil
 
-                        -- Label satu baris horizontal: nama buah | mutasi | berat
+                        -- Weight: coba di fruit dulu, fallback ke plant
+                        local weight = fruit:GetAttribute("Weight")
+                            or fruit:GetAttribute("FruitWeight")
+                            or (plant and plant:GetAttribute("Weight"))
+                            or (plant and plant:GetAttribute("FruitWeight"))
+
+                        -- Kalau weight belum ada, skip dulu — Heartbeat akan coba lagi
+                        -- di frame berikutnya sampai server set attribute Weight-nya
+                        if not weight then continue end
+
+                        -- Label satu baris horizontal: nama buah | mutasi (kalau ada) | berat
                         local parts = {seedName}
                         if hasMut then
                             table.insert(parts, mut)
                         end
-                        local weight = fruit:GetAttribute("Weight")
-                        if weight then
-                            table.insert(parts, string.format("%.2fkg", weight))
-                        end
+                        table.insert(parts, string.format("%.2fkg", weight))
                         local labelText = table.concat(parts, "  |  ")
 
                         local billboard = Create("BillboardGui", {
