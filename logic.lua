@@ -2487,7 +2487,11 @@ return function(ctx)
 
                     local rootPart = GetModelRootPart(fruit)
                     if rootPart and not rootPart:FindFirstChild("MiracleESP_Fruit") then
-                        local seedName = fruit:GetAttribute("SeedName") or fruit.Name or "Fruit"
+                        local plant = fruit.Parent and fruit.Parent.Parent
+                        local seedName = (plant and plant:GetAttribute("SeedName"))
+                            or fruit:GetAttribute("SeedName")
+                            or fruit:GetAttribute("FruitName")
+                            or "Fruit"
                         local weight = fruit:GetAttribute("Weight")
                         local mut = GetMutation(fruit)
                         local label = seedName
