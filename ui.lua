@@ -875,7 +875,7 @@ return function(ctx)
         Text = '<font color="#71717A">FPS</font>  <font color="'..LIME_HEX..'">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
-        Font = FONT_MONO,
+        Font = FONT_BODY,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
     Create("Frame", { -- divider 2
