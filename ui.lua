@@ -840,16 +840,16 @@ return function(ctx)
     -- miracle logo icon (kiri BrandSeg)
     Create("ImageLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 18, 0, 18),
-        Position = UDim2.new(0, 8, 0.5, -9),
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(0, 7, 0.5, -13),
         BackgroundTransparency = 1,
         Image = "rbxassetid://74186782815011",
         ScaleType = Enum.ScaleType.Fit,
     })
     local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 90, 1, 0),
-        Position = UDim2.new(0, 28, 0, 0),
+        Size = UDim2.new(0, 78, 1, 0),
+        Position = UDim2.new(0, 38, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="'..LIME_HEX..'">HUB</font>',
