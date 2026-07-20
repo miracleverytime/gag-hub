@@ -849,7 +849,7 @@ return function(ctx)
     local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 82, 1, 0),
-        Position = UDim2.new(0, 43, 0, 0),
+        Position = UDim2.new(0, 41, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="'..LIME_HEX..'">HUB</font>',
