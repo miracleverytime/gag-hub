@@ -9,6 +9,7 @@
 -- ======================================================================
 
 local BASE = "https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/"
+local _t   = tostring(os.time())  -- cache buster
 
 -- Konfigurasi per modul:
 --   label     = teks yang muncul di LoadingStatus saat modul sedang diproses
@@ -88,7 +89,7 @@ local function loadModule(mod, stepIndex)
     -- 1. Fetch
     local src
     local ok, err = pcall(function()
-        src = game:HttpGet(BASE .. name, true)
+        src = game:HttpGet(BASE .. name .. "?t=" .. _t, true)
     end)
     if not ok or not src then
         setLoadingUI(stepIndex - 0.8, "Connection error. Retrying...")
