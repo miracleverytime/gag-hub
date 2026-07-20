@@ -828,7 +828,7 @@ return function(ctx)
     -- center: unified segmented card — MIRACLEHUB | FPS n | MS n.n
     local BrandCard = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 324, 0, 30),
+        Size = UDim2.new(0, 325, 0, 30),
         Position = UDim2.new(0.5, -162, 0.5, -15),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
@@ -861,7 +861,7 @@ return function(ctx)
     Create("Frame", { -- divider 1
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 132, 0, 5),
+        Position = UDim2.new(0, 133, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -869,7 +869,7 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 139, 0.5, -6),
+        Position = UDim2.new(0, 143, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://104426509560089",
         ImageColor3 = Colors.Accent,
@@ -879,10 +879,10 @@ return function(ctx)
     local FpsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 62, 1, 0),
-        Position = UDim2.new(0, 159, 0, 0),
+        Position = UDim2.new(0, 163, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#71717A">FPS</font>  <font color="'..LIME_HEX..'">--</font>',
+        Text = '<font color="#71717A">FPS</font> <font color="'..LIME_HEX..'">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
@@ -891,7 +891,7 @@ return function(ctx)
     Create("Frame", { -- divider 2
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 228, 0, 5),
+        Position = UDim2.new(0, 229, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -899,7 +899,7 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 235, 0.5, -6),
+        Position = UDim2.new(0, 236, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -909,10 +909,10 @@ return function(ctx)
     local MsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 62, 1, 0),
-        Position = UDim2.new(0, 255, 0, 0),
+        Position = UDim2.new(0, 256, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#71717A">MS</font>  --',
+        Text = '<font color="#71717A">MS</font> --',
         TextColor3 = Colors.TextSecondary,
         TextSize = 12,
         Font = FONT_MONO,
@@ -930,8 +930,8 @@ return function(ctx)
                 ctx.CurrentFPS = fps
                 local ping = 0
                 pcall(function() ping = player:GetNetworkPing() * 1000 end)
-                FpsSeg.Text = '<font color="#71717A">FPS</font>  <font color="'..LIME_HEX..'">' .. fps .. '</font>'
-                MsSeg.Text  = '<font color="#71717A">MS</font>  ' .. string.format("%.1f", ping)
+                FpsSeg.Text = '<font color="#71717A">FPS</font> <font color="'..LIME_HEX..'">' .. fps .. '</font>'
+                MsSeg.Text  = '<font color="#71717A">MS</font> ' .. string.format("%.1f", ping)
                 frames, acc = 0, 0
             end
         end)
