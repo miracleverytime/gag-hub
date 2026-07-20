@@ -109,7 +109,7 @@ return function(ctx)
     -- Pill ini hidup di ScreenGui (bukan di MainFrame) supaya bisa draggable
     -- bebas di luar bounds MainFrame.
 
-    local PILL_W = 300
+    local PILL_W = 330
     local PILL_H = 30
     local LIME_HEX_LOCAL = "#4DD6C9"
 
@@ -140,10 +140,22 @@ return function(ctx)
     local PillStroke = CreateStroke(PillInner, Colors.Border, 1)
     PillStroke.Transparency = 1  -- sync fade dengan PillInner
 
-    -- Segmen MIRACLEHUB (116px, identik BrandSeg)
+    -- Miracle logo icon (kiri PillBrand, identik dengan BrandCard di TopBar)
+    local PillLogoIcon = Create("ImageLabel", {
+        Parent = PillInner,
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(0, 11, 0.5, -13),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://74186782815011",
+        ImageTransparency = 1,
+        ScaleType = Enum.ScaleType.Fit,
+        ZIndex = 52,
+    })
+    -- Segmen MIRACLEHUB (90px, geser kanan untuk beri ruang logo)
     local PillBrand = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 116, 1, 0),
+        Size = UDim2.new(0, 86, 1, 0),
+        Position = UDim2.new(0, 41, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="' .. LIME_HEX_LOCAL .. '">HUB</font>',
@@ -151,7 +163,7 @@ return function(ctx)
         TextTransparency = 1,
         TextSize = 14,
         Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
         ZIndex = 52,
     })
 
@@ -159,7 +171,7 @@ return function(ctx)
     local PillDiv1 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 116, 0, 5),
+        Position = UDim2.new(0, 138, 0, 5),
         BackgroundColor3 = Colors.Border,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -170,7 +182,7 @@ return function(ctx)
     local PillFpsIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 123, 0.5, -6),
+        Position = UDim2.new(0, 145, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://104426509560089",
         ImageColor3 = Colors.Accent,
@@ -182,8 +194,8 @@ return function(ctx)
     -- Segmen FPS (identik FpsSeg: x=145, w=79, TextXAlignment Left)
     local PillFps = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 79, 1, 0),
-        Position = UDim2.new(0, 145, 0, 0),
+        Size = UDim2.new(0, 75, 1, 0),
+        Position = UDim2.new(0, 167, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">--</font>',
@@ -195,11 +207,11 @@ return function(ctx)
         ZIndex = 52,
     })
 
-    -- Divider 2 (identik BrandCard: x=209)
+    -- Divider 2 (identik BrandCard: x=231)
     local PillDiv2 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 209, 0, 5),
+        Position = UDim2.new(0, 231, 0, 5),
         BackgroundColor3 = Colors.Border,
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -210,7 +222,7 @@ return function(ctx)
     local PillMsIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 215, 0.5, -6),
+        Position = UDim2.new(0, 237, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -219,11 +231,11 @@ return function(ctx)
         ZIndex = 52,
     })
 
-    -- Segmen MS (identik MsSeg: x=237, w=77, TextXAlignment Left)
+    -- Segmen MS (identik MsSeg: x=259, w=71, TextXAlignment Left)
     local PillMs = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 77, 1, 0),
-        Position = UDim2.new(0, 237, 0, 0),
+        Size = UDim2.new(0, 71, 1, 0),
+        Position = UDim2.new(0, 259, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font>  --',
@@ -278,18 +290,20 @@ return function(ctx)
         PillDiv2.BackgroundTransparency   = alpha
         PillFpsIcon.ImageTransparency     = alpha
         PillMsIcon.ImageTransparency      = alpha
+        PillLogoIcon.ImageTransparency    = alpha
     end
     local function TweenPillTransparency(alpha, dur)
         dur = dur or 0.25
-        Tween(PillInner,   {BackgroundTransparency = alpha}, dur)
-        Tween(PillStroke,  {Transparency           = alpha}, dur)
-        Tween(PillBrand,   {TextTransparency       = alpha}, dur)
-        Tween(PillFps,     {TextTransparency       = alpha}, dur)
-        Tween(PillMs,      {TextTransparency       = alpha}, dur)
-        Tween(PillDiv1,    {BackgroundTransparency = alpha}, dur)
-        Tween(PillDiv2,    {BackgroundTransparency = alpha}, dur)
-        Tween(PillFpsIcon, {ImageTransparency      = alpha}, dur)
-        Tween(PillMsIcon,  {ImageTransparency      = alpha}, dur)
+        Tween(PillInner,    {BackgroundTransparency = alpha}, dur)
+        Tween(PillStroke,   {Transparency           = alpha}, dur)
+        Tween(PillBrand,    {TextTransparency       = alpha}, dur)
+        Tween(PillFps,      {TextTransparency       = alpha}, dur)
+        Tween(PillMs,       {TextTransparency       = alpha}, dur)
+        Tween(PillDiv1,     {BackgroundTransparency = alpha}, dur)
+        Tween(PillDiv2,     {BackgroundTransparency = alpha}, dur)
+        Tween(PillFpsIcon,  {ImageTransparency      = alpha}, dur)
+        Tween(PillMsIcon,   {ImageTransparency      = alpha}, dur)
+        Tween(PillLogoIcon, {ImageTransparency      = alpha}, dur)
     end
 
     -- Drag pill (identik pola drag logo lama)
