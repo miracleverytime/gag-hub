@@ -828,8 +828,8 @@ return function(ctx)
     -- center: unified segmented card — MIRACLEHUB | FPS n | MS n.n
     local BrandCard = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 325, 0, 30),
-        Position = UDim2.new(0.5, -162, 0.5, -15),
+        Size = UDim2.new(0, 400, 0, 30),
+        Position = UDim2.new(0.5, -200, 0.5, -15),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
     })
