@@ -828,8 +828,8 @@ return function(ctx)
     -- center: unified segmented card — MIRACLEHUB | FPS n | MS n.n
     local BrandCard = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 315, 0, 30),
-        Position = UDim2.new(0.5, -157, 0.5, -15),
+        Size = UDim2.new(0, 353, 0, 30),
+        Position = UDim2.new(0.5, -176, 0.5, -15),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
     })
@@ -861,7 +861,7 @@ return function(ctx)
     Create("Frame", { -- divider 1
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 133, 0, 5),
+        Position = UDim2.new(0, 171, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -869,7 +869,7 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 145, 0.5, -6),
+        Position = UDim2.new(0, 183, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://104426509560089",
         ImageColor3 = Colors.Accent,
@@ -879,7 +879,7 @@ return function(ctx)
     local FpsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 55, 1, 0),
-        Position = UDim2.new(0, 165, 0, 0),
+        Position = UDim2.new(0, 203, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="'..LIME_HEX..'">--</font>',
@@ -891,7 +891,7 @@ return function(ctx)
     Create("Frame", { -- divider 2
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 223, 0, 5),
+        Position = UDim2.new(0, 261, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -899,7 +899,7 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 230, 0.5, -6),
+        Position = UDim2.new(0, 268, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -909,7 +909,7 @@ return function(ctx)
     local MsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 55, 1, 0),
-        Position = UDim2.new(0, 250, 0, 0),
+        Position = UDim2.new(0, 288, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font><font size="4"> </font>--',
