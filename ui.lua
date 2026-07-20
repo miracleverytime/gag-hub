@@ -841,22 +841,22 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 26, 0, 26),
-        Position = UDim2.new(0, 8, 0.5, -13),
+        Position = UDim2.new(0, 11, 0.5, -13),
         BackgroundTransparency = 1,
         Image = "rbxassetid://74186782815011",
         ScaleType = Enum.ScaleType.Fit,
     })
     local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 90, 1, 0),
-        Position = UDim2.new(0, 40, 0, 0),
+        Size = UDim2.new(0, 86, 1, 0),
+        Position = UDim2.new(0, 41, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="'..LIME_HEX..'">HUB</font>',
         TextColor3 = Colors.TextPrimary,
         TextSize = 14,
         Font = FONT_BOLD,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
     })
     Create("Frame", { -- divider 1
         Parent = BrandCard,
