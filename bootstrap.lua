@@ -109,7 +109,7 @@ return function(ctx)
     -- Pill ini hidup di ScreenGui (bukan di MainFrame) supaya bisa draggable
     -- bebas di luar bounds MainFrame.
 
-    local PILL_W = 330
+    local PILL_W = 324
     local PILL_H = 30
     local LIME_HEX_LOCAL = "#4DD6C9"
 
@@ -144,7 +144,7 @@ return function(ctx)
     local PillLogoIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 26, 0, 26),
-        Position = UDim2.new(0, 11, 0.5, -13),
+        Position = UDim2.new(0, 10, 0.5, -13),
         BackgroundTransparency = 1,
         Image = "rbxassetid://74186782815011",
         ImageTransparency = 1,
@@ -154,8 +154,8 @@ return function(ctx)
     -- Segmen MIRACLEHUB (90px, geser kanan untuk beri ruang logo)
     local PillBrand = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 86, 1, 0),
-        Position = UDim2.new(0, 41, 0, 0),
+        Size = UDim2.new(0, 82, 1, 0),
+        Position = UDim2.new(0, 43, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="' .. LIME_HEX_LOCAL .. '">HUB</font>',
@@ -171,7 +171,7 @@ return function(ctx)
     local PillDiv1 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 138, 0, 5),
+        Position = UDim2.new(0, 132, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -182,7 +182,7 @@ return function(ctx)
     local PillFpsIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 145, 0.5, -6),
+        Position = UDim2.new(0, 139, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://104426509560089",
         ImageColor3 = Colors.Accent,
@@ -194,8 +194,8 @@ return function(ctx)
     -- Segmen FPS (identik FpsSeg: x=145, w=79, TextXAlignment Left)
     local PillFps = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 75, 1, 0),
-        Position = UDim2.new(0, 167, 0, 0),
+        Size = UDim2.new(0, 62, 1, 0),
+        Position = UDim2.new(0, 159, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">--</font>',
@@ -211,7 +211,7 @@ return function(ctx)
     local PillDiv2 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 231, 0, 5),
+        Position = UDim2.new(0, 228, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -222,7 +222,7 @@ return function(ctx)
     local PillMsIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 237, 0.5, -6),
+        Position = UDim2.new(0, 235, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -234,8 +234,8 @@ return function(ctx)
     -- Segmen MS (identik MsSeg: x=259, w=71, TextXAlignment Left)
     local PillMs = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 71, 1, 0),
-        Position = UDim2.new(0, 259, 0, 0),
+        Size = UDim2.new(0, 62, 1, 0),
+        Position = UDim2.new(0, 255, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font>  --',
