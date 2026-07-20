@@ -862,7 +862,7 @@ return function(ctx)
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -10),
         Position = UDim2.new(0, 138, 0, 5),
-        BackgroundColor3 = Colors.Border,
+        BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
     -- FPS icon (gauge/speedometer lucide)
@@ -892,7 +892,7 @@ return function(ctx)
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -10),
         Position = UDim2.new(0, 231, 0, 5),
-        BackgroundColor3 = Colors.Border,
+        BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
     -- MS icon (activity/waveform lucide)
