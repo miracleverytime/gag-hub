@@ -109,7 +109,7 @@ return function(ctx)
     -- Pill ini hidup di ScreenGui (bukan di MainFrame) supaya bisa draggable
     -- bebas di luar bounds MainFrame.
 
-    local PILL_W = 324
+    local PILL_W = 328
     local PILL_H = 30
     local LIME_HEX_LOCAL = "#4DD6C9"
 
@@ -155,7 +155,7 @@ return function(ctx)
     local PillBrand = Create("TextLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 82, 1, 0),
-        Position = UDim2.new(0, 43, 0, 0),
+        Position = UDim2.new(0, 39, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="' .. LIME_HEX_LOCAL .. '">HUB</font>',
@@ -171,7 +171,7 @@ return function(ctx)
     local PillDiv1 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 132, 0, 5),
+        Position = UDim2.new(0, 135, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -182,7 +182,7 @@ return function(ctx)
     local PillFpsIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 139, 0.5, -6),
+        Position = UDim2.new(0, 147, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://104426509560089",
         ImageColor3 = Colors.Accent,
@@ -194,11 +194,11 @@ return function(ctx)
     -- Segmen FPS (identik FpsSeg: x=145, w=79, TextXAlignment Left)
     local PillFps = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 62, 1, 0),
-        Position = UDim2.new(0, 159, 0, 0),
+        Size = UDim2.new(0, 55, 1, 0),
+        Position = UDim2.new(0, 167, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#71717A">FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">--</font>',
+        Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX_LOCAL .. '">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextTransparency = 1,
         TextSize = 12,
@@ -211,7 +211,7 @@ return function(ctx)
     local PillDiv2 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 228, 0, 5),
+        Position = UDim2.new(0, 236, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -222,7 +222,7 @@ return function(ctx)
     local PillMsIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 235, 0.5, -6),
+        Position = UDim2.new(0, 243, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -234,11 +234,11 @@ return function(ctx)
     -- Segmen MS (identik MsSeg: x=259, w=71, TextXAlignment Left)
     local PillMs = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 62, 1, 0),
-        Position = UDim2.new(0, 255, 0, 0),
+        Size = UDim2.new(0, 55, 1, 0),
+        Position = UDim2.new(0, 263, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
-        Text = '<font color="#71717A">MS</font>  --',
+        Text = '<font color="#71717A">MS</font><font size="4"> </font>--',
         TextColor3 = Colors.TextSecondary,
         TextTransparency = 1,
         TextSize = 12,
@@ -254,8 +254,8 @@ return function(ctx)
                 local fps = ctx.CurrentFPS or 0
                 local ping = 0
                 pcall(function() ping = ctx.player:GetNetworkPing() * 1000 end)
-                PillFps.Text = '<font color="#71717A">FPS</font>  <font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
-                PillMs.Text  = '<font color="#71717A">MS</font>  ' .. string.format("%.1f", ping)
+                PillFps.Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
+                PillMs.Text  = '<font color="#71717A">MS</font><font size="4"> </font>' .. string.format("%.1f", ping)
             end
             task.wait(0.5)
         end
