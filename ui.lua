@@ -962,7 +962,7 @@ return function(ctx)
         Position = UDim2.new(0, 52, 0.5, -7),
         BackgroundTransparency = 1,
         Image = "rbxassetid://82747583388019",
-        ImageColor3 = Colors.TextSecondary,
+        ImageColor3 = Colors.TextPrimary,
         ScaleType = Enum.ScaleType.Fit,
         BorderSizePixel = 0,
         AutoButtonColor = false,
@@ -975,7 +975,7 @@ return function(ctx)
         Position = UDim2.new(0, 14, 0.5, -7),
         BackgroundTransparency = 1,
         Image = "rbxassetid://99157156810403",
-        ImageColor3 = Colors.TextSecondary,
+        ImageColor3 = Colors.TextPrimary,
         ScaleType = Enum.ScaleType.Fit,
         BorderSizePixel = 0,
         AutoButtonColor = false,
@@ -983,9 +983,9 @@ return function(ctx)
     ctx.MinimizeButton = MinimizeButton
 
     CloseButton.MouseEnter:Connect(function() Tween(CloseButton, {ImageColor3 = Colors.Error}, 0.15) end)
-    CloseButton.MouseLeave:Connect(function() Tween(CloseButton, {ImageColor3 = Colors.TextSecondary}, 0.15) end)
+    CloseButton.MouseLeave:Connect(function() Tween(CloseButton, {ImageColor3 = Colors.TextPrimary}, 0.15) end)
     MinimizeButton.MouseEnter:Connect(function() Tween(MinimizeButton, {ImageColor3 = Colors.TextPrimary}, 0.15) end)
-    MinimizeButton.MouseLeave:Connect(function() Tween(MinimizeButton, {ImageColor3 = Colors.TextSecondary}, 0.15) end)
+    MinimizeButton.MouseLeave:Connect(function() Tween(MinimizeButton, {ImageColor3 = Colors.TextPrimary}, 0.15) end)
 
     -- ====================== SIDEBAR (Neo, narrow) ======================
     local SIDEBAR_W = 170
