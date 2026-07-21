@@ -633,7 +633,6 @@ return function(ctx)
             return
         end
         ConfirmModal.Visible = true
-        Tween(ConfirmModal, {BackgroundTransparency = 0.55}, 0.25)
         Tween(ConfirmBox, {Size=UDim2.new(0,380,0,200)}, 0.3, Enum.EasingStyle.Back)
     end)
     ConfNo.MouseButton1Click:Connect(function()
