@@ -956,38 +956,36 @@ return function(ctx)
         BackgroundTransparency = 1,
     })
 
-    local CloseButton = Create("TextButton", {
+    local CloseButton = Create("ImageButton", {
         Parent = RightControls,
-        Size = UDim2.new(0, 28, 0, 28),
-        Position = UDim2.new(0, 44, 0.5, -14),
+        Size = UDim2.new(0, 14, 0, 14),
+        Position = UDim2.new(0, 52, 0.5, -7),
         BackgroundTransparency = 1,
-        Text = "\195\151",
-        TextColor3 = Colors.TextSecondary,
-        TextSize = 18,
-        Font = FONT_BOLD,
+        Image = "rbxassetid://84954815283636",
+        ImageColor3 = Colors.TextSecondary,
+        ScaleType = Enum.ScaleType.Fit,
         BorderSizePixel = 0,
         AutoButtonColor = false,
     })
     ctx.CloseButton = CloseButton
 
-    local MinimizeButton = Create("TextButton", {
+    local MinimizeButton = Create("ImageButton", {
         Parent = RightControls,
-        Size = UDim2.new(0, 28, 0, 28),
-        Position = UDim2.new(0, 12, 0.5, -14),
+        Size = UDim2.new(0, 14, 0, 14),
+        Position = UDim2.new(0, 14, 0.5, -7),
         BackgroundTransparency = 1,
-        Text = "\226\128\148",
-        TextColor3 = Colors.TextSecondary,
-        TextSize = 18,
-        Font = FONT_BOLD,
+        Image = "rbxassetid://81995500312141",
+        ImageColor3 = Colors.TextSecondary,
+        ScaleType = Enum.ScaleType.Fit,
         BorderSizePixel = 0,
         AutoButtonColor = false,
     })
     ctx.MinimizeButton = MinimizeButton
 
-    CloseButton.MouseEnter:Connect(function() Tween(CloseButton, {TextColor3 = Colors.Error}, 0.15) end)
-    CloseButton.MouseLeave:Connect(function() Tween(CloseButton, {TextColor3 = Colors.TextSecondary}, 0.15) end)
-    MinimizeButton.MouseEnter:Connect(function() Tween(MinimizeButton, {TextColor3 = Colors.TextPrimary}, 0.15) end)
-    MinimizeButton.MouseLeave:Connect(function() Tween(MinimizeButton, {TextColor3 = Colors.TextSecondary}, 0.15) end)
+    CloseButton.MouseEnter:Connect(function() Tween(CloseButton, {ImageColor3 = Colors.Error}, 0.15) end)
+    CloseButton.MouseLeave:Connect(function() Tween(CloseButton, {ImageColor3 = Colors.TextSecondary}, 0.15) end)
+    MinimizeButton.MouseEnter:Connect(function() Tween(MinimizeButton, {ImageColor3 = Colors.TextPrimary}, 0.15) end)
+    MinimizeButton.MouseLeave:Connect(function() Tween(MinimizeButton, {ImageColor3 = Colors.TextSecondary}, 0.15) end)
 
     -- ====================== SIDEBAR (Neo, narrow) ======================
     local SIDEBAR_W = 170
