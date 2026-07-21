@@ -878,7 +878,7 @@ return function(ctx)
     })
     local FpsSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 55, 1, 0),
+        Size = UDim2.new(0, 44, 1, 0),
         Position = UDim2.new(0, 167, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
