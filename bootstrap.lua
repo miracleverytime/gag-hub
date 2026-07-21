@@ -109,7 +109,7 @@ return function(ctx)
     -- Pill ini hidup di ScreenGui (bukan di MainFrame) supaya bisa draggable
     -- bebas di luar bounds MainFrame.
 
-    local PILL_W = 313
+    local PILL_W = 304
     local PILL_H = 30
     local LIME_HEX_LOCAL = "#4DD6C9"
 
@@ -171,7 +171,7 @@ return function(ctx)
     local PillDiv1 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 216, 0, 5),
+        Position = UDim2.new(0, 135, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -191,10 +191,10 @@ return function(ctx)
         ZIndex = 52,
     })
 
-    -- Segmen FPS (identik FpsSeg: x=145, w=79, TextXAlignment Left)
+    -- Segmen FPS (identik FpsSeg: x=167, w=44, TextXAlignment Left)
     local PillFps = Create("TextLabel", {
         Parent = PillInner,
-        Size = UDim2.new(0, 55, 1, 0),
+        Size = UDim2.new(0, 44, 1, 0),
         Position = UDim2.new(0, 167, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
@@ -207,22 +207,22 @@ return function(ctx)
         ZIndex = 52,
     })
 
-    -- Divider 2 (identik BrandCard: x=231)
+    -- Divider 2 (identik BrandCard: x=213)
     local PillDiv2 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 322, 0, 5),
+        Position = UDim2.new(0, 213, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ZIndex = 52,
     })
 
-    -- MS icon (identik BrandCard: activity/waveform lucide, x=215)
+    -- MS icon (identik BrandCard: activity/waveform lucide, x=225)
     local PillMsIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 228, 0.5, -6),
+        Position = UDim2.new(0, 225, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -231,11 +231,11 @@ return function(ctx)
         ZIndex = 52,
     })
 
-    -- Segmen MS (identik MsSeg: x=259, w=71, TextXAlignment Left)
+    -- Segmen MS (identik MsSeg: x=245, w=55, TextXAlignment Left)
     local PillMs = Create("TextLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 55, 1, 0),
-        Position = UDim2.new(0, 248, 0, 0),
+        Position = UDim2.new(0, 245, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font><font size="4"> </font>--',
