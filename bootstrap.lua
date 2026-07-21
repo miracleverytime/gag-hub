@@ -109,7 +109,7 @@ return function(ctx)
     -- Pill ini hidup di ScreenGui (bukan di MainFrame) supaya bisa draggable
     -- bebas di luar bounds MainFrame.
 
-    local PILL_W = 328
+    local PILL_W = 313
     local PILL_H = 30
     local LIME_HEX_LOCAL = "#4DD6C9"
 
@@ -171,7 +171,7 @@ return function(ctx)
     local PillDiv1 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 135, 0, 5),
+        Position = UDim2.new(0, 216, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -211,7 +211,7 @@ return function(ctx)
     local PillDiv2 = Create("Frame", {
         Parent = PillInner,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 236, 0, 5),
+        Position = UDim2.new(0, 322, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -222,7 +222,7 @@ return function(ctx)
     local PillMsIcon = Create("ImageLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 243, 0.5, -6),
+        Position = UDim2.new(0, 228, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -235,7 +235,7 @@ return function(ctx)
     local PillMs = Create("TextLabel", {
         Parent = PillInner,
         Size = UDim2.new(0, 55, 1, 0),
-        Position = UDim2.new(0, 263, 0, 0),
+        Position = UDim2.new(0, 248, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font><font size="4"> </font>--',
