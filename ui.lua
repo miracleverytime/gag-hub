@@ -828,8 +828,8 @@ return function(ctx)
     -- center: unified segmented card — MIRACLEHUB | FPS n | MS n.n
     local BrandCard = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 315, 0, 30),
-        Position = UDim2.new(0.5, -157, 0.5, -15),
+        Size = UDim2.new(0, 313, 0, 30),
+        Position = UDim2.new(0.5, -156, 0.5, -15),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
     })
@@ -891,7 +891,7 @@ return function(ctx)
     Create("Frame", { -- divider 2
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 218, 0, 5),
+        Position = UDim2.new(0, 216, 0, 5),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -899,7 +899,7 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 230, 0.5, -6),
+        Position = UDim2.new(0, 228, 0.5, -6),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -909,7 +909,7 @@ return function(ctx)
     local MsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 55, 1, 0),
-        Position = UDim2.new(0, 250, 0, 0),
+        Position = UDim2.new(0, 248, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font><font size="4"> </font>--',
