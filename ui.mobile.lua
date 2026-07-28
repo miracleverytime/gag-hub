@@ -741,37 +741,116 @@ return function(ctx)
     })
     ctx.SearchBox = SearchBox
 
-    -- BrandCard (smaller on mobile — centered, no FPS/MS to save space)
+    -- BrandCard — identik desktop (MIRACLEHUB | FPS xx | MS xx.x)
     local BrandCard = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 180, 0, 30),
-        Position = UDim2.new(0.5, -90, 0.5, -15),
+        Size = UDim2.new(0, 304, 0, 30),
+        Position = UDim2.new(0.5, -152, 0.5, -15),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
     })
     CreateCorner(BrandCard, 8)
     CreateStroke(BrandCard, Colors.Border, 1)
 
+    -- Logo
     Create("ImageLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 22, 0, 22),
-        Position = UDim2.new(0, 8, 0.5, -11),
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(0, 10, 0.5, -13),
         BackgroundTransparency = 1,
         Image = "rbxassetid://74186782815011",
         ScaleType = Enum.ScaleType.Fit,
     })
-    Create("TextLabel", {
+    local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 130, 1, 0),
-        Position = UDim2.new(0, 33, 0, 0),
+        Size = UDim2.new(0, 82, 1, 0),
+        Position = UDim2.new(0, 39, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="' .. LIME_HEX .. '">HUB</font>',
         TextColor3 = Colors.TextPrimary,
-        TextSize = 13,
+        TextSize = 14,
         Font = FONT_BOLD,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
+    -- Divider 1
+    Create("Frame", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 1, 1, -10),
+        Position = UDim2.new(0, 135, 0, 5),
+        BackgroundColor3 = Color3.fromRGB(58, 68, 80),
+        BorderSizePixel = 0,
+    })
+    -- FPS icon
+    Create("ImageLabel", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 13, 0, 13),
+        Position = UDim2.new(0, 147, 0.5, -6),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://104426509560089",
+        ImageColor3 = Colors.Accent,
+        ScaleType = Enum.ScaleType.Fit,
+    })
+    local FpsSeg = Create("TextLabel", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 44, 1, 0),
+        Position = UDim2.new(0, 167, 0, 0),
+        BackgroundTransparency = 1,
+        RichText = true,
+        Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX .. '">--</font>',
+        TextColor3 = Colors.TextSecondary,
+        TextSize = 12,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    -- Divider 2
+    Create("Frame", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 1, 1, -10),
+        Position = UDim2.new(0, 213, 0, 5),
+        BackgroundColor3 = Color3.fromRGB(58, 68, 80),
+        BorderSizePixel = 0,
+    })
+    -- MS icon
+    Create("ImageLabel", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 13, 0, 13),
+        Position = UDim2.new(0, 225, 0.5, -6),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://84466565972313",
+        ImageColor3 = Colors.Accent,
+        ScaleType = Enum.ScaleType.Fit,
+    })
+    local MsSeg = Create("TextLabel", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 55, 1, 0),
+        Position = UDim2.new(0, 245, 0, 0),
+        BackgroundTransparency = 1,
+        RichText = true,
+        Text = '<font color="#71717A">MS</font><font size="4"> </font>--',
+        TextColor3 = Colors.TextSecondary,
+        TextSize = 12,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+
+    -- Live FPS/MS meter
+    do
+        local frames, acc = 0, 0
+        RunService.Heartbeat:Connect(function(dt)
+            frames += 1
+            acc += dt
+            if acc >= 0.5 then
+                local fps = math.floor(frames / acc + 0.5)
+                ctx.CurrentFPS = fps
+                local ping = 0
+                pcall(function() ping = player:GetNetworkPing() * 1000 end)
+                FpsSeg.Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX .. '">' .. fps .. '</font>'
+                MsSeg.Text  = '<font color="#71717A">MS</font><font size="4"> </font>' .. string.format("%.1f", ping)
+                frames, acc = 0, 0
+            end
+        end)
+    end
 
     -- PageTitle hidden (bootstrap compat)
     local PageTitle = Create("TextLabel", {

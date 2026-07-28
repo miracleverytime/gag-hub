@@ -110,26 +110,27 @@ return function(ctx)
 
     if ctx.isMobile then
         -- ====================== MOBILE MINIMIZE ======================
-        -- Floating button 44×44 di pojok kanan bawah sebagai pengganti pill bar
+        -- Floating button 60×60 di pojok kanan bawah — pakai logo Miracle Hub
         local MobileMinBtn = Create("ImageButton", {
             Name = "MobileMinimizeBtn",
             Parent = ScreenGui,
-            Size = UDim2.new(0, 44, 0, 44),
-            Position = UDim2.new(1, -56, 1, -56),
+            Size = UDim2.new(0, 60, 0, 60),
+            Position = UDim2.new(1, -72, 1, -72),
             BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
             Visible = false,
             ZIndex = 100,
         })
-        CreateCorner(MobileMinBtn, 10)
-        CreateStroke(MobileMinBtn, Colors.Border, 1)
+        CreateCorner(MobileMinBtn, 14)
+        CreateStroke(MobileMinBtn, Colors.BorderLight, 1)
+        -- Logo M
         Create("ImageLabel", {
             Parent = MobileMinBtn,
-            Size = UDim2.new(0, 22, 0, 22),
-            Position = UDim2.new(0.5, -11, 0.5, -11),
+            Size = UDim2.new(0, 34, 0, 34),
+            Position = UDim2.new(0.5, -17, 0.5, -17),
             BackgroundTransparency = 1,
-            Image = "rbxassetid://99157156810403",
-            ImageColor3 = Colors.TextPrimary,
+            Image = "rbxassetid://74186782815011",
+            ImageColor3 = Colors.Accent,
             ScaleType = Enum.ScaleType.Fit,
         })
 
