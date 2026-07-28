@@ -2702,12 +2702,17 @@ return function(ctx)
                 local vel = Vector3.new()
                 local cam = game:GetService("Workspace").CurrentCamera
                 local cf = cam.CFrame
-                if UserInputService:IsKeyDown(Enum.KeyCode.W) then vel += cf.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.S) then vel -= cf.LookVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.A) then vel -= cf.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.D) then vel += cf.RightVector end
-                if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vel += Vector3.new(0, 1, 0) end
-                if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then vel -= Vector3.new(0, 1, 0) end
+                if not ctx.isMobile then
+                    if UserInputService:IsKeyDown(Enum.KeyCode.W) then vel += cf.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.S) then vel -= cf.LookVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.A) then vel -= cf.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.D) then vel += cf.RightVector end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.Space) then vel += Vector3.new(0, 1, 0) end
+                    if UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then vel -= Vector3.new(0, 1, 0) end
+                end
+                -- Di mobile, fly direction dikendalikan lewat joystick bawaan Roblox
+                -- (karakter bergerak → vel diambil dari HumanoidRootPart.AssemblyLinearVelocity)
+                -- atau fly dinonaktifkan dari UI toggle saja.
                 flyBody.Velocity = vel.Magnitude > 0 and vel.Unit * States.flySpeed or Vector3.new()
             end
         else

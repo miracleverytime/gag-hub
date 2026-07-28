@@ -11,6 +11,20 @@
 local BASE = "https://raw.githubusercontent.com/Miracleverytime/GAG-Hub/main/"
 local _t   = tostring(os.time())  -- cache buster
 
+local ctx   = {}
+
+-- ====================== PLATFORM DETECTION ======================
+-- Harus SEBELUM MODULES karena IS_MOBILE dipakai di tabel MODULES.
+local function isMobilePlatform()
+    local UIS = game:GetService("UserInputService")
+    -- KeyboardEnabled true pada desktop/PC; false pada mobile pure
+    -- TouchEnabled bisa true di PC yang punya touchscreen, makanya cek keyboard dulu
+    return not UIS.KeyboardEnabled and UIS.TouchEnabled
+end
+
+local IS_MOBILE = isMobilePlatform()
+ctx.isMobile = IS_MOBILE
+
 -- Konfigurasi per modul:
 --   label     = teks yang muncul di LoadingStatus saat modul sedang diproses
 --   preDelay  = detik wait SEBELUM loadstring() — BytecodePatchWatcher recovery
@@ -23,10 +37,11 @@ local MODULES = {
         postDelay = 0.5,
     },
     {
-        name      = "ui.lua",
+        -- SATU-SATUNYA baris yang berubah
+        name      = IS_MOBILE and "ui.mobile.lua" or "ui.lua",
         label     = "Loading assets & icons...",
-        preDelay  = 2.5,
-        postDelay = 2.0,
+        preDelay  = IS_MOBILE and 1.5 or 2.5,
+        postDelay = IS_MOBILE and 1.0 or 2.0,
     },
     {
         name      = "ultralow.lua",
@@ -55,7 +70,6 @@ local MODULES = {
 }
 
 local TOTAL = #MODULES
-local ctx   = {}
 
 -- ====================== LOADING SCREEN HELPER ======================
 -- Dipanggil setelah ui.lua selesai (ctx.LoadingBarFill dll sudah ada).

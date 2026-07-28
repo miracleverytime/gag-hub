@@ -100,298 +100,7 @@ return function(ctx)
         end
     end)
 
-    -- ====================== MINIMIZED PILL BAR ======================
-    -- Pill bar: clone visual dari BrandCard di TopBar (300×30, BackgroundLighter,
-    -- corner 8, border Colors.Border, font identik). Saat minimize, MainFrame
-    -- "menyedot" semua konten ke arah TopBar lalu mengecil jadi pill ini.
-    -- Saat restore, pill "meledak" expand balik ke full window.
-    --
-    -- Pill ini hidup di ScreenGui (bukan di MainFrame) supaya bisa draggable
-    -- bebas di luar bounds MainFrame.
-
-    local PILL_W = 304
-    local PILL_H = 30
-    local LIME_HEX_LOCAL = "#4DD6C9"
-
-    -- Container transparan (ghost box prevention — identik dengan pola MinimizedLogo lama)
-    local MinimizedPill = Create("Frame", {
-        Name = "MinimizedPill",
-        Parent = ScreenGui,
-        Size = UDim2.new(0, PILL_W + 20, 0, PILL_H + 20),  -- padding 10px semua sisi untuk hit area drag
-        Position = UDim2.new(0.5, -(PILL_W/2 + 10), 0, 10),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        Visible = false,
-        ZIndex = 50,
-    })
-
-    -- Visual pill — ukuran & warna identik BrandCard
-    local PillInner = Create("Frame", {
-        Name = "PillInner",
-        Parent = MinimizedPill,
-        Size = UDim2.new(0, PILL_W, 0, PILL_H),
-        Position = UDim2.new(0, 10, 0, 10),  -- offset 10px dari container
-        BackgroundColor3 = Colors.BackgroundLighter,
-        BackgroundTransparency = 1,           -- start transparan, fade in setelah muncul
-        BorderSizePixel = 0,
-        ZIndex = 51,
-    })
-    CreateCorner(PillInner, 8)
-    local PillStroke = CreateStroke(PillInner, Colors.Border, 1)
-    PillStroke.Transparency = 1  -- sync fade dengan PillInner
-
-    -- Miracle logo icon (kiri PillBrand, identik dengan BrandCard di TopBar)
-    local PillLogoIcon = Create("ImageLabel", {
-        Parent = PillInner,
-        Size = UDim2.new(0, 26, 0, 26),
-        Position = UDim2.new(0, 10, 0.5, -13),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://74186782815011",
-        ImageTransparency = 1,
-        ScaleType = Enum.ScaleType.Fit,
-        ZIndex = 52,
-    })
-    -- Segmen MIRACLEHUB (90px, geser kanan untuk beri ruang logo)
-    local PillBrand = Create("TextLabel", {
-        Parent = PillInner,
-        Size = UDim2.new(0, 82, 1, 0),
-        Position = UDim2.new(0, 39, 0, 0),
-        BackgroundTransparency = 1,
-        RichText = true,
-        Text = 'MIRACLE<font color="' .. LIME_HEX_LOCAL .. '">HUB</font>',
-        TextColor3 = Colors.TextPrimary,
-        TextTransparency = 1,
-        TextSize = 14,
-        Font = Enum.Font.GothamBold,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 52,
-    })
-
-    -- Divider 1 (identik divider pertama di BrandCard)
-    local PillDiv1 = Create("Frame", {
-        Parent = PillInner,
-        Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 135, 0, 5),
-        BackgroundColor3 = Color3.fromRGB(58, 68, 80),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 52,
-    })
-
-    -- FPS icon (identik BrandCard: gauge/speedometer lucide, x=123)
-    local PillFpsIcon = Create("ImageLabel", {
-        Parent = PillInner,
-        Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 147, 0.5, -6),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://104426509560089",
-        ImageColor3 = Colors.Accent,
-        ImageTransparency = 1,
-        ScaleType = Enum.ScaleType.Fit,
-        ZIndex = 52,
-    })
-
-    -- Segmen FPS (identik FpsSeg: x=167, w=44, TextXAlignment Left)
-    local PillFps = Create("TextLabel", {
-        Parent = PillInner,
-        Size = UDim2.new(0, 44, 1, 0),
-        Position = UDim2.new(0, 167, 0, 0),
-        BackgroundTransparency = 1,
-        RichText = true,
-        Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX_LOCAL .. '">--</font>',
-        TextColor3 = Colors.TextSecondary,
-        TextTransparency = 1,
-        TextSize = 12,
-        Font = Enum.Font.Code,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 52,
-    })
-
-    -- Divider 2 (identik BrandCard: x=213)
-    local PillDiv2 = Create("Frame", {
-        Parent = PillInner,
-        Size = UDim2.new(0, 1, 1, -10),
-        Position = UDim2.new(0, 213, 0, 5),
-        BackgroundColor3 = Color3.fromRGB(58, 68, 80),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ZIndex = 52,
-    })
-
-    -- MS icon (identik BrandCard: activity/waveform lucide, x=225)
-    local PillMsIcon = Create("ImageLabel", {
-        Parent = PillInner,
-        Size = UDim2.new(0, 13, 0, 13),
-        Position = UDim2.new(0, 225, 0.5, -6),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://84466565972313",
-        ImageColor3 = Colors.Accent,
-        ImageTransparency = 1,
-        ScaleType = Enum.ScaleType.Fit,
-        ZIndex = 52,
-    })
-
-    -- Segmen MS (identik MsSeg: x=245, w=55, TextXAlignment Left)
-    local PillMs = Create("TextLabel", {
-        Parent = PillInner,
-        Size = UDim2.new(0, 55, 1, 0),
-        Position = UDim2.new(0, 245, 0, 0),
-        BackgroundTransparency = 1,
-        RichText = true,
-        Text = '<font color="#71717A">MS</font><font size="4"> </font>--',
-        TextColor3 = Colors.TextSecondary,
-        TextTransparency = 1,
-        TextSize = 12,
-        Font = Enum.Font.Code,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 52,
-    })
-
-    -- Sync FPS/MS live dari ctx (update tiap frame saat pill visible)
-    task.spawn(function()
-        while MinimizedPill.Parent do
-            if MinimizedPill.Visible then
-                local fps = ctx.CurrentFPS or 0
-                local ping = 0
-                pcall(function() ping = ctx.player:GetNetworkPing() * 1000 end)
-                PillFps.Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
-                PillMs.Text  = '<font color="#71717A">MS</font><font size="4"> </font>' .. string.format("%.1f", ping)
-            end
-            task.wait(0.5)
-        end
-    end)
-
-    -- Hover effect: border sedikit terang (identik dengan feel TopBar)
-    local PillClick = Create("TextButton", {
-        Parent = MinimizedPill,
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
-        Text = "",
-        ZIndex = 60,
-        AutoButtonColor = false,
-    })
-    PillClick.MouseEnter:Connect(function()
-        Tween(PillStroke, {Color = Colors.BorderLight}, 0.15)
-        Tween(PillInner, {BackgroundColor3 = Colors.Surface}, 0.15)
-    end)
-    PillClick.MouseLeave:Connect(function()
-        Tween(PillStroke, {Color = Colors.Border}, 0.15)
-        Tween(PillInner, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15)
-    end)
-
-    -- Fade-in semua elemen pill (alpha 0 = opak, 1 = transparan)
-    local function SetPillTransparency(alpha)
-        PillInner.BackgroundTransparency  = alpha
-        PillStroke.Transparency           = alpha
-        PillBrand.TextTransparency        = alpha
-        PillFps.TextTransparency          = alpha
-        PillMs.TextTransparency           = alpha
-        PillDiv1.BackgroundTransparency   = alpha
-        PillDiv2.BackgroundTransparency   = alpha
-        PillFpsIcon.ImageTransparency     = alpha
-        PillMsIcon.ImageTransparency      = alpha
-        PillLogoIcon.ImageTransparency    = alpha
-    end
-    local function TweenPillTransparency(alpha, dur)
-        dur = dur or 0.25
-        Tween(PillInner,    {BackgroundTransparency = alpha}, dur)
-        Tween(PillStroke,   {Transparency           = alpha}, dur)
-        Tween(PillBrand,    {TextTransparency       = alpha}, dur)
-        Tween(PillFps,      {TextTransparency       = alpha}, dur)
-        Tween(PillMs,       {TextTransparency       = alpha}, dur)
-        Tween(PillDiv1,     {BackgroundTransparency = alpha}, dur)
-        Tween(PillDiv2,     {BackgroundTransparency = alpha}, dur)
-        Tween(PillFpsIcon,  {ImageTransparency      = alpha}, dur)
-        Tween(PillMsIcon,   {ImageTransparency      = alpha}, dur)
-        Tween(PillLogoIcon, {ImageTransparency      = alpha}, dur)
-    end
-
-    -- Drag pill (identik pola drag logo lama)
-    local pillDragging, pillDragStart, pillStartPos, pillHasMoved = false, nil, nil, false
-    local lastPillPosition = nil
-
-    PillClick.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            pillDragging  = true
-            pillHasMoved  = false
-            pillDragStart = input.Position
-            pillStartPos  = MinimizedPill.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if pillDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - pillDragStart
-            if delta.Magnitude > 5 then pillHasMoved = true end
-            if pillHasMoved then
-                local np = UDim2.new(
-                    pillStartPos.X.Scale, pillStartPos.X.Offset + delta.X,
-                    pillStartPos.Y.Scale, pillStartPos.Y.Offset + delta.Y
-                )
-                MinimizedPill.Position = np
-                lastPillPosition = np
-            end
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            pillDragging = false
-        end
-    end)
-
-    -- ====================== WINDOW DRAG ======================
-    local dragging, dragStart, startPos = false, nil, nil
-    TopBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainFrame.Position
-        end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local delta = input.Position - dragStart
-            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
-    end)
-
     -- ====================== MINIMIZE / RESTORE ======================
-    -- Efek "sedot": saat minimize, semua konten MainFrame seolah tersedot ke arah
-    -- TopBar — frame menyusut dari full window ke ukuran pill (300×30) sambil
-    -- konten fade out. Saat restore, pill meledak expand balik ke full window.
-    --
-    -- Pill muncul di posisi yang sama dengan BrandCard di TopBar (center screen, y=10).
-    -- Setelah muncul, pill bisa di-drag bebas. Posisi drag disimpan di lastPillPosition
-    -- dan dipakai sebagai titik asal animasi expand berikutnya.
-
-    -- Breathing loop untuk PillStroke — lime glow seperti ConnDot saat minimized.
-    -- Loop jalan di coroutine terpisah, berhenti begitu minimized = false.
-    local function StartPillBreathing()
-        task.spawn(function()
-            while minimized and MinimizedPill.Parent do
-                -- FASE 1: Border naik ke lime dominan, tebal, fully visible
-                Tween(PillStroke, {Color = Colors.Accent, Transparency = 0, Thickness = 2}, 1.0,
-                    Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-                task.wait(1.1)
-                if not minimized then break end
-                -- FASE 2: Fade out border perlahan hampir hilang
-                Tween(PillStroke, {Transparency = 0.85}, 1.2,
-                    Enum.EasingStyle.Sine, Enum.EasingDirection.In)
-                task.wait(1.3)
-                if not minimized then break end
-                -- FASE 3: Fade in border kembali lime dominan
-                Tween(PillStroke, {Transparency = 0, Thickness = 2}, 0.9,
-                    Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-                task.wait(1.0)
-            end
-            -- Pastikan stroke kembali ke default saat loop berhenti
-            if PillStroke and PillStroke.Parent then
-                Tween(PillStroke, {Color = Colors.Border, Transparency = 0, Thickness = 1}, 0.3)
-            end
-        end)
-    end
     -- selama animasi minimize/restore, AbsoluteSize MainFrame berubah dan bisa
     -- memicu snap ke tengah → blink. Flag ini mencegah hal itu.
     -- FIX: `minimized` was never declared — it silently read as nil (global) in
@@ -399,203 +108,323 @@ return function(ctx)
     local minimized = false
     ctx.isMinimized = false
 
-    -- Hitung posisi pill default: rata tengah viewport, y=10px dari atas.
-    -- Ini meniru posisi BrandCard yang ada di tengah TopBar.
-    local function DefaultPillPosition()
-        local vp = ScreenGui.AbsoluteSize
-        local cx = math.floor(vp.X / 2 - PILL_W / 2 - 10 + 0.5)  -- -10 utk offset container
-        return UDim2.new(0, cx, 0, 10)
-    end
+    if ctx.isMobile then
+        -- ====================== MOBILE MINIMIZE ======================
+        -- Floating button 44×44 di pojok kanan bawah sebagai pengganti pill bar
+        local MobileMinBtn = Create("ImageButton", {
+            Name = "MobileMinimizeBtn",
+            Parent = ScreenGui,
+            Size = UDim2.new(0, 44, 0, 44),
+            Position = UDim2.new(1, -56, 1, -56),
+            BackgroundColor3 = Colors.BackgroundLighter,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 100,
+        })
+        CreateCorner(MobileMinBtn, 10)
+        CreateStroke(MobileMinBtn, Colors.Border, 1)
+        Create("ImageLabel", {
+            Parent = MobileMinBtn,
+            Size = UDim2.new(0, 22, 0, 22),
+            Position = UDim2.new(0.5, -11, 0.5, -11),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://99157156810403",
+            ImageColor3 = Colors.TextPrimary,
+            ScaleType = Enum.ScaleType.Fit,
+        })
 
-    -- Snapshot transparansi asli semua elemen — diambil sekali, dipakai berulang kali.
-    -- Kunci: instance reference (bukan nama), value: {bg, text, image} nilai aslinya.
-    local transparencySnapshot = {}
-    local function BuildSnapshot()
-        transparencySnapshot = {}
-        -- Snapshot ContentArea, Sidebar, plus MinimizeButton & CloseButton (di TopBar)
-        local targets = {ContentArea, Sidebar}
-        for _, root in ipairs(targets) do
-            transparencySnapshot[root] = {bg = root.BackgroundTransparency}
-            for _, d in ipairs(root:GetDescendants()) do
-                if d:IsA("GuiObject") then
-                    local entry = {bg = d.BackgroundTransparency}
-                    if d:IsA("TextLabel") or d:IsA("TextButton") then entry.text = d.TextTransparency end
-                    if d:IsA("ImageLabel") or d:IsA("ImageButton") then entry.img = d.ImageTransparency end
-                    transparencySnapshot[d] = entry
-                end
+        MobileMinBtn.MouseButton1Click:Connect(function()
+            if minimized then
+                -- Restore
+                minimized = false
+                ctx.isMinimized = false
+                MobileMinBtn.Visible = false
+                MainFrame.Visible = true
+                ctx.SnapMainFramePosition()
             end
+        end)
+
+        local function DoMinimize()
+            minimized = true
+            ctx.isMinimized = true
+            MainFrame.Visible = false
+            MobileMinBtn.Visible = true
         end
-        -- Tombol di TopBar: MinimizeButton & CloseButton + semua descendant-nya
-        for _, btn in ipairs({MinimizeButton, CloseButton}) do
-            if btn then
-                local e = {bg = btn.BackgroundTransparency}
-                if btn:IsA("TextLabel") or btn:IsA("TextButton") then e.text = btn.TextTransparency end
-                if btn:IsA("ImageLabel") or btn:IsA("ImageButton") then e.img = btn.ImageTransparency end
-                transparencySnapshot[btn] = e
-                for _, d in ipairs(btn:GetDescendants()) do
-                    if d:IsA("GuiObject") then
-                        local de = {bg = d.BackgroundTransparency}
-                        if d:IsA("TextLabel") or d:IsA("TextButton") then de.text = d.TextTransparency end
-                        if d:IsA("ImageLabel") or d:IsA("ImageButton") then de.img = d.ImageTransparency end
-                        transparencySnapshot[d] = de
-                    end
-                end
-            end
-        end
-    end
 
-    -- Terapkan snapshot (restore ke nilai asli), dengan optional tween duration
-    local function RestoreFromSnapshot(duration)
-        for obj, snap in pairs(transparencySnapshot) do
-            if obj and obj.Parent then
-                if duration and duration > 0 then
-                    local props = {BackgroundTransparency = snap.bg}
-                    if snap.text then props.TextTransparency  = snap.text end
-                    if snap.img  then props.ImageTransparency = snap.img  end
-                    Tween(obj, props, duration)
-                else
-                    obj.BackgroundTransparency = snap.bg
-                    if snap.text then obj.TextTransparency  = snap.text end
-                    if snap.img  then obj.ImageTransparency = snap.img  end
-                end
-            end
-        end
-    end
-
-    -- Fade semua elemen ke fully transparan
-    local function FadeOutContent(duration)
-        for obj, _ in pairs(transparencySnapshot) do
-            if obj and obj.Parent then
-                local props = {BackgroundTransparency = 1}
-                if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-                    props.TextTransparency = 1
-                end
-                if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
-                    props.ImageTransparency = 1
-                end
-                Tween(obj, props, duration)
-            end
-        end
-    end
-
-    local function DoMinimize()
-        minimized = true
-        ctx.isMinimized = true
-
-        local targetPillPos = lastPillPosition or DefaultPillPosition()
-        local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2
-        local pillAbsY = targetPillPos.Y.Offset + 10 + PILL_H / 2
-
-        local topBarOriginalPos  = TopBar.Position
-        local topBarOriginalSize = TopBar.Size
-
-        -- Snapshot nilai transparansi asli sebelum diubah apapun
-        BuildSnapshot()
-
-        -- FASE 1 (0.00s): MinimizeButton & CloseButton hilang instan —
-        -- keduanya paling kanan, paling terakhir ter-clip saat frame shrink ke kiri,
-        -- jadi harus fade duluan sebelum animasi apapun dimulai.
-        local function FadeButton(btn, dur)
-            if not btn then return end
-            Tween(btn, {BackgroundTransparency = 1}, dur)
-            if btn:IsA("TextLabel") or btn:IsA("TextButton") then
-                Tween(btn, {TextTransparency = 1}, dur)
-            end
-            if btn:IsA("ImageLabel") or btn:IsA("ImageButton") then
-                Tween(btn, {ImageTransparency = 1}, dur)
-            end
-            for _, d in ipairs(btn:GetDescendants()) do
-                if d:IsA("GuiObject") then
-                    local props = {BackgroundTransparency = 1}
-                    if d:IsA("TextLabel") or d:IsA("TextButton") then props.TextTransparency = 1 end
-                    if d:IsA("ImageLabel") or d:IsA("ImageButton") then props.ImageTransparency = 1 end
-                    Tween(d, props, dur)
-                end
-            end
-        end
-        FadeButton(MinimizeButton, 0.06)
-        FadeButton(CloseButton,    0.06)
-
-        -- Konten lainnya fade sedikit lebih lambat
-        FadeOutContent(0.12)
-
-        -- FASE 2 (0.10s): Frame mulai mengecil setelah konten hampir hilang
-        task.delay(0.10, function()
+        local function DoRestore()
             if not minimized then return end
-            Tween(TopBar, {
-                Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
-                Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
-            }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-            Tween(MainFrame, {
-                Size     = UDim2.new(0, PILL_W, 0, PILL_H),
-                Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
-            }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-        end)
-
-        -- FASE 3 (0.47s): Shrink selesai → swap ke pill, restore transparansi asli (hidden)
-        task.delay(0.47, function()
-            if not minimized then return end
-
-            MinimizedPill.Position = targetPillPos
-            SetPillTransparency(0)
-            MinimizedPill.Visible = true
-            StartPillBreathing()  -- lime glow breathing mulai
-
-            Sidebar.Visible     = false
-            ContentArea.Visible = false
-            MainFrame.Visible   = false
-
-            -- Restore nilai asli (snap, bukan tween) — aman karena sudah hidden
-            RestoreFromSnapshot(0)
-            TopBar.Size     = topBarOriginalSize
-            TopBar.Position = topBarOriginalPos
-        end)
-    end
-
-    local function DoRestore()
-        minimized = false
-
-        lastPillPosition = MinimizedPill.Position
-        local pillAbsX = lastPillPosition.X.Offset + 10 + PILL_W / 2
-        local pillAbsY = lastPillPosition.Y.Offset + 10 + PILL_H / 2
-
-        -- Set konten ke transparan dulu (dari nilai asli via snapshot → 1)
-        -- Snapshot sudah ada dari DoMinimize terakhir, tinggal fade ke invisible
-        FadeOutContent(0)  -- instant, karena belum visible
-
-        -- FASE 1: Swap pill → MainFrame tanpa gap
-        Sidebar.Visible     = true
-        ContentArea.Visible = true
-        MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
-        MainFrame.Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2)
-        MainFrame.Visible  = true
-        MinimizedPill.Visible = false
-
-        -- FASE 2: Frame expand
-        Tween(MainFrame, {
-            Size     = originalSize,
-            Position = UDim2.new(0.5, -450, 0.5, -300),
-        }, 0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-
-        -- FASE 3 (0.20s): Konten fade-in ke nilai aslinya masing-masing
-        task.delay(0.20, function()
-            if minimized then return end
-            RestoreFromSnapshot(0.18)
-        end)
-
-        -- FASE 4: Clear guard
-        task.delay(0.45, function()
+            minimized = false
             ctx.isMinimized = false
+            MobileMinBtn.Visible = false
+            MainFrame.Visible = true
             ctx.SnapMainFramePosition()
-        end)
-    end
+        end
 
-    MinimizeButton.MouseButton1Click:Connect(function()
-        if minimized then DoRestore() else DoMinimize() end
+        MinimizeButton.MouseButton1Click:Connect(DoMinimize)
+    else
+        -- ====================== DESKTOP MINIMIZE PILL BAR ======================
+        -- Pill bar: clone visual dari BrandCard di TopBar (300×30, BackgroundLighter,
+        -- corner 8, border Colors.Border, font identik). Saat minimize, MainFrame
+        -- "menyedot" semua konten ke arah TopBar lalu mengecil jadi pill ini.
+        -- Saat restore, pill "meledak" expand balik ke full window.
+        --
+        -- Pill ini hidup di ScreenGui (bukan di MainFrame) supaya bisa draggable
+        -- bebas di luar bounds MainFrame.
+
+        local PILL_W = 304
+        local PILL_H = 30
+        local LIME_HEX_LOCAL = "#4DD6C9"
+
+        -- Container transparan (ghost box prevention — identik dengan pola MinimizedLogo lama)
+        local MinimizedPill = Create("Frame", {
+            Name = "MinimizedPill",
+            Parent = ScreenGui,
+            Size = UDim2.new(0, PILL_W + 20, 0, PILL_H + 20),  -- padding 10px semua sisi untuk hit area drag
+            Position = UDim2.new(0.5, -(PILL_W/2 + 10), 0, 10),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            Visible = false,
+            ZIndex = 50,
+        })
+
+        -- Visual pill — ukuran & warna identik BrandCard
+        local PillInner = Create("Frame", {
+            Name = "PillInner",
+            Parent = MinimizedPill,
+            Size = UDim2.new(0, PILL_W, 0, PILL_H),
+            Position = UDim2.new(0, 10, 0, 10),  -- offset 10px dari container
+            BackgroundColor3 = Colors.BackgroundLighter,
+            BackgroundTransparency = 1,           -- start transparan, fade in setelah muncul
+            BorderSizePixel = 0,
+            ZIndex = 51,
+        })
+        CreateCorner(PillInner, 8)
+        local PillStroke = CreateStroke(PillInner, Colors.Border, 1)
+        PillStroke.Transparency = 1  -- sync fade dengan PillInner
+
+        -- Miracle logo icon (kiri PillBrand, identik dengan BrandCard di TopBar)
+        local PillLogoIcon = Create("ImageLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 26, 0, 26),
+            Position = UDim2.new(0, 10, 0.5, -13),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://74186782815011",
+            ImageTransparency = 1,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 52,
+        })
+        -- Segmen MIRACLEHUB (90px, geser kanan untuk beri ruang logo)
+        local PillBrand = Create("TextLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 82, 1, 0),
+            Position = UDim2.new(0, 39, 0, 0),
+            BackgroundTransparency = 1,
+            RichText = true,
+            Text = 'MIRACLE<font color="' .. LIME_HEX_LOCAL .. '">HUB</font>',
+            TextColor3 = Colors.TextPrimary,
+            TextTransparency = 1,
+            TextSize = 14,
+            Font = Enum.Font.GothamBold,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 52,
+        })
+
+        -- Divider 1 (identik divider pertama di BrandCard)
+        local PillDiv1 = Create("Frame", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 1, 1, -10),
+            Position = UDim2.new(0, 135, 0, 5),
+            BackgroundColor3 = Color3.fromRGB(58, 68, 80),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 52,
+        })
+
+        -- FPS icon (identik BrandCard: gauge/speedometer lucide, x=123)
+        local PillFpsIcon = Create("ImageLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 13, 0, 13),
+            Position = UDim2.new(0, 147, 0.5, -6),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://104426509560089",
+            ImageColor3 = Colors.Accent,
+            ImageTransparency = 1,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 52,
+        })
+
+        -- Segmen FPS (identik FpsSeg: x=167, w=44, TextXAlignment Left)
+        local PillFps = Create("TextLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 44, 1, 0),
+            Position = UDim2.new(0, 167, 0, 0),
+            BackgroundTransparency = 1,
+            RichText = true,
+            Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX_LOCAL .. '">--</font>',
+            TextColor3 = Colors.TextSecondary,
+            TextTransparency = 1,
+            TextSize = 12,
+            Font = Enum.Font.Code,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 52,
+        })
+
+        -- Divider 2 (identik BrandCard: x=213)
+        local PillDiv2 = Create("Frame", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 1, 1, -10),
+            Position = UDim2.new(0, 213, 0, 5),
+            BackgroundColor3 = Color3.fromRGB(58, 68, 80),
+            BackgroundTransparency = 1,
+            BorderSizePixel = 0,
+            ZIndex = 52,
+        })
+
+        -- MS icon (identik BrandCard: activity/waveform lucide, x=225)
+        local PillMsIcon = Create("ImageLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 13, 0, 13),
+            Position = UDim2.new(0, 225, 0.5, -6),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://84466565972313",
+            ImageColor3 = Colors.Accent,
+            ImageTransparency = 1,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 52,
+        })
+
+        -- Segmen MS (identik MsSeg: x=245, w=55, TextXAlignment Left)
+        local PillMs = Create("TextLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 55, 1, 0),
+            Position = UDim2.new(0, 245, 0, 0),
+            BackgroundTransparency = 1,
+            RichText = true,
+            Text = '<font color="#71717A">MS</font><font size="4"> </font>--',
+            TextColor3 = Colors.TextSecondary,
+            TextTransparency = 1,
+            TextSize = 12,
+            Font = Enum.Font.Code,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 52,
+        })
+
+        -- Sync FPS/MS live dari ctx (update tiap frame saat pill visible)
+        task.spawn(function()
+            while MinimizedPill.Parent do
+                if MinimizedPill.Visible then
+                    local fps = ctx.CurrentFPS or 0
+                    local ping = 0
+                    pcall(function() ping = ctx.player:GetNetworkPing() * 1000 end)
+                    PillFps.Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
+                    PillMs.Text  = '<font color="#71717A">MS</font><font size="4"> </font>' .. string.format("%.1f", ping)
+                end
+                task.wait(0.5)
+            end
+        end)
+
+        -- Hover effect: border sedikit terang (identik dengan feel TopBar)
+        local PillClick = Create("TextButton", {
+            Parent = MinimizedPill,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            ZIndex = 60,
+            AutoButtonColor = false,
+        })
+        PillClick.MouseEnter:Connect(function()
+            Tween(PillStroke, {Color = Colors.BorderLight}, 0.15)
+            Tween(PillInner, {BackgroundColor3 = Colors.Surface}, 0.15)
+        end)
+        PillClick.MouseLeave:Connect(function()
+            Tween(PillStroke, {Color = Colors.Border}, 0.15)
+            Tween(PillInner, {BackgroundColor3 = Colors.BackgroundLighter}, 0.15)
+        end)
+
+        -- Fade-in semua elemen pill (alpha 0 = opak, 1 = transparan)
+        local function SetPillTransparency(alpha)
+            PillInner.BackgroundTransparency  = alpha
+            PillStroke.Transparency           = alpha
+            PillBrand.TextTransparency        = alpha
+            PillFps.TextTransparency          = alpha
+            PillMs.TextTransparency           = alpha
+            PillDiv1.BackgroundTransparency   = alpha
+            PillDiv2.BackgroundTransparency   = alpha
+            PillFpsIcon.ImageTransparency     = alpha
+            PillMsIcon.ImageTransparency      = alpha
+            PillLogoIcon.ImageTransparency    = alpha
+        end
+        local function TweenPillTransparency(alpha, dur)
+            dur = dur or 0.25
+            Tween(PillInner,    {BackgroundTransparency = alpha}, dur)
+            Tween(PillStroke,   {Transparency           = alpha}, dur)
+            Tween(PillBrand,    {TextTransparency       = alpha}, dur)
+            Tween(PillFps,      {TextTransparency       = alpha}, dur)
+            Tween(PillMs,       {TextTransparency       = alpha}, dur)
+            Tween(PillDiv1,     {BackgroundTransparency = alpha}, dur)
+            Tween(PillDiv2,     {BackgroundTransparency = alpha}, dur)
+            Tween(PillFpsIcon,  {ImageTransparency      = alpha}, dur)
+            Tween(PillMsIcon,   {ImageTransparency      = alpha}, dur)
+            Tween(PillLogoIcon, {ImageTransparency      = alpha}, dur)
+        end
+
+        -- Drag pill (identik pola drag logo lama)
+        local pillDragging, pillDragStart, pillStartPos, pillHasMoved = false, nil, nil, false
+        local lastPillPosition = nil
+
+        PillClick.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                pillDragging  = true
+                pillHasMoved  = false
+                pillDragStart = input.Position
+                pillStartPos  = MinimizedPill.Position
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if pillDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+                local delta = input.Position - pillDragStart
+                if delta.Magnitude > 5 then pillHasMoved = true end
+                if pillHasMoved then
+                    local np = UDim2.new(
+                        pillStartPos.X.Scale, pillStartPos.X.Offset + delta.X,
+                        pillStartPos.Y.Scale, pillStartPos.Y.Offset + delta.Y
+                    )
+                    MinimizedPill.Position = np
+                    lastPillPosition = np
+                end
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                pillDragging = false
+            end
+        end)
+
+    -- ====================== WINDOW DRAG ======================
+    local dragging, dragStart, startPos = false, nil, nil
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+        end
     end)
-    PillClick.MouseButton1Click:Connect(function()
-        if minimized and not pillHasMoved then DoRestore() end
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+            or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
     end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+            or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    end -- end if ctx.isMobile/else untuk minimize
 
     -- ====================== CONFIRM CLOSE MODAL ======================
     local ConfirmModal = Create("Frame", {
@@ -679,17 +508,19 @@ return function(ctx)
     end
 
     -- ====================== KEYBINDS ======================
-    UserInputService.InputBegan:Connect(function(input, gp)
-        if gp then return end
-        if input.KeyCode == Enum.KeyCode.Insert then
-            if minimized then DoRestore() else DoMinimize() end
-        end
-        if input.KeyCode == Enum.KeyCode.F then
-            -- Gunakan ctx.ToggleFly agar state & notif selalu sinkron
-            -- dengan toggle UI di tab Player → tidak ada notif ganda/konflik
-            ctx.ToggleFly()
-        end
-    end)
+    if not ctx.isMobile then
+        UserInputService.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if input.KeyCode == Enum.KeyCode.Insert then
+                if minimized then DoRestore() else DoMinimize() end
+            end
+            if input.KeyCode == Enum.KeyCode.F then
+                -- Gunakan ctx.ToggleFly agar state & notif selalu sinkron
+                -- dengan toggle UI di tab Player → tidak ada notif ganda/konflik
+                ctx.ToggleFly()
+            end
+        end)
+    end
 
     -- ====================== LOADING SCREEN REVEAL ======================
     -- loader.lua sudah mengisi LoadingBarFill/Percent/Status secara real-time.
