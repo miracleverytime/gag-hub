@@ -930,6 +930,7 @@ return function(ctx)
         Mailer   = "rbxassetid://131932847752233",
         Server   = "rbxassetid://85074479673177",
         Settings = "rbxassetid://133886562604149",
+        Profile  = "rbxassetid://89538326699568",  -- User icon sama kaya Player
     }
 
     local PageHeader = Create("Frame", {
@@ -1063,6 +1064,7 @@ return function(ctx)
 
     -- Sidebar nav groups (sama seperti desktop)
     local NAV_GROUPS = {
+        {header = "Menu",  items = {"Profile"}},
         {header = "Game",  items = {"Farm", "Plot", "Shop", "Sell", "Pets", "Eggs"}},
         {header = "Tools", items = {"Player", "Visuals", "Teleport", "Utility", "Mailer"}},
         {header = "Other", items = {"Server", "Settings"}},
