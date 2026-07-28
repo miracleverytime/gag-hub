@@ -680,7 +680,7 @@ return function(ctx)
 
     -- ====================== TOP BAR (MOBILE) ======================
     local TOPBAR_H = 42   -- sedikit lebih tinggi supaya konten topbar tidak sumpek
-    local SIDEBAR_W = 120 -- sedikit lebih lebar supaya teks sidebar tidak terpotong
+    local SIDEBAR_W = 64 -- mobile icon-only sidebar
     local TopBar = Create("Frame", {
         Name = "TopBar",
         Parent = MainFrame,
@@ -1034,8 +1034,8 @@ return function(ctx)
     -- Sidebar scrollable content
     local SidebarContent = Create("ScrollingFrame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -1, 1, -78),
-        Position = UDim2.new(0, 0, 0, 74),
+        Size = UDim2.new(1, -1, 1, -68),
+        Position = UDim2.new(0, 0, 0, 64),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ScrollBarThickness = 2,
@@ -1043,8 +1043,8 @@ return function(ctx)
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
     })
-    CreatePadding(SidebarContent, 3)
-    CreateListLayout(SidebarContent, 0)
+    CreatePadding(SidebarContent, 4)
+    CreateListLayout(SidebarContent, 3)
 
     local SidebarButtons = {}
     ctx.SidebarButtons = SidebarButtons
@@ -1086,8 +1086,6 @@ return function(ctx)
     local SetActivePage
 
     for _, group in ipairs(NAV_GROUPS) do
-        sidebarOrder += 1
-        CreateSectionHeader(SidebarContent, group.header, sidebarOrder)
         for _, name in ipairs(group.items) do
             sidebarOrder += 1
             local iconAsset = LUCIDE_ICONS[name]
@@ -1125,7 +1123,7 @@ return function(ctx)
                 iconLabel = Create("ImageLabel", {
                     Parent = btn,
                     Size = UDim2.new(0, 14, 0, 14),  -- diperbesar dari 12 → 14
-                    Position = UDim2.new(0, 7, 0.5, -7),
+                    Position = UDim2.new(0.5, -7, 0.5, -7),
                     BackgroundTransparency = 1,
                     Image = iconAsset,
                     ImageColor3 = Colors.TextSecondary,
@@ -1136,7 +1134,7 @@ return function(ctx)
                 iconLabel = Create("TextLabel", {
                     Parent = btn,
                     Size = UDim2.new(0, 16, 0, 16),
-                    Position = UDim2.new(0, 8, 0.5, -8),
+                    Position = UDim2.new(0.5, -8, 0.5, -8),
                     BackgroundTransparency = 1,
                     Text = name:sub(1, 1),
                     TextColor3 = Colors.TextSecondary,
@@ -1145,21 +1143,9 @@ return function(ctx)
                 })
             end
 
-            local textLabel = Create("TextLabel", {
-                Parent = btn,
-                Size = UDim2.new(1, -28, 1, 0),
-                Position = UDim2.new(0, 26, 0, 0),  -- geser kanan mengikuti icon lebih besar
-                BackgroundTransparency = 1,
-                Text = name,
-                TextColor3 = Colors.TextPrimary,
-                TextSize = 13,
-                Font = FONT_BODY,
-                TextXAlignment = Enum.TextXAlignment.Left,
-            })
-
             local ref = {
                 button = btn, indicator = indicator, glow = glow,
-                icon = iconLabel, label = textLabel, isImage = (iconAsset ~= nil),
+                icon = iconLabel, label = nil, isImage = (iconAsset ~= nil),
                 hovered = false,
             }
             SidebarButtons[name] = ref
@@ -1170,7 +1156,6 @@ return function(ctx)
                 Tween(btn, {BackgroundTransparency = 1}, d)
                 Tween(glow, {Transparency = 1}, d)
                 Tween(indicator, {Size = UDim2.new(0, 2, 0, 0), BackgroundTransparency = 1}, d)
-                Tween(textLabel, {TextColor3 = Colors.TextPrimary}, d)
                 if iconAsset then
                     Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.1}, d)
                 else
@@ -1180,7 +1165,6 @@ return function(ctx)
             local function applyHover()
                 btn.BackgroundColor3 = HOVER_BG_COLOR
                 Tween(btn, {BackgroundTransparency = 0.3}, SIDE_TWEEN)
-                Tween(textLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
                 if iconAsset then
                     Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0.35}, SIDE_TWEEN)
                 else
@@ -1193,8 +1177,6 @@ return function(ctx)
                 Tween(btn, {BackgroundTransparency = 0}, d)
                 Tween(glow, {Transparency = 0.55}, d)
                 Tween(indicator, {Size = UDim2.new(0, 3, 0, 22), BackgroundTransparency = 0}, d)
-                Tween(textLabel, {TextColor3 = Colors.Accent}, d)
-                textLabel.Font = FONT_BOLD
                 if iconAsset then
                     Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0}, d)
                 else
@@ -1218,8 +1200,8 @@ return function(ctx)
     -- menggantikan item teks Profile di daftar menu.
     local ProfileCard = Create("TextButton", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -16, 0, 58),
-        Position = UDim2.new(0, 8, 0, 8),
+        Size = UDim2.new(0, 44, 0, 44),
+        Position = UDim2.new(0.5, -22, 0, 10),
         BackgroundColor3 = Colors.BackgroundLighter,
         BackgroundTransparency = 0.15,
         BorderSizePixel = 0,
@@ -1232,8 +1214,8 @@ return function(ctx)
     local ProfileAvatarStroke
     local ProfileAvatar = Create("ImageLabel", {
         Parent = ProfileCard,
-        Size = UDim2.new(0, 38, 0, 38),
-        Position = UDim2.new(0, 7, 0.5, -19),
+        Size = UDim2.new(0, 34, 0, 34),
+        Position = UDim2.new(0.5, -17, 0.5, -17),
         BackgroundColor3 = Colors.Surface,
         Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
         BorderSizePixel = 0,
@@ -1241,32 +1223,6 @@ return function(ctx)
     })
     CreateCorner(ProfileAvatar, 7)
     ProfileAvatarStroke = CreateStroke(ProfileAvatar, Colors.Border, 1)
-    Create("TextLabel", {
-        Parent = ProfileCard,
-        Size = UDim2.new(1, -52, 0, 18),
-        Position = UDim2.new(0, 51, 0, 11),
-        BackgroundTransparency = 1,
-        Text = player.DisplayName or player.Name,
-        TextColor3 = Colors.TextPrimary,
-        TextSize = 11,
-        Font = FONT_BOLD,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        ZIndex = 6,
-    })
-    Create("TextLabel", {
-        Parent = ProfileCard,
-        Size = UDim2.new(1, -52, 0, 16),
-        Position = UDim2.new(0, 51, 0, 30),
-        BackgroundTransparency = 1,
-        Text = player.Name,
-        TextColor3 = Colors.TextMuted,
-        TextSize = 10,
-        Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 6,
-    })
-
     ProfileCard.MouseButton1Click:Connect(function()
         SetActivePage("Profile")
     end)
