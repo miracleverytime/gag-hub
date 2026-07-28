@@ -746,12 +746,12 @@ return function(ctx)
     })
     ctx.SearchBox = SearchBox
 
-    -- BrandCard — compact mobile (MIRACLEHUB | FPS | MS)
-    -- Dipersempit dan digeser kiri sedikit supaya tidak bertabrakan dengan RightControls
+    -- BrandCard — compact mobile (MIRACLEHUB | FPS | MS).
+    -- Lebar tiap segmen dibuat eksplisit agar teks tidak menabrak divider/icon.
     local BrandCard = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 172, 0, 24),
-        Position = UDim2.new(0.5, -86, 0.5, -12),
+        Size = UDim2.new(0, 190, 0, 26),
+        Position = UDim2.new(0.5, -95, 0.5, -13),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
     })
@@ -769,13 +769,13 @@ return function(ctx)
     })
     local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 50, 1, 0),
+        Size = UDim2.new(0, 55, 1, 0),
         Position = UDim2.new(0, 22, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="' .. LIME_HEX .. '">HUB</font>',
         TextColor3 = Colors.TextPrimary,
-        TextSize = 11,
+        TextSize = 10,
         Font = FONT_BOLD,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -783,15 +783,15 @@ return function(ctx)
     Create("Frame", {
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -6),
-        Position = UDim2.new(0, 76, 0, 3),
+        Position = UDim2.new(0, 80, 0, 3),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
     -- FPS icon
     Create("ImageLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 9, 0, 9),
-        Position = UDim2.new(0, 84, 0.5, -4),
+        Size = UDim2.new(0, 11, 0, 11),
+        Position = UDim2.new(0, 88, 0.5, -5),
         BackgroundTransparency = 1,
         Image = "rbxassetid://104426509560089",
         ImageColor3 = Colors.Accent,
@@ -800,12 +800,12 @@ return function(ctx)
     local FpsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 30, 1, 0),
-        Position = UDim2.new(0, 95, 0, 0),
+        Position = UDim2.new(0, 100, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">FPS</font><font size="3"> </font><font color="' .. LIME_HEX .. '">--</font>',
         TextColor3 = Colors.TextSecondary,
-        TextSize = 11,
+        TextSize = 10,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -813,15 +813,15 @@ return function(ctx)
     Create("Frame", {
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -6),
-        Position = UDim2.new(0, 127, 0, 3),
+        Position = UDim2.new(0, 132, 0, 3),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
     -- MS icon
     Create("ImageLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 9, 0, 9),
-        Position = UDim2.new(0, 134, 0.5, -4),
+        Size = UDim2.new(0, 11, 0, 11),
+        Position = UDim2.new(0, 140, 0.5, -5),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -829,13 +829,13 @@ return function(ctx)
     })
     local MsSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 38, 1, 0),
-        Position = UDim2.new(0, 144, 0, 0),
+        Size = UDim2.new(0, 32, 1, 0),
+        Position = UDim2.new(0, 154, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font><font size="3"> </font>--',
         TextColor3 = Colors.TextSecondary,
-        TextSize = 11,
+        TextSize = 10,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -1122,8 +1122,8 @@ return function(ctx)
             if iconAsset then
                 iconLabel = Create("ImageLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 14, 0, 14),  -- diperbesar dari 12 → 14
-                    Position = UDim2.new(0.5, -7, 0.5, -7),
+                    Size = UDim2.new(0, 18, 0, 18),
+                    Position = UDim2.new(0.5, -9, 0.5, -9),
                     BackgroundTransparency = 1,
                     Image = iconAsset,
                     ImageColor3 = Colors.TextSecondary,
@@ -1133,12 +1133,12 @@ return function(ctx)
             else
                 iconLabel = Create("TextLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 16, 0, 16),
-                    Position = UDim2.new(0.5, -8, 0.5, -8),
+                    Size = UDim2.new(0, 18, 0, 18),
+                    Position = UDim2.new(0.5, -9, 0.5, -9),
                     BackgroundTransparency = 1,
                     Text = name:sub(1, 1),
                     TextColor3 = Colors.TextSecondary,
-                    TextSize = 13,
+                    TextSize = 15,
                     Font = FONT_BOLD,
                 })
             end
