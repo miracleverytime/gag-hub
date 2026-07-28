@@ -726,7 +726,13 @@ return function(ctx)
         TextXAlignment = Enum.TextXAlignment.Left,
     })
     task.spawn(function()
-        while ConnDot
+        while ConnDot.Parent do
+            Tween(ConnDot, {BackgroundTransparency = 0.6}, 0.9)
+            task.wait(1)
+            Tween(ConnDot, {BackgroundTransparency = 0}, 0.9)
+            task.wait(1)
+        end
+    end)
 
     -- Hidden SearchBox for bootstrap compatibility
     local SearchBox = Create("TextBox", {
@@ -800,6 +806,14 @@ return function(ctx)
         Text = '<font color="#71717A">FPS</font><font size="3"> </font><font color="' .. LIME_HEX .. '">--</font>',
         TextColor3 = Colors.TextSecondary,
         TextSize = 11,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    -- Divider 2
+    Create("Frame", {
+        Parent = BrandCard,
+        Size = UDim2.new(0, 1, 1, -6),
+        Position = UDim2.new(0, 127, 0, 3),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -822,6 +836,9 @@ return function(ctx)
         Text = '<font color="#71717A">MS</font><font size="3"> </font>--',
         TextColor3 = Colors.TextSecondary,
         TextSize = 11,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
     do
         local frames, acc = 0, 0
         RunService.Heartbeat:Connect(function(dt)
