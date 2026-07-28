@@ -705,11 +705,11 @@ return function(ctx)
         BorderSizePixel = 0,
     })
 
-    -- ConnDot + CONNECTED — digeser ke kanan (x=80) supaya tidak overlap ProfileCard
+    -- ConnDot + CONNECTED — avatar profile sekarang berada di sidebar
     local ConnDot = Create("Frame", {
         Parent = TopBar,
         Size = UDim2.new(0, 6, 0, 6),
-        Position = UDim2.new(0, 80, 0.5, -3),
+        Position = UDim2.new(0, 10, 0.5, -3),
         BackgroundColor3 = Colors.Accent,
         BorderSizePixel = 0,
     })
@@ -717,7 +717,7 @@ return function(ctx)
     Create("TextLabel", {
         Parent = TopBar,
         Size = UDim2.new(0, 76, 1, 0),
-        Position = UDim2.new(0, 90, 0, 0),
+        Position = UDim2.new(0, 20, 0, 0),
         BackgroundTransparency = 1,
         Text = "CONNECTED",
         TextColor3 = Colors.Accent,
@@ -1034,8 +1034,8 @@ return function(ctx)
     -- Sidebar scrollable content
     local SidebarContent = Create("ScrollingFrame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -1, 1, -10),
-        Position = UDim2.new(0, 0, 0, 4),
+        Size = UDim2.new(1, -1, 1, -78),
+        Position = UDim2.new(0, 0, 0, 74),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ScrollBarThickness = 2,
@@ -1068,7 +1068,6 @@ return function(ctx)
 
     -- Sidebar nav groups (sama seperti desktop)
     local NAV_GROUPS = {
-        {header = "Menu",  items = {"Profile"}},
         {header = "Game",  items = {"Farm", "Plot", "Shop", "Sell", "Pets", "Eggs"}},
         {header = "Tools", items = {"Player", "Visuals", "Teleport", "Utility", "Mailer"}},
         {header = "Other", items = {"Server", "Settings"}},
@@ -1082,6 +1081,9 @@ return function(ctx)
     local sb = {}
     local sidebarStateRefs = {}  -- {name = {applyIdle, applyHover, applyActive}} untuk SetActivePage
     local sidebarOrder = 0
+    -- Forward declaration: the touch callbacks below are created before the
+    -- page system function is assigned.
+    local SetActivePage
 
     for _, group in ipairs(NAV_GROUPS) do
         sidebarOrder += 1
@@ -1212,33 +1214,72 @@ return function(ctx)
 
     ctx.sidebarButtonRefs = sb
 
-    -- Profile card — diletakkan di pojok kiri (x=10) dan ukuran pas dengan TOPBAR_H
-    -- supaya tidak overlap dengan CONNECTED label maupun BrandCard
+    -- Profile card — mengikuti referensi desktop: avatar berada di sidebar,
+    -- menggantikan item teks Profile di daftar menu.
     local ProfileCard = Create("TextButton", {
-        Parent = TopBar,
-        Size = UDim2.new(0, 30, 0, 30),
-        Position = UDim2.new(0, 10, 0.5, -15),
+        Parent = Sidebar,
+        Size = UDim2.new(1, -16, 0, 58),
+        Position = UDim2.new(0, 8, 0, 8),
         BackgroundColor3 = Colors.BackgroundLighter,
-        BackgroundTransparency = 0.45,
+        BackgroundTransparency = 0.15,
         BorderSizePixel = 0,
         Text = "",
         AutoButtonColor = false,
+        ZIndex = 5,
     })
-    CreateCorner(ProfileCard, 8)
+    CreateCorner(ProfileCard, 9)
     local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
+    local ProfileAvatarStroke
     local ProfileAvatar = Create("ImageLabel", {
         Parent = ProfileCard,
-        Size = UDim2.new(0, 22, 0, 22),
-        Position = UDim2.new(0.5, -11, 0.5, -11),
+        Size = UDim2.new(0, 38, 0, 38),
+        Position = UDim2.new(0, 7, 0.5, -19),
         BackgroundColor3 = Colors.Surface,
         Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
         BorderSizePixel = 0,
+        ZIndex = 6,
     })
-    CreateCorner(ProfileAvatar, 5)
-    local ProfileAvatarStroke = CreateStroke(ProfileAvatar, Colors.Border, 1)
+    CreateCorner(ProfileAvatar, 7)
+    ProfileAvatarStroke = CreateStroke(ProfileAvatar, Colors.Border, 1)
+    Create("TextLabel", {
+        Parent = ProfileCard,
+        Size = UDim2.new(1, -52, 0, 18),
+        Position = UDim2.new(0, 51, 0, 11),
+        BackgroundTransparency = 1,
+        Text = player.DisplayName or player.Name,
+        TextColor3 = Colors.TextPrimary,
+        TextSize = 11,
+        Font = FONT_BOLD,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 6,
+    })
+    Create("TextLabel", {
+        Parent = ProfileCard,
+        Size = UDim2.new(1, -52, 0, 16),
+        Position = UDim2.new(0, 51, 0, 30),
+        BackgroundTransparency = 1,
+        Text = player.Name,
+        TextColor3 = Colors.TextMuted,
+        TextSize = 10,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        ZIndex = 6,
+    })
 
     ProfileCard.MouseButton1Click:Connect(function()
         SetActivePage("Profile")
+    end)
+
+    ProfileCard.MouseEnter:Connect(function()
+        if ActivePage ~= "Profile" then
+            Tween(ProfileCard, {BackgroundTransparency = 0.05}, SIDE_TWEEN)
+        end
+    end)
+    ProfileCard.MouseLeave:Connect(function()
+        if ActivePage ~= "Profile" then
+            Tween(ProfileCard, {BackgroundTransparency = 0.15}, SIDE_TWEEN)
+        end
     end)
 
     -- ====================== PAGE SYSTEM ======================
@@ -1280,7 +1321,7 @@ return function(ctx)
     end
     ctx.ClearContent = ClearContent
 
-    local function SetActivePage(pageName)
+    function SetActivePage(pageName)
         ActivePage = pageName
         PageTitle.Text = pageName
 
@@ -1303,6 +1344,19 @@ return function(ctx)
             else
                 sbref.applyIdle(false)
             end
+        end
+
+        -- Profile card memakai state aktif yang sama seperti referensi desktop.
+        if pageName == "Profile" then
+            ProfileCard.BackgroundColor3 = ACTIVE_BG_COLOR
+            Tween(ProfileCard, {BackgroundTransparency = 0.05}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.Accent, Transparency = 0.1}, SIDE_TWEEN)
+            Tween(ProfileAvatarStroke, {Color = Colors.Accent, Transparency = 0.1}, SIDE_TWEEN)
+        else
+            ProfileCard.BackgroundColor3 = Colors.BackgroundLighter
+            Tween(ProfileCard, {BackgroundTransparency = 0.15}, SIDE_TWEEN)
+            Tween(ProfileStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
+            Tween(ProfileAvatarStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
         end
 
         PageHeaderTitle.Text = string.upper(pageName)
