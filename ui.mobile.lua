@@ -642,7 +642,7 @@ return function(ctx)
     ctx.LoadingStatus    = LoadingStatus
 
     -- ====================== MAIN FRAME (MOBILE — FULLSCREEN) ======================
-    local originalSize = UDim2.fromScale(0.92, 0.86)
+    local originalSize = UDim2.fromScale(0.90, 0.82)
     local MainFrame = Create("Frame", {
         Name = "MainFrame",
         Parent = ScreenGui,
@@ -741,11 +741,12 @@ return function(ctx)
     })
     ctx.SearchBox = SearchBox
 
-    -- BrandCard — compact mobile (MIRACLEHUB | FPS xx | MS xx.x)
+    -- BrandCard — compact mobile (MIRACLEHUB | FPS | MS)
+    -- Lebar 210 biar ga nabrak minimize/close di kanan
     local BrandCard = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 250, 0, 26),
-        Position = UDim2.new(0.5, -125, 0.5, -13),
+        Size = UDim2.new(0, 210, 0, 26),
+        Position = UDim2.new(0.5, -105, 0.5, -13),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
     })
@@ -755,21 +756,21 @@ return function(ctx)
     -- Logo
     Create("ImageLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 20, 0, 20),
-        Position = UDim2.new(0, 8, 0.5, -10),
+        Size = UDim2.new(0, 18, 0, 18),
+        Position = UDim2.new(0, 6, 0.5, -9),
         BackgroundTransparency = 1,
         Image = "rbxassetid://74186782815011",
         ScaleType = Enum.ScaleType.Fit,
     })
     local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 70, 1, 0),
-        Position = UDim2.new(0, 30, 0, 0),
+        Size = UDim2.new(0, 58, 1, 0),
+        Position = UDim2.new(0, 26, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = 'MIRACLE<font color="' .. LIME_HEX .. '">HUB</font>',
         TextColor3 = Colors.TextPrimary,
-        TextSize = 12,
+        TextSize = 11,
         Font = FONT_BOLD,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -777,15 +778,15 @@ return function(ctx)
     Create("Frame", {
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -8),
-        Position = UDim2.new(0, 108, 0, 4),
+        Position = UDim2.new(0, 90, 0, 4),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
     -- FPS icon
     Create("ImageLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 11, 0, 11),
-        Position = UDim2.new(0, 118, 0.5, -5),
+        Size = UDim2.new(0, 10, 0, 10),
+        Position = UDim2.new(0, 98, 0.5, -5),
         BackgroundTransparency = 1,
         Image = "rbxassetid://104426509560089",
         ImageColor3 = Colors.Accent,
@@ -793,13 +794,13 @@ return function(ctx)
     })
     local FpsSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 40, 1, 0),
-        Position = UDim2.new(0, 134, 0, 0),
+        Size = UDim2.new(0, 36, 1, 0),
+        Position = UDim2.new(0, 110, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">FPS</font><font size="3"> </font><font color="' .. LIME_HEX .. '">--</font>',
         TextColor3 = Colors.TextSecondary,
-        TextSize = 10,
+        TextSize = 9,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -807,15 +808,15 @@ return function(ctx)
     Create("Frame", {
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -8),
-        Position = UDim2.new(0, 176, 0, 4),
+        Position = UDim2.new(0, 148, 0, 4),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
     -- MS icon
     Create("ImageLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 11, 0, 11),
-        Position = UDim2.new(0, 186, 0.5, -5),
+        Size = UDim2.new(0, 10, 0, 10),
+        Position = UDim2.new(0, 156, 0.5, -5),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -823,13 +824,13 @@ return function(ctx)
     })
     local MsSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 50, 1, 0),
-        Position = UDim2.new(0, 202, 0, 0),
+        Size = UDim2.new(0, 44, 1, 0),
+        Position = UDim2.new(0, 168, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font><font size="3"> </font>--',
         TextColor3 = Colors.TextSecondary,
-        TextSize = 10,
+        TextSize = 9,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -863,33 +864,19 @@ return function(ctx)
     })
     ctx.PageTitle = PageTitle
 
-    -- Right controls (close button only — minimize handled by bootstrap mobile)
+    -- Right controls: minimize + close, spaced clearly
     local RightControls = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 44, 1, 0),
-        Position = UDim2.new(1, -44, 0, 0),
+        Size = UDim2.new(0, 68, 1, 0),
+        Position = UDim2.new(1, -72, 0, 0),
         BackgroundTransparency = 1,
     })
 
-    -- CloseButton — touch target minimal 40×40
-    local CloseButton = Create("ImageButton", {
-        Parent = RightControls,
-        Size = UDim2.new(0, 36, 0, 36),
-        Position = UDim2.new(0, 4, 0.5, -18),
-        BackgroundTransparency = 1,
-        Image = "rbxassetid://82747583388019",
-        ImageColor3 = Colors.TextPrimary,
-        ScaleType = Enum.ScaleType.Fit,
-        BorderSizePixel = 0,
-        AutoButtonColor = false,
-    })
-    ctx.CloseButton = CloseButton
-
-    -- MinimizeButton — touch target minimal 40×40
+    -- MinimizeButton
     local MinimizeButton = Create("ImageButton", {
         Parent = RightControls,
-        Size = UDim2.new(0, 36, 0, 36),
-        Position = UDim2.new(0, -32, 0.5, -18),
+        Size = UDim2.new(0, 28, 0, 28),
+        Position = UDim2.new(0, 4, 0.5, -14),
         BackgroundTransparency = 1,
         Image = "rbxassetid://99157156810403",
         ImageColor3 = Colors.TextPrimary,
@@ -898,6 +885,20 @@ return function(ctx)
         AutoButtonColor = false,
     })
     ctx.MinimizeButton = MinimizeButton
+
+    -- CloseButton
+    local CloseButton = Create("ImageButton", {
+        Parent = RightControls,
+        Size = UDim2.new(0, 28, 0, 28),
+        Position = UDim2.new(0, 36, 0.5, -14),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://82747583388019",
+        ImageColor3 = Colors.TextPrimary,
+        ScaleType = Enum.ScaleType.Fit,
+        BorderSizePixel = 0,
+        AutoButtonColor = false,
+    })
+    ctx.CloseButton = CloseButton
 
     -- No hover effects on mobile
 
@@ -2156,67 +2157,86 @@ return function(ctx)
             TextTruncate = Enum.TextTruncate.AtEnd,
         })
 
-        -- 4-stat row (compact)
-        local statRow = Create("Frame", {
+        -- 2x2 stat grid (compact mobile — 4 kolom terlalu sempit)
+        local statGrid = Create("Frame", {
             Parent = col,
-            Size = UDim2.new(1, 0, 0, 76),
+            Size = UDim2.new(1, 0, 0, 0),
             BackgroundTransparency = 1,
+            AutomaticSize = Enum.AutomaticSize.Y,
             LayoutOrder = 2,
         })
         Create("UIListLayout", {
-            Parent = statRow,
-            FillDirection = Enum.FillDirection.Horizontal,
+            Parent = statGrid,
+            FillDirection = Enum.FillDirection.Vertical,
             Padding = UDim.new(0, 6),
             SortOrder = Enum.SortOrder.LayoutOrder,
         })
 
-        local function statCell(order, iconId, valueText, labelText)
+        local function makeStatRow(rowOrder)
+            local row = Create("Frame", {
+                Parent = statGrid,
+                Size = UDim2.new(1, 0, 0, 58),
+                BackgroundTransparency = 1,
+                LayoutOrder = rowOrder,
+            })
+            Create("UIListLayout", {
+                Parent = row,
+                FillDirection = Enum.FillDirection.Horizontal,
+                Padding = UDim.new(0, 6),
+                SortOrder = Enum.SortOrder.LayoutOrder,
+            })
+            return row
+        end
+
+        local function statCell(parent, order, iconId, valueText, labelText)
             local cell = Create("Frame", {
-                Parent = statRow,
-                Size = UDim2.new(0.25, -5, 1, 0),
+                Parent = parent,
+                Size = UDim2.new(0.5, -3, 1, 0),
                 BackgroundColor3 = Colors.BackgroundLighter,
                 BorderSizePixel = 0,
                 LayoutOrder = order,
             })
-            CreateCorner(cell, 10)
+            CreateCorner(cell, 8)
             CreateStroke(cell, Colors.Border, 1)
             Create("ImageLabel", {
                 Parent = cell,
-                Size = UDim2.new(0, 16, 0, 16),
-                Position = UDim2.new(0, 10, 0, 10),
+                Size = UDim2.new(0, 14, 0, 14),
+                Position = UDim2.new(0, 10, 0, 8),
                 BackgroundTransparency = 1,
                 Image = "rbxassetid://" .. iconId,
                 ImageColor3 = Colors.Accent,
             })
             local v = Create("TextLabel", {
                 Parent = cell,
-                Size = UDim2.new(1, -10, 0, 22),
-                Position = UDim2.new(0, 10, 0, 30),
+                Size = UDim2.new(1, -16, 0, 18),
+                Position = UDim2.new(0, 10, 0, 26),
                 BackgroundTransparency = 1,
                 Text = valueText,
                 TextColor3 = Colors.TextPrimary,
-                TextSize = 17,
+                TextSize = 15,
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
             Create("TextLabel", {
                 Parent = cell,
-                Size = UDim2.new(1, -10, 0, 12),
-                Position = UDim2.new(0, 10, 0, 54),
+                Size = UDim2.new(1, -16, 0, 12),
+                Position = UDim2.new(0, 28, 0, 8),
                 BackgroundTransparency = 1,
                 Text = labelText,
                 TextColor3 = Colors.TextMuted,
-                TextSize = 9,
+                TextSize = 10,
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
             return v, cell
         end
 
-        local sessionVal  = statCell(1, 136103650662391, "00:00:00", "SESSION")
-        local playersVal  = statCell(2, 124978844700371, "0",        "PLAYERS")
-        local memoryVal   = statCell(3, 118492548320850, "0",        "MEMORY MB")
-        local activeVal   = statCell(4, 120958905213540, "0",        "ACTIVE")
+        local row1 = makeStatRow(1)
+        local row2 = makeStatRow(2)
+        local sessionVal  = statCell(row1, 1, 136103650662391, "00:00:00", "SESSION")
+        local playersVal  = statCell(row1, 2, 124978844700371, "0",        "PLAYERS")
+        local memoryVal   = statCell(row2, 1, 118492548320850, "0",        "MEMORY MB")
+        local activeVal   = statCell(row2, 2, 120958905213540, "0",        "ACTIVE")
 
         local AUTOMATION_KEYS = {
             "autoPlant", "autoPlantAllSeeds", "autoHarvest",
