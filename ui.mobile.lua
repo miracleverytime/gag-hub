@@ -240,7 +240,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = TrackText(string.upper(title)),
             TextColor3 = titleColor,
-            TextSize = 9,
+            TextSize = 11,
             Font = FONT_BOLD,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -252,7 +252,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = SPIN_FRAMES[1],
             TextColor3 = Colors.TextMuted,
-            TextSize = 9,
+            TextSize = 11,
             Font = FONT_MONO,
             Visible = loading,
             ZIndex = 201,
@@ -279,7 +279,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = message,
             TextColor3 = Colors.TextMuted,
-            TextSize = 10,
+            TextSize = 11,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -633,7 +633,7 @@ return function(ctx)
     local LoadingBarFill = Create("Frame", {Parent=LoadingBarBg, Size=UDim2.new(0,0,1,0), BackgroundColor3=Colors.Success, BorderSizePixel=0, ZIndex=103})
     CreateCorner(LoadingBarFill, 3)
     local LoadingPercent = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,0,88), BackgroundTransparency=1, Text="0%", TextColor3=Colors.Success, TextSize=12, Font=FONT_MONO, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
-    local LoadingStatus = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,0,110), BackgroundTransparency=1, Text="Initializing...", TextColor3=Colors.TextMuted, TextSize=10, Font=FONT_MONO, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
+    local LoadingStatus = Create("TextLabel", {Parent=LoadingContainer, Size=UDim2.new(1,0,0,16), Position=UDim2.new(0,0,0,110), BackgroundTransparency=1, Text="Initializing...", TextColor3=Colors.TextMuted, TextSize=11, Font=FONT_MONO, TextXAlignment=Enum.TextXAlignment.Center, ZIndex=102})
 
     ctx.LoadingScreen    = LoadingScreen
     ctx.LoadingContainer = LoadingContainer
@@ -721,18 +721,12 @@ return function(ctx)
         BackgroundTransparency = 1,
         Text = "CONNECTED",
         TextColor3 = Colors.Accent,
-        TextSize = 9,
+        TextSize = 11,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
     task.spawn(function()
-        while ConnDot.Parent do
-            Tween(ConnDot, {BackgroundTransparency = 0.6}, 0.9)
-            task.wait(1)
-            Tween(ConnDot, {BackgroundTransparency = 0}, 0.9)
-            task.wait(1)
-        end
-    end)
+        while ConnDot
 
     -- Hidden SearchBox for bootstrap compatibility
     local SearchBox = Create("TextBox", {
@@ -775,7 +769,7 @@ return function(ctx)
         RichText = true,
         Text = 'MIRACLE<font color="' .. LIME_HEX .. '">HUB</font>',
         TextColor3 = Colors.TextPrimary,
-        TextSize = 10,
+        TextSize = 11,
         Font = FONT_BOLD,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -805,15 +799,7 @@ return function(ctx)
         RichText = true,
         Text = '<font color="#71717A">FPS</font><font size="3"> </font><font color="' .. LIME_HEX .. '">--</font>',
         TextColor3 = Colors.TextSecondary,
-        TextSize = 8,
-        Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-    -- Divider 2
-    Create("Frame", {
-        Parent = BrandCard,
-        Size = UDim2.new(0, 1, 1, -6),
-        Position = UDim2.new(0, 127, 0, 3),
+        TextSize = 11,
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -835,12 +821,7 @@ return function(ctx)
         RichText = true,
         Text = '<font color="#71717A">MS</font><font size="3"> </font>--',
         TextColor3 = Colors.TextSecondary,
-        TextSize = 8,
-        Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-
-    -- Live FPS/MS meter
+        TextSize = 11,
     do
         local frames, acc = 0, 0
         RunService.Heartbeat:Connect(function(dt)
@@ -979,7 +960,7 @@ return function(ctx)
         BackgroundColor3 = Colors.BackgroundLighter,
         Text = "IDLE",
         TextColor3 = Colors.TextMuted,
-        TextSize = 9,
+        TextSize = 11,
         Font = FONT_MONO,
         BorderSizePixel = 0,
         Visible = false,
@@ -1056,11 +1037,11 @@ return function(ctx)
     local function CreateSectionHeader(parent, text, layoutOrder)
         return Create("TextLabel", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 20),  -- sedikit lebih tinggi
+            Size = UDim2.new(1, 0, 0, 20),
             BackgroundTransparency = 1,
             Text = "// " .. text,
             TextColor3 = Colors.TextMuted,
-            TextSize = 10,  -- naik dari 8 → 10 supaya terbaca
+            TextSize = 11,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             LayoutOrder = layoutOrder,
@@ -1152,7 +1133,7 @@ return function(ctx)
                 BackgroundTransparency = 1,
                 Text = name,
                 TextColor3 = Colors.TextPrimary,
-                TextSize = 12,  -- naik dari 10 → 12 supaya terbaca di mobile
+                TextSize = 13,
                 Font = FONT_BODY,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
@@ -1358,7 +1339,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = string.upper(cleanTitle),
             TextColor3 = accentColor or Colors.Accent,
-            TextSize = 9,
+            TextSize = 11,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.X,
@@ -1402,14 +1383,14 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextSecondary,
-            TextSize = 11,
+            TextSize = 12,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
         Create("Frame", {
             Parent = h,
-            Size = UDim2.new(1, -150, 0, 1),
-            Position = UDim2.new(0, 150, 0.5, 0),
+            Size = UDim2.new(1, -160, 0, 1),
+            Position = UDim2.new(0, 160, 0.5, 0),
             BackgroundColor3 = Colors.Border,
             BorderSizePixel = 0,
         })
@@ -1421,7 +1402,7 @@ return function(ctx)
         RegisterPageToggleKey(stateKey)
         local container = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 42),  -- naik dari 36 → 42 untuk touch target yang lebih baik
+            Size = UDim2.new(1, 0, 0, 42),
             BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
         })
@@ -1435,7 +1416,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextPrimary,
-            TextSize = 13,  -- naik dari 11 → 13 untuk hierarki font yang benar di mobile
+            TextSize = 13,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -2031,7 +2012,7 @@ return function(ctx)
                 BackgroundTransparency = 1,
                 Text = string.upper(title),
                 TextColor3 = color or Colors.Accent,
-                TextSize = 10,
+                TextSize = 11,
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
@@ -2092,7 +2073,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "// " .. text,
             TextColor3 = Colors.TextMuted,
-            TextSize = 10,  -- konsisten 10
+            TextSize = 11,  -- muted/secondary
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             LayoutOrder = layoutOrder,
@@ -2221,7 +2202,7 @@ return function(ctx)
                 BackgroundTransparency = 1,
                 Text = labelText,
                 TextColor3 = Colors.TextMuted,
-                TextSize = 10,  -- naik dari 9 → 10
+                TextSize = 11,  -- muted/secondary
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
