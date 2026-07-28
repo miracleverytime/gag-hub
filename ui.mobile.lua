@@ -1074,6 +1074,7 @@ return function(ctx)
     local SIDE_TWEEN      = 0.18
 
     local sb = {}
+    local sidebarStateRefs = {}  -- {name = {applyIdle, applyHover, applyActive}} untuk SetActivePage
     local sidebarOrder = 0
 
     for _, group in ipairs(NAV_GROUPS) do
@@ -1198,7 +1199,8 @@ return function(ctx)
                 SetActivePage(name)
             end)
 
-            sb[name] = {applyIdle = applyIdle, applyHover = applyHover, applyActive = applyActive, ref = ref}
+            sb[name] = btn  -- raw button untuk bootstrap compatibility
+            sidebarStateRefs[name] = {applyIdle = applyIdle, applyHover = applyHover, applyActive = applyActive}
         end
     end
 
@@ -1289,7 +1291,7 @@ return function(ctx)
         end
 
         -- Update sidebar highlights
-        for key, sbref in pairs(sb) do
+        for key, sbref in pairs(sidebarStateRefs) do
             if key == pageName then
                 sbref.applyActive(false)
             else
