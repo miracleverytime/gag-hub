@@ -675,7 +675,7 @@ return function(ctx)
 
     -- ====================== TOP BAR (MOBILE) ======================
     local TOPBAR_H = 48
-    local BOTTOMBAR_H = 52
+    local SIDEBAR_W = 170
     local TopBar = Create("Frame", {
         Name = "TopBar",
         Parent = MainFrame,
@@ -902,17 +902,16 @@ return function(ctx)
     -- No hover effects on mobile
 
     -- ====================== CONTENT AREA ======================
-    -- Fills MainFrame minus TopBar (48px) and BottomBar (52px)
+    -- Fills MainFrame minus TopBar (48px) and Sidebar (170px)
     local ContentArea = Create("Frame", {
         Parent = MainFrame,
-        Size = UDim2.new(1, 0, 1, -(TOPBAR_H + BOTTOMBAR_H)),
-        Position = UDim2.new(0, 0, 0, TOPBAR_H),
+        Size = UDim2.new(1, -SIDEBAR_W, 1, -TOPBAR_H),
+        Position = UDim2.new(0, SIDEBAR_W, 0, TOPBAR_H),
         BackgroundColor3 = Colors.Background,
         BorderSizePixel = 0,
         ClipsDescendants = true,
     })
     ctx.ContentArea = ContentArea
-    -- bottom-right corner untuk ContentArea
     CreateCorner(ContentArea, 14)
 
     -- Page header (sama seperti desktop)
@@ -996,138 +995,211 @@ return function(ctx)
     CreateListLayout(ContentScroll, 8)
     ctx.ContentScroll = ContentScroll
 
-    -- ====================== BOTTOM TAB BAR (pengganti Sidebar) ======================
-    local BottomBar = Create("Frame", {
-        Name = "BottomBar",
+    -- ====================== SIDEBAR (kiri, 170px — sama seperti desktop) ======================
+    local Sidebar = Create("Frame", {
         Parent = MainFrame,
-        Size = UDim2.new(1, 0, 0, BOTTOMBAR_H),
-        Position = UDim2.new(0, 0, 1, -BOTTOMBAR_H),
+        Size = UDim2.new(0, SIDEBAR_W, 1, -TOPBAR_H),
+        Position = UDim2.new(0, 0, 0, TOPBAR_H),
         BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
     })
-    -- rounded bottom corners
-    CreateCorner(BottomBar, 14)
-    Create("Frame", { -- patch atas agar rounded hanya di bawah
-        Parent = BottomBar,
+    ctx.Sidebar = Sidebar
+    CreateCorner(Sidebar, 14)
+    Create("Frame", { -- patch atas
+        Parent = Sidebar,
         Size = UDim2.new(1, 0, 0, 14),
-        Position = UDim2.new(0, 0, 0, 0),
         BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
     })
-    Create("Frame", { -- top hairline
-        Parent = BottomBar,
-        Size = UDim2.new(1, 0, 0, 1),
-        Position = UDim2.new(0, 0, 0, 0),
+    Create("Frame", { -- patch kanan
+        Parent = Sidebar,
+        Size = UDim2.new(0, 14, 1, 0),
+        Position = UDim2.new(1, -14, 0, 0),
+        BackgroundColor3 = Colors.BackgroundLight,
+        BorderSizePixel = 0,
+    })
+    Create("Frame", { -- right hairline
+        Parent = Sidebar,
+        Size = UDim2.new(0, 1, 1, 0),
+        Position = UDim2.new(1, -1, 0, 0),
         BackgroundColor3 = Colors.Border,
         BorderSizePixel = 0,
     })
 
-    -- BottomBar di-set sebagai ctx.Sidebar agar bootstrap.lua tidak error
-    ctx.Sidebar = BottomBar
-
-    -- Tabs layout — horizontal, evenly spaced
-    local TabLayout = Create("UIListLayout", {
-        Parent = BottomBar,
-        FillDirection = Enum.FillDirection.Horizontal,
-        HorizontalAlignment = Enum.HorizontalAlignment.Center,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        Padding = UDim.new(0, 0),
-        SortOrder = Enum.SortOrder.LayoutOrder,
+    -- Sidebar scrollable content
+    local SidebarContent = Create("ScrollingFrame", {
+        Parent = Sidebar,
+        Size = UDim2.new(1, -1, 1, -18),
+        Position = UDim2.new(0, 0, 0, 8),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 3,
+        ScrollBarImageColor3 = Colors.Border,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
     })
-
-    -- Tab buttons — auto-size ke lebar yang sama (pakai UISizeConstraint di tiap tab)
-    local tabDefs = {
-        {key = "Farm",     icon = LUCIDE_ICONS.Farm,     order = 1},
-        {key = "Plot",     icon = LUCIDE_ICONS.Plot,     order = 2},
-        {key = "Shop",     icon = LUCIDE_ICONS.Shop,     order = 3},
-        {key = "Sell",     icon = LUCIDE_ICONS.Sell,     order = 4},
-        {key = "Pets",     icon = LUCIDE_ICONS.Pets,     order = 5},
-        {key = "Eggs",     icon = LUCIDE_ICONS.Eggs,     order = 6},
-        {key = "Player",   icon = LUCIDE_ICONS.Player,   order = 7},
-        {key = "Visuals",  icon = LUCIDE_ICONS.Visuals,  order = 8},
-        {key = "Teleport", icon = LUCIDE_ICONS.Teleport, order = 9},
-        {key = "Utility",  icon = LUCIDE_ICONS.Utility,  order = 10},
-        {key = "Mailer",   icon = LUCIDE_ICONS.Mailer,   order = 11},
-        {key = "Server",   icon = LUCIDE_ICONS.Server,   order = 12},
-        {key = "Settings", icon = LUCIDE_ICONS.Settings, order = 13},
-    }
+    CreatePadding(SidebarContent, 8)
+    CreateListLayout(SidebarContent, 2)
 
     local SidebarButtons = {}
     ctx.SidebarButtons = SidebarButtons
     local ActivePage = "Profile"
     ctx.GetActivePage = function() return ActivePage end
 
-    local sb = {}
-    local tabButtons = {} -- semua tab button references
-
-    local ACTIVE_TAB_COLOR = Color3.fromRGB(22, 48, 50)  -- teal surface (active)
-    local TAB_IDLE_ALPHA = 0.4
-
-    for _, def in ipairs(tabDefs) do
-        local btn = Create("ImageButton", {
-            Parent = BottomBar,
-            Size = UDim2.new(0, 44, 0, 44),
+    local function CreateSectionHeader(parent, text, layoutOrder)
+        return Create("TextLabel", {
+            Parent = parent,
+            Size = UDim2.new(1, 0, 0, 26),
             BackgroundTransparency = 1,
-            BackgroundColor3 = ACTIVE_TAB_COLOR,
-            Image = def.icon,
-            ImageColor3 = Colors.TextSecondary,
-            ImageTransparency = TAB_IDLE_ALPHA,
-            ScaleType = Enum.ScaleType.Fit,
-            BorderSizePixel = 0,
-            AutoButtonColor = false,
-            LayoutOrder = def.order,
+            Text = "// " .. text,
+            TextColor3 = Colors.TextMuted,
+            TextSize = 11,
+            Font = FONT_MONO,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            LayoutOrder = layoutOrder,
         })
-        CreateCorner(btn, 10)
-        tabButtons[def.key] = btn
-
-        btn.MouseButton1Click:Connect(function()
-            SetActivePage(def.key)
-        end)
-
-        sb[def.key] = btn
     end
+    UI.CreateSectionHeader = CreateSectionHeader
 
-    -- BottomBar scrollable (kalau terlalu banyak tab, pake ScrollingFrame)
-    -- Tapi dengan 13 tab × 44px = 572px, lebih kecil dari layar minimum 360px.
-    -- Jadi kita wrap dalam ScrollingFrame horizontal.
-    -- Hapus tabButtons langsung dari BottomBar, masukkan ke ScrollingFrame
-    for _, btn in pairs(tabButtons) do
-        btn.Parent = nil
-    end
+    -- Sidebar nav groups (sama seperti desktop)
+    local NAV_GROUPS = {
+        {header = "Game",  items = {"Farm", "Plot", "Shop", "Sell", "Pets", "Eggs"}},
+        {header = "Tools", items = {"Player", "Visuals", "Teleport", "Utility", "Mailer"}},
+        {header = "Other", items = {"Server", "Settings"}},
+    }
 
-    -- Hapus UIListLayout dari BottomBar
-    TabLayout:Destroy()
+    -- Sidebar button interaction (sama dengan desktop)
+    local ACTIVE_BG_COLOR = Color3.fromRGB(22, 48, 50)
+    local HOVER_BG_COLOR  = Color3.fromRGB(26, 40, 42)
+    local SIDE_TWEEN      = 0.18
 
-    -- Buat ScrollingFrame horizontal di BottomBar
-    local TabScroll = Create("ScrollingFrame", {
-        Parent = BottomBar,
-        Size = UDim2.new(1, 0, 1, 0),
-        Position = UDim2.new(0, 0, 0, 0),
-        BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ScrollBarThickness = 0,  -- hide scrollbar, user swipe
-        ScrollingDirection = Enum.ScrollingDirection.X,
-        CanvasSize = UDim2.new(0, #tabDefs * 52, 0, 0),
-        ElasticBehavior = Enum.ElasticBehavior.Always,
-    })
-    Create("UIListLayout", {
-        Parent = TabScroll,
-        FillDirection = Enum.FillDirection.Horizontal,
-        HorizontalAlignment = Enum.HorizontalAlignment.Center,
-        VerticalAlignment = Enum.VerticalAlignment.Center,
-        Padding = UDim.new(0, 4),
-        SortOrder = Enum.SortOrder.LayoutOrder,
-    })
-    Create("UIPadding", {
-        Parent = TabScroll,
-        PaddingLeft = UDim.new(0, 4),
-        PaddingRight = UDim.new(0, 4),
-    })
+    local sb = {}
+    local sidebarOrder = 0
 
-    for _, def in ipairs(tabDefs) do
-        local btn = tabButtons[def.key]
-        btn.Parent = TabScroll
-        btn.LayoutOrder = def.order
+    for _, group in ipairs(NAV_GROUPS) do
+        sidebarOrder += 1
+        CreateSectionHeader(SidebarContent, group.header, sidebarOrder)
+        for _, name in ipairs(group.items) do
+            sidebarOrder += 1
+            local iconAsset = LUCIDE_ICONS[name]
+            local btn = Create("TextButton", {
+                Parent = SidebarContent,
+                Size = UDim2.new(1, 0, 0, 36),
+                BackgroundTransparency = 1,
+                BackgroundColor3 = HOVER_BG_COLOR,
+                Text = "",
+                BorderSizePixel = 0,
+                LayoutOrder = sidebarOrder,
+                AutoButtonColor = false,
+            })
+            CreateCorner(btn, 7)
+
+            local glow = Create("UIStroke", {
+                Parent = btn,
+                Color = Colors.Accent,
+                Thickness = 1,
+                Transparency = 1,
+            })
+            local indicator = Create("Frame", {
+                Parent = btn,
+                Size = UDim2.new(0, 2, 0, 0),
+                Position = UDim2.new(0, 0, 0.5, 0),
+                AnchorPoint = Vector2.new(0, 0.5),
+                BackgroundColor3 = Colors.Accent,
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+            })
+            CreateCorner(indicator, 1)
+
+            local iconLabel
+            if iconAsset then
+                iconLabel = Create("ImageLabel", {
+                    Parent = btn,
+                    Size = UDim2.new(0, 16, 0, 16),
+                    Position = UDim2.new(0, 8, 0.5, -8),
+                    BackgroundTransparency = 1,
+                    Image = iconAsset,
+                    ImageColor3 = Colors.TextSecondary,
+                    ImageTransparency = 0.1,
+                    ScaleType = Enum.ScaleType.Fit,
+                })
+            else
+                iconLabel = Create("TextLabel", {
+                    Parent = btn,
+                    Size = UDim2.new(0, 16, 0, 16),
+                    Position = UDim2.new(0, 8, 0.5, -8),
+                    BackgroundTransparency = 1,
+                    Text = name:sub(1, 1),
+                    TextColor3 = Colors.TextSecondary,
+                    TextSize = 13,
+                    Font = FONT_BOLD,
+                })
+            end
+
+            local textLabel = Create("TextLabel", {
+                Parent = btn,
+                Size = UDim2.new(1, -32, 1, 0),
+                Position = UDim2.new(0, 30, 0, 0),
+                BackgroundTransparency = 1,
+                Text = name,
+                TextColor3 = Colors.TextPrimary,
+                TextSize = 13,
+                Font = FONT_BODY,
+                TextXAlignment = Enum.TextXAlignment.Left,
+            })
+
+            local ref = {
+                button = btn, indicator = indicator, glow = glow,
+                icon = iconLabel, label = textLabel, isImage = (iconAsset ~= nil),
+                hovered = false,
+            }
+            SidebarButtons[name] = ref
+
+            -- State applicators (no hover on mobile)
+            local function applyIdle(animate)
+                local d = animate and SIDE_TWEEN or 0
+                Tween(btn, {BackgroundTransparency = 1}, d)
+                Tween(glow, {Transparency = 1}, d)
+                Tween(indicator, {Size = UDim2.new(0, 2, 0, 0), BackgroundTransparency = 1}, d)
+                Tween(textLabel, {TextColor3 = Colors.TextPrimary}, d)
+                if iconAsset then
+                    Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.1}, d)
+                else
+                    Tween(iconLabel, {TextColor3 = Colors.TextSecondary}, d)
+                end
+            end
+            local function applyHover()
+                btn.BackgroundColor3 = HOVER_BG_COLOR
+                Tween(btn, {BackgroundTransparency = 0.3}, SIDE_TWEEN)
+                Tween(textLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
+                if iconAsset then
+                    Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0.35}, SIDE_TWEEN)
+                else
+                    Tween(iconLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
+                end
+            end
+            local function applyActive(animate)
+                local d = animate and SIDE_TWEEN or 0
+                btn.BackgroundColor3 = ACTIVE_BG_COLOR
+                Tween(btn, {BackgroundTransparency = 0}, d)
+                Tween(glow, {Transparency = 0.55}, d)
+                Tween(indicator, {Size = UDim2.new(0, 3, 0, 22), BackgroundTransparency = 0}, d)
+                Tween(textLabel, {TextColor3 = Colors.Accent}, d)
+                textLabel.Font = FONT_BOLD
+                if iconAsset then
+                    Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0}, d)
+                else
+                    Tween(iconLabel, {TextColor3 = Colors.Accent}, d)
+                end
+            end
+
+            -- Click to switch page
+            btn.MouseButton1Click:Connect(function()
+                SetActivePage(name)
+            end)
+
+            sb[name] = {applyIdle = applyIdle, applyHover = applyHover, applyActive = applyActive, ref = ref}
+        end
     end
 
     ctx.sidebarButtonRefs = sb
@@ -1168,7 +1240,6 @@ return function(ctx)
     local function SaveState(key, value) end
     ctx.SaveState = SaveState
 
-    local ColLeft, ColRight = nil, nil
     local _sectionCount = 0
     local _pageToggleKeys = {}
 
@@ -1191,43 +1262,13 @@ return function(ctx)
         end
     end
 
-    local function BuildColumns()
-        local wrap = Create("Frame", {
-            Parent = ContentScroll,
-            Name = "PageColumns",
-            Size = UDim2.new(1, 0, 0, 0),
-            BackgroundTransparency = 1,
-            AutomaticSize = Enum.AutomaticSize.Y,
-        })
-        ColLeft = Create("Frame", {
-            Parent = wrap,
-            Name = "ColLeft",
-            Size = UDim2.new(0.5, -6, 0, 0),
-            BackgroundTransparency = 1,
-            AutomaticSize = Enum.AutomaticSize.Y,
-        })
-        CreateListLayout(ColLeft, 8)
-        ColRight = Create("Frame", {
-            Parent = wrap,
-            Name = "ColRight",
-            Size = UDim2.new(0.5, -6, 0, 0),
-            Position = UDim2.new(0.5, 6, 0, 0),
-            BackgroundTransparency = 1,
-            AutomaticSize = Enum.AutomaticSize.Y,
-        })
-        CreateListLayout(ColRight, 8)
-        return wrap
-    end
-
     local function ClearContent()
         for _, child in ipairs(ContentScroll:GetChildren()) do
             if child:IsA("GuiObject") and child.Name ~= "UIPadding" and child.Name ~= "UIListLayout" then
                 child:Destroy()
             end
         end
-        _sectionCount = 0
         _pageToggleKeys = {}
-        BuildColumns()
     end
     ctx.ClearContent = ClearContent
 
@@ -1235,7 +1276,7 @@ return function(ctx)
         ActivePage = pageName
         PageTitle.Text = pageName
 
-        -- Update tab button visuals
+        -- Update page header icon
         local activeIcon = LUCIDE_ICONS[pageName]
         if activeIcon then
             PageHeaderIcon.Image = activeIcon
@@ -1247,13 +1288,12 @@ return function(ctx)
             PageHeaderIcon.ImageTransparency = 0.15
         end
 
-        -- Update tab bar highlights
-        for key, btn in pairs(tabButtons) do
+        -- Update sidebar highlights
+        for key, sbref in pairs(sb) do
             if key == pageName then
-                btn.BackgroundColor3 = ACTIVE_TAB_COLOR
-                Tween(btn, {BackgroundTransparency = 0, ImageTransparency = 0, ImageColor3 = Colors.Accent}, 0.15)
+                sbref.applyActive(false)
             else
-                Tween(btn, {BackgroundTransparency = 1, ImageTransparency = TAB_IDLE_ALPHA, ImageColor3 = Colors.TextSecondary}, 0.15)
+                sbref.applyIdle(false)
             end
         end
 
@@ -1269,18 +1309,6 @@ return function(ctx)
             RefreshPageChip()
         end
 
-        -- Single-column fallback
-        if ColLeft and ColRight then
-            local rightHasChildren = false
-            for _, ch in ipairs(ColRight:GetChildren()) do
-                if ch:IsA("GuiObject") then rightHasChildren = true break end
-            end
-            if not rightHasChildren then
-                ColLeft.Size = UDim2.new(1, 0, 0, 0)
-                ColRight.Visible = false
-            end
-        end
-
         ContentScroll.CanvasPosition = Vector2.new(0, 0)
     end
     ctx.SetActivePage = SetActivePage
@@ -1294,12 +1322,10 @@ return function(ctx)
     -- Identik dengan desktop. Semua builder menggunakan MouseButton1Click
     -- yang juga di-fire oleh touch di Roblox.
 
+    -- Single column — semua section card langsung ke ContentScroll, user scroll aja
     local function CreateSectionCard(title, layoutOrder, accentColor)
-        _sectionCount = _sectionCount + 1
-        local col = (_sectionCount % 2 == 1) and ColLeft or ColRight
-
         local block = Create("Frame", {
-            Parent = col,
+            Parent = ContentScroll,
             Size = UDim2.new(1, 0, 0, 0),
             BackgroundTransparency = 1,
             LayoutOrder = _sectionCount,
@@ -2075,7 +2101,7 @@ return function(ctx)
     -- Simplified for mobile — same data, more compact
     local sessionStart = os.clock()
     registerPage("Profile", function()
-        local col = ColLeft
+        local col = ContentScroll
 
         local isPrime = player:GetAttribute("PrimeEnabled") and true or false
 
