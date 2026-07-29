@@ -687,6 +687,7 @@ return function(ctx)
         Size = UDim2.new(1, 0, 0, TOPBAR_H),
         BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
+        Active = true,
     })
     ctx.TopBar = TopBar
     CreateCorner(TopBar, 14)
