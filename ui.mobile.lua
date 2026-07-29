@@ -2202,7 +2202,6 @@ return function(ctx)
     registerPage("Profile", function()
         local col = ContentScroll
 
-        local isPrime = player:GetAttribute("PrimeEnabled") and true or false
         local isFounder = (player.UserId == 9039505358)
 
         -- Identity card — mirror desktop: avatar + name row (badge) + username
@@ -2256,50 +2255,20 @@ return function(ctx)
             LayoutOrder = 1,
         })
 
-        -- Plan badge: FOUNDER / PRIME / FREE (referensi desktop ui.lua)
-        if isFounder then
-            local badge = Create("TextLabel", {
-                Parent = nameRow,
-                Size = UDim2.new(0, 72, 0, 16),
-                BackgroundColor3 = Color3.fromRGB(28, 20, 5),
-                Text = "\226\152\133 FOUNDER",
-                TextColor3 = Colors.Gold,
-                TextSize = 9,
-                Font = FONT_BOLD,
-                BorderSizePixel = 0,
-                LayoutOrder = 2,
-            })
-            CreateCorner(badge, 4)
-            CreateStroke(badge, Colors.Gold, 1)
-        elseif isPrime then
-            local badge = Create("TextLabel", {
-                Parent = nameRow,
-                Size = UDim2.new(0, 58, 0, 16),
-                BackgroundColor3 = Color3.fromRGB(10, 35, 38),
-                Text = "\226\152\134 PRIME",
-                TextColor3 = Colors.Accent,
-                TextSize = 9,
-                Font = FONT_BOLD,
-                BorderSizePixel = 0,
-                LayoutOrder = 2,
-            })
-            CreateCorner(badge, 4)
-            CreateStroke(badge, Colors.BorderLight, 1)
-        else
-            local badge = Create("TextLabel", {
-                Parent = nameRow,
-                Size = UDim2.new(0, 48, 0, 16),
-                BackgroundColor3 = Colors.Background,
-                Text = "\226\152\134 FREE",
-                TextColor3 = Colors.TextMuted,
-                TextSize = 9,
-                Font = FONT_BOLD,
-                BorderSizePixel = 0,
-                LayoutOrder = 2,
-            })
-            CreateCorner(badge, 4)
-            CreateStroke(badge, Colors.Border, 1)
-        end
+        -- Plan badge: FOUNDER (emas) / default (plain gray FREE)
+        local badge = Create("TextLabel", {
+            Parent = nameRow,
+            Size = UDim2.new(0, isFounder and 72 or 48, 0, 16),
+            BackgroundColor3 = isFounder and Color3.fromRGB(28, 20, 5) or Colors.Surface,
+            Text = isFounder and "\226\152\133 FOUNDER" or "\226\152\134 FREE",
+            TextColor3 = isFounder and Colors.Gold or Colors.TextMuted,
+            TextSize = 9,
+            Font = FONT_BOLD,
+            BorderSizePixel = 0,
+            LayoutOrder = 2,
+        })
+        CreateCorner(badge, 4)
+        CreateStroke(badge, isFounder and Colors.Gold or Colors.Border, 1)
 
         Create("TextLabel", {
             Parent = idCard,
