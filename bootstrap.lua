@@ -548,7 +548,9 @@ return function(ctx)
 
         -- Reveal main window
         MainFrame.Visible = true
-        MainFrame.Size    = UDim2.new(0, 900, 0, 0)
+        -- Keep the mobile/desktop target width during the reveal animation.
+        -- A hardcoded 900px here briefly forced the mobile window to desktop width.
+        MainFrame.Size    = UDim2.new(originalSize.X.Scale, originalSize.X.Offset, 0, 0)
         Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
         task.wait(0.3)
