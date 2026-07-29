@@ -297,59 +297,93 @@ return function(ctx)
             Tween(PillLogoIcon, {ImageTransparency      = alpha}, dur)
         end
 
-        -- DoMinimize / DoRestore (assign ke local outer agar CloseButton/keybinds bisa pakai)
-        DoMinimize = function()
-            minimized = true
-            ctx.isMinimized = true
-            -- Posisi pill persis di posisi BrandCard sebelum minimize:
-            -- BrandCard centered di TopBar (42px) → X = mf.X + (mf.W - 200)/2, Y = mf.Y + 8
-            -- MinimizedPill punya padding 10px, jadi offset -10
-            local mfPos = MainFrame.AbsolutePosition
+        -- lastPillPosition: diingat saat drag / restore (pola desktop)
+        -- Restore selalu ke tengah; minimize berikutnya kembali ke posisi pill terakhir.
+        local lastPillPosition = nil
+
+        local function DefaultPillPosition()
+            -- BrandCard centered di TopBar MainFrame (42px) → Y = mf.Y + 8
+            -- MinimizedPill padding 10px → offset -10
+            local mfPos  = MainFrame.AbsolutePosition
             local mfSize = MainFrame.AbsoluteSize
-            MinimizedPill.Position = UDim2.fromOffset(
+            return UDim2.fromOffset(
                 math.floor(mfPos.X + (mfSize.X - PILL_W) / 2 - 10),
                 math.floor(mfPos.Y + 8 - 10)
             )
-            -- Fade in pill
+        end
+
+        local function CenterMainFramePosition()
+            local vp = ScreenGui.AbsoluteSize
+            local mfW = vp.X * originalSize.X.Scale + originalSize.X.Offset
+            local mfH = vp.Y * originalSize.Y.Scale + originalSize.Y.Offset
+            local x = math.floor((vp.X - mfW) / 2 + 0.5)
+            local y = math.floor((vp.Y - mfH) / 2 + 0.5)
+            return UDim2.fromOffset(x, y)
+        end
+
+        -- DoMinimize / DoRestore (assign ke local outer agar CloseButton/keybinds bisa pakai)
+        -- Perilaku mirror desktop:
+        --   minimize → pill di lastPillPosition (atau default BrandCard)
+        --   restore  → MainFrame selalu ke tengah; lastPillPosition disimpan
+        DoMinimize = function()
+            if minimized then return end
+            minimized = true
+            ctx.isMinimized = true
+
+            local targetPillPos = lastPillPosition or DefaultPillPosition()
+            local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2
+            local pillAbsY = targetPillPos.Y.Offset + 10 + PILL_H / 2
+            local shrinkPos = UDim2.fromOffset(
+                math.floor(pillAbsX - PILL_W / 2),
+                math.floor(pillAbsY - PILL_H / 2)
+            )
+
             SetPillTransparency(1)
+            MinimizedPill.Position = targetPillPos
             MinimizedPill.Visible = true
             TweenPillTransparency(0, 0.25)
-            -- Shrink MainFrame ke ukuran pill + pindah ke posisi pill
-            local shrinkPos = UDim2.fromOffset(
-                math.floor(mfPos.X + (mfSize.X - PILL_W) / 2),
-                math.floor(mfPos.Y + 8)
-            )
-            Tween(MainFrame, {Size = UDim2.new(0, PILL_W, 0, PILL_H), Position = shrinkPos}, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+            Tween(MainFrame, {
+                Size     = UDim2.new(0, PILL_W, 0, PILL_H),
+                Position = shrinkPos,
+            }, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
             task.wait(0.3)
             MainFrame.Visible = false
         end
 
         DoRestore = function()
             if not minimized then return end
-            -- Posisi MainFrame sesuai posisi pill yang terakhir (bukan default center)
-            -- PillInner berada di (pillX + 10, pillY + 10) — sama dengan BrandCard sebelum minimize
-            -- BrandCard.X = MainFrame.X + (mfW - PILL_W) / 2  →  MainFrame.X = pillX + 10 - (mfW - PILL_W) / 2
-            -- BrandCard.Y = MainFrame.Y + 8                   →  MainFrame.Y = pillY + 10 - 8 = pillY + 2
-            local pillPos = MinimizedPill.Position
-            local vp = ScreenGui.AbsoluteSize
-            local mfW = vp.X * originalSize.X.Scale + originalSize.X.Offset
-            local pillX = pillPos.X.Scale * vp.X + pillPos.X.Offset
-            local pillY = pillPos.Y.Scale * vp.Y + pillPos.Y.Offset
-            local targetX = math.floor(pillX + 10 - (mfW - PILL_W) / 2)
-            local targetY = math.floor(pillY + 2)
-            -- Show MainFrame di posisi pill dengan ukuran pill
-            MainFrame.Size = UDim2.new(0, PILL_W, 0, PILL_H)
-            MainFrame.Position = UDim2.fromOffset(pillX + 10, pillY + 10)
+            minimized = false
+
+            -- Simpan posisi pill terakhir agar minimize berikutnya kembali ke sini
+            lastPillPosition = MinimizedPill.Position
+            local pillAbsX = lastPillPosition.X.Offset + 10 + PILL_W / 2
+            local pillAbsY = lastPillPosition.Y.Offset + 10 + PILL_H / 2
+
+            -- Mulai expand dari posisi pill
+            MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
+            MainFrame.Position = UDim2.fromOffset(
+                math.floor(pillAbsX - PILL_W / 2),
+                math.floor(pillAbsY - PILL_H / 2)
+            )
             MainFrame.Visible = true
-            -- Expand MainFrame ke ukuran asli & posisi akhir
-            Tween(MainFrame, {Size = originalSize, Position = UDim2.fromOffset(targetX, targetY)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
-            -- Fade out pill
+
+            -- Expand ke tengah layar (default), bukan ke posisi pill
+            local centerPos = CenterMainFramePosition()
+            Tween(MainFrame, {
+                Size     = originalSize,
+                Position = centerPos,
+            }, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
             TweenPillTransparency(1, 0.2)
             task.wait(0.2)
             MinimizedPill.Visible = false
             task.wait(0.1)
-            minimized = false
+
+            -- Izinkan snap center (reset flag drag window)
+            if ctx._setUserHasDragged then ctx._setUserHasDragged(false) end
             ctx.isMinimized = false
+            if ctx.SnapMainFramePosition then ctx.SnapMainFramePosition() end
         end
 
         MinimizeButton.MouseButton1Click:Connect(DoMinimize)
@@ -365,7 +399,7 @@ return function(ctx)
             Active = true,
         })
 
-        -- Drag logic (touch + mouse)
+        -- Drag logic (touch + mouse) — simpan lastPillPosition saat digeser
         local pillDragging, pillDragStart, pillStartPos, pillHasMoved = false, nil, nil, false
         pillClick.InputBegan:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.Touch
@@ -377,8 +411,9 @@ return function(ctx)
                 input.Changed:Connect(function()
                     if input.UserInputState == Enum.UserInputState.End then
                         pillDragging = false
-                        -- Jika tidak ada perpindahan, anggap tap-to-restore
-                        if not pillHasMoved and minimized then
+                        if pillHasMoved then
+                            lastPillPosition = MinimizedPill.Position
+                        elseif minimized then
                             DoRestore()
                         end
                     end
@@ -396,6 +431,7 @@ return function(ctx)
                         pillStartPos.Y.Scale, pillStartPos.Y.Offset + delta.Y
                     )
                     MinimizedPill.Position = np
+                    lastPillPosition = np
                 end
             end
         end)
