@@ -110,59 +110,228 @@ return function(ctx)
     ctx.isMinimized = false
 
     if ctx.isMobile then
-        -- ====================== MOBILE MINIMIZE ======================
-        -- Floating button 60×60 di pojok kanan bawah — pakai logo Miracle Hub
-        local MobileMinBtn = Create("ImageButton", {
-            Name = "MobileMinimizeBtn",
+        -- ====================== MOBILE MINIMIZE (BrandCard Pill) ======================
+        -- Saat minimize, MainFrame disembunyikan & diganti dengan pill berisi
+        -- BrandCard only (MIRACLEHUB | FPS | MS) — mirip desktop MinimizedPill
+        -- tapi ukuran mobile & touch-optimized.
+        -- Referensi: bootstrap.lua desktop pill (PILL_W=304, PILL_H=30) &
+        -- ui.mobile.lua BrandCard (200×26, TextSize 10).
+
+        local PILL_W = 200
+        local PILL_H = 26
+        local LIME_HEX_LOCAL = "#4DD6C9"
+
+        -- Container transparan dengan padding 10px semua sisi untuk hit area drag
+        local MinimizedPill = Create("Frame", {
+            Name = "MinimizedPill",
             Parent = ScreenGui,
-            Size = UDim2.new(0, 60, 0, 60),
-            Position = UDim2.new(1, -72, 1, -72),
-            BackgroundColor3 = Colors.BackgroundLighter,
+            Size = UDim2.new(0, PILL_W + 20, 0, PILL_H + 20),
+            Position = UDim2.new(1, -80, 1, -80),
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Visible = false,
-            ZIndex = 100,
-        })
-        CreateCorner(MobileMinBtn, 14)
-        CreateStroke(MobileMinBtn, Colors.BorderLight, 1)
-        -- Logo M
-        Create("ImageLabel", {
-            Parent = MobileMinBtn,
-            Size = UDim2.new(0, 34, 0, 34),
-            Position = UDim2.new(0.5, -17, 0.5, -17),
-            BackgroundTransparency = 1,
-            Image = "rbxassetid://74186782815011",
-            ImageColor3 = Colors.Accent,
-            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 50,
         })
 
-        MobileMinBtn.MouseButton1Click:Connect(function()
-            if minimized then
-                -- Restore
-                minimized = false
-                ctx.isMinimized = false
-                MobileMinBtn.Visible = false
-                MainFrame.Visible = true
-                ctx.SnapMainFramePosition()
+        -- Visual pill — ukuran & warna identik BrandCard di ui.mobile.lua
+        local PillInner = Create("Frame", {
+            Name = "PillInner",
+            Parent = MinimizedPill,
+            Size = UDim2.new(0, PILL_W, 0, PILL_H),
+            Position = UDim2.new(0, 10, 0, 10),
+            BackgroundColor3 = Colors.BackgroundLighter,
+            BorderSizePixel = 0,
+            ZIndex = 51,
+        })
+        CreateCorner(PillInner, 6)
+        local PillStroke = CreateStroke(PillInner, Colors.Border, 1)
+
+        -- Logo (identik ui.mobile.lua: 14×14, x=5)
+        Create("ImageLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 14, 0, 14),
+            Position = UDim2.new(0, 5, 0.5, -7),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://74186782815011",
+            ImageTransparency = 0,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 52,
+        })
+
+        -- BrandSeg (identik ui.mobile.lua: 62px, x=22, TextSize 10)
+        local PillBrand = Create("TextLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 62, 1, 0),
+            Position = UDim2.new(0, 22, 0, 0),
+            BackgroundTransparency = 1,
+            RichText = true,
+            Text = 'MIRACLE<font color="' .. LIME_HEX_LOCAL .. '">HUB</font>',
+            TextColor3 = Colors.TextPrimary,
+            TextTransparency = 0,
+            TextSize = 10,
+            Font = Enum.Font.GothamBold,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 52,
+        })
+
+        -- Divider 1 (identik ui.mobile.lua: x=87)
+        Create("Frame", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 1, 1, -6),
+            Position = UDim2.new(0, 87, 0, 3),
+            BackgroundColor3 = Color3.fromRGB(58, 68, 80),
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            ZIndex = 52,
+        })
+
+        -- FPS icon (identik ui.mobile.lua: 11×11, x=95)
+        Create("ImageLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 11, 0, 11),
+            Position = UDim2.new(0, 95, 0.5, -5),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://104426509560089",
+            ImageColor3 = Colors.Accent,
+            ImageTransparency = 0,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 52,
+        })
+
+        -- FpsSeg (identik ui.mobile.lua: 30px, x=107, TextSize 10)
+        local PillFps = Create("TextLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 30, 1, 0),
+            Position = UDim2.new(0, 107, 0, 0),
+            BackgroundTransparency = 1,
+            RichText = true,
+            Text = '<font color="#71717A">FPS</font><font size="3"> </font><font color="' .. LIME_HEX_LOCAL .. '">--</font>',
+            TextColor3 = Colors.TextSecondary,
+            TextTransparency = 0,
+            TextSize = 10,
+            Font = Enum.Font.Code,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 52,
+        })
+
+        -- Divider 2 (identik ui.mobile.lua: x=139)
+        Create("Frame", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 1, 1, -6),
+            Position = UDim2.new(0, 139, 0, 3),
+            BackgroundColor3 = Color3.fromRGB(58, 68, 80),
+            BackgroundTransparency = 0,
+            BorderSizePixel = 0,
+            ZIndex = 52,
+        })
+
+        -- MS icon (identik ui.mobile.lua: 11×11, x=147)
+        Create("ImageLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 11, 0, 11),
+            Position = UDim2.new(0, 147, 0.5, -5),
+            BackgroundTransparency = 1,
+            Image = "rbxassetid://84466565972313",
+            ImageColor3 = Colors.Accent,
+            ImageTransparency = 0,
+            ScaleType = Enum.ScaleType.Fit,
+            ZIndex = 52,
+        })
+
+        -- MsSeg (identik ui.mobile.lua: 32px, x=161, TextSize 10)
+        local PillMs = Create("TextLabel", {
+            Parent = PillInner,
+            Size = UDim2.new(0, 32, 1, 0),
+            Position = UDim2.new(0, 161, 0, 0),
+            BackgroundTransparency = 1,
+            RichText = true,
+            Text = '<font color="#71717A">MS</font><font size="3"> </font>--',
+            TextColor3 = Colors.TextSecondary,
+            TextTransparency = 0,
+            TextSize = 10,
+            Font = Enum.Font.Code,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            ZIndex = 52,
+        })
+
+        -- Sync FPS/MS live dari ctx (update tiap 0.5s saat pill visible)
+        task.spawn(function()
+            while MinimizedPill.Parent do
+                if MinimizedPill.Visible then
+                    local fps = ctx.CurrentFPS or 0
+                    local ping = 0
+                    pcall(function() ping = ctx.player:GetNetworkPing() * 1000 end)
+                    PillFps.Text = '<font color="#71717A">FPS</font><font size="4"> </font><font color="' .. LIME_HEX_LOCAL .. '">' .. fps .. '</font>'
+                    PillMs.Text  = '<font color="#71717A">MS</font><font size="4"> </font>' .. string.format("%.1f", ping)
+                end
+                task.wait(0.5)
             end
         end)
 
+        -- DoMinimize / DoRestore (didefinisikan sebelum pillClick agar closure tidak forward-reference)
         local function DoMinimize()
             minimized = true
             ctx.isMinimized = true
             MainFrame.Visible = false
-            MobileMinBtn.Visible = true
+            MinimizedPill.Visible = true
         end
 
         local function DoRestore()
             if not minimized then return end
             minimized = false
             ctx.isMinimized = false
-            MobileMinBtn.Visible = false
+            MinimizedPill.Visible = false
             MainFrame.Visible = true
             ctx.SnapMainFramePosition()
         end
 
         MinimizeButton.MouseButton1Click:Connect(DoMinimize)
+
+        -- Tap-to-restore + touch drag
+        local pillClick = Create("TextButton", {
+            Parent = MinimizedPill,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Text = "",
+            ZIndex = 60,
+            AutoButtonColor = false,
+            Active = true,
+        })
+
+        -- Drag logic (touch + mouse)
+        local pillDragging, pillDragStart, pillStartPos, pillHasMoved = false, nil, nil, false
+        pillClick.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch
+                or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                pillDragging = true
+                pillHasMoved = false
+                pillDragStart = input.Position
+                pillStartPos = MinimizedPill.Position
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        pillDragging = false
+                        -- Jika tidak ada perpindahan, anggap tap-to-restore
+                        if not pillHasMoved and minimized then
+                            DoRestore()
+                        end
+                    end
+                end)
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if pillDragging and (input.UserInputType == Enum.UserInputType.Touch
+                or input.UserInputType == Enum.UserInputType.MouseMovement) then
+                local delta = input.Position - pillDragStart
+                if delta.Magnitude > 5 then pillHasMoved = true end
+                if pillHasMoved then
+                    local np = UDim2.new(
+                        pillStartPos.X.Scale, pillStartPos.X.Offset + delta.X,
+                        pillStartPos.Y.Scale, pillStartPos.Y.Offset + delta.Y
+                    )
+                    MinimizedPill.Position = np
+                end
+            end
+        end)
     else
         -- ====================== DESKTOP MINIMIZE PILL BAR ======================
         -- Pill bar: clone visual dari BrandCard di TopBar (300×30, BackgroundLighter,
