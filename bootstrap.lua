@@ -403,12 +403,23 @@ return function(ctx)
 
     -- ====================== WINDOW DRAG ======================
     local dragging, dragStart, startPos = false, nil, nil
-    TopBar.InputBegan:Connect(function(input)
+    -- Listen globally because touch input on mobile can be consumed by a
+    -- child of TopBar (BrandCard, status label, or the topbar patches).
+    UserInputService.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1
             or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainFrame.Position
+            local p = input.Position
+            local topbarPos = TopBar.AbsolutePosition
+            local topbarSize = TopBar.AbsoluteSize
+            local insideTopBar = p.X >= topbarPos.X
+                and p.X <= topbarPos.X + topbarSize.X
+                and p.Y >= topbarPos.Y
+                and p.Y <= topbarPos.Y + topbarSize.Y
+            if insideTopBar then
+                dragging = true
+                dragStart = p
+                startPos = MainFrame.Position
+            end
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
