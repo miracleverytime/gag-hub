@@ -17,9 +17,9 @@ local ctx   = {}
 -- Harus SEBELUM MODULES karena IS_MOBILE dipakai di tabel MODULES.
 local function isMobilePlatform()
     local UIS = game:GetService("UserInputService")
-    -- KeyboardEnabled true pada desktop/PC; false pada mobile pure
-    -- TouchEnabled bisa true di PC yang punya touchscreen, makanya cek keyboard dulu
-    return not UIS.KeyboardEnabled and UIS.TouchEnabled
+    -- Some mobile devices/executors report the virtual keyboard as enabled.
+    -- Touch + no mouse is a more reliable mobile signal than KeyboardEnabled.
+    return UIS.TouchEnabled and not UIS.MouseEnabled
 end
 
 local IS_MOBILE = isMobilePlatform()
