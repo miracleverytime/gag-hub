@@ -147,7 +147,7 @@ return function(ctx)
         local PillStroke = CreateStroke(PillInner, Colors.Border, 1)
 
         -- Logo (identik ui.mobile.lua: 14×14, x=5)
-        Create("ImageLabel", {
+        local PillLogoIcon = Create("ImageLabel", {
             Parent = PillInner,
             Size = UDim2.new(0, 14, 0, 14),
             Position = UDim2.new(0, 5, 0.5, -7),
@@ -175,7 +175,7 @@ return function(ctx)
         })
 
         -- Divider 1 (identik ui.mobile.lua: x=87)
-        Create("Frame", {
+        local PillDiv1 = Create("Frame", {
             Parent = PillInner,
             Size = UDim2.new(0, 1, 1, -6),
             Position = UDim2.new(0, 87, 0, 3),
@@ -186,7 +186,7 @@ return function(ctx)
         })
 
         -- FPS icon (identik ui.mobile.lua: 11×11, x=95)
-        Create("ImageLabel", {
+        local PillFpsIcon = Create("ImageLabel", {
             Parent = PillInner,
             Size = UDim2.new(0, 11, 0, 11),
             Position = UDim2.new(0, 95, 0.5, -5),
@@ -215,7 +215,7 @@ return function(ctx)
         })
 
         -- Divider 2 (identik ui.mobile.lua: x=139)
-        Create("Frame", {
+        local PillDiv2 = Create("Frame", {
             Parent = PillInner,
             Size = UDim2.new(0, 1, 1, -6),
             Position = UDim2.new(0, 139, 0, 3),
@@ -226,7 +226,7 @@ return function(ctx)
         })
 
         -- MS icon (identik ui.mobile.lua: 11×11, x=147)
-        Create("ImageLabel", {
+        local PillMsIcon = Create("ImageLabel", {
             Parent = PillInner,
             Size = UDim2.new(0, 11, 0, 11),
             Position = UDim2.new(0, 147, 0.5, -5),
@@ -268,6 +268,33 @@ return function(ctx)
             end
         end)
 
+        -- Fade functions (identik desktop TweenPillTransparency)
+        local function SetPillTransparency(alpha)
+            PillInner.BackgroundTransparency  = alpha
+            PillStroke.Transparency           = alpha
+            PillBrand.TextTransparency        = alpha
+            PillFps.TextTransparency          = alpha
+            PillMs.TextTransparency           = alpha
+            PillDiv1.BackgroundTransparency   = alpha
+            PillDiv2.BackgroundTransparency   = alpha
+            PillFpsIcon.ImageTransparency     = alpha
+            PillMsIcon.ImageTransparency      = alpha
+            PillLogoIcon.ImageTransparency    = alpha
+        end
+        local function TweenPillTransparency(alpha, dur)
+            dur = dur or 0.25
+            Tween(PillInner,    {BackgroundTransparency = alpha}, dur)
+            Tween(PillStroke,   {Transparency           = alpha}, dur)
+            Tween(PillBrand,    {TextTransparency       = alpha}, dur)
+            Tween(PillFps,      {TextTransparency       = alpha}, dur)
+            Tween(PillMs,       {TextTransparency       = alpha}, dur)
+            Tween(PillDiv1,     {BackgroundTransparency = alpha}, dur)
+            Tween(PillDiv2,     {BackgroundTransparency = alpha}, dur)
+            Tween(PillFpsIcon,  {ImageTransparency      = alpha}, dur)
+            Tween(PillMsIcon,   {ImageTransparency      = alpha}, dur)
+            Tween(PillLogoIcon, {ImageTransparency      = alpha}, dur)
+        end
+
         -- DoMinimize / DoRestore (didefinisikan sebelum pillClick agar closure tidak forward-reference)
         local function DoMinimize()
             minimized = true
@@ -281,12 +308,18 @@ return function(ctx)
                 math.floor(mfPos.X + (mfSize.X - PILL_W) / 2 - 10),
                 math.floor(mfPos.Y + 8 - 10)
             )
-            MainFrame.Visible = false
+            -- Fade in pill
+            SetPillTransparency(1)
             MinimizedPill.Visible = true
+            TweenPillTransparency(0, 0.25)
+            MainFrame.Visible = false
         end
 
         local function DoRestore()
             if not minimized then return end
+            -- Fade out pill
+            TweenPillTransparency(1, 0.2)
+            task.wait(0.2)
             minimized = false
             ctx.isMinimized = false
             MinimizedPill.Visible = false
