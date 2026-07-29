@@ -10,6 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
+    local BUILD_TAG         = "MOBILE-DRAG-V2"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -613,6 +614,7 @@ return function(ctx)
         DisplayOrder = 100,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     })
+    ScreenGui:SetAttribute("BuildTag", BUILD_TAG)
     ctx.ScreenGui = ScreenGui
 
     -- Loading Screen (Neo — identik desktop)
@@ -972,7 +974,7 @@ return function(ctx)
         Size = UDim2.new(1, -120, 1, 0),
         Position = UDim2.new(0, 30, 0, 0),
         BackgroundTransparency = 1,
-        Text = "PROFILE  •  M58",
+        Text = "PROFILE  •  " .. BUILD_TAG,
         TextColor3 = Colors.TextPrimary,
         TextSize = 11,
         Font = FONT_MONO,
@@ -1323,7 +1325,7 @@ return function(ctx)
             Tween(ProfileAvatarStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
         end
 
-        PageHeaderTitle.Text = string.upper(pageName) .. "  •  M58"
+        PageHeaderTitle.Text = string.upper(pageName) .. "  •  " .. BUILD_TAG
 
         ClearContent()
         if Pages[pageName] then Pages[pageName]() end
