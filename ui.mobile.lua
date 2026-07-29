@@ -972,7 +972,7 @@ return function(ctx)
         Size = UDim2.new(1, -120, 1, 0),
         Position = UDim2.new(0, 30, 0, 0),
         BackgroundTransparency = 1,
-        Text = "PROFILE",
+        Text = "PROFILE  •  M58",
         TextColor3 = Colors.TextPrimary,
         TextSize = 11,
         Font = FONT_MONO,
@@ -1323,7 +1323,7 @@ return function(ctx)
             Tween(ProfileAvatarStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
         end
 
-        PageHeaderTitle.Text = string.upper(pageName)
+        PageHeaderTitle.Text = string.upper(pageName) .. "  •  M58"
 
         ClearContent()
         if Pages[pageName] then Pages[pageName]() end
