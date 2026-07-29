@@ -314,18 +314,18 @@ return function(ctx)
             SetPillTransparency(1)
             MinimizedPill.Visible = true
             TweenPillTransparency(0, 0.25)
+            -- Shrink MainFrame ke ukuran pill + pindah ke posisi pill
+            local shrinkPos = UDim2.fromOffset(
+                math.floor(mfPos.X + (mfSize.X - PILL_W) / 2),
+                math.floor(mfPos.Y + 8)
+            )
+            Tween(MainFrame, {Size = UDim2.new(0, PILL_W, 0, PILL_H), Position = shrinkPos}, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+            task.wait(0.3)
             MainFrame.Visible = false
         end
 
         DoRestore = function()
             if not minimized then return end
-            -- Fade out pill
-            TweenPillTransparency(1, 0.2)
-            task.wait(0.2)
-            minimized = false
-            ctx.isMinimized = false
-            MinimizedPill.Visible = false
-            MainFrame.Visible = true
             -- Posisi MainFrame sesuai posisi pill yang terakhir (bukan default center)
             -- PillInner berada di (pillX + 10, pillY + 10) — sama dengan BrandCard sebelum minimize
             -- BrandCard.X = MainFrame.X + (mfW - PILL_W) / 2  →  MainFrame.X = pillX + 10 - (mfW - PILL_W) / 2
@@ -335,10 +335,21 @@ return function(ctx)
             local mfW = vp.X * originalSize.X.Scale + originalSize.X.Offset
             local pillX = pillPos.X.Scale * vp.X + pillPos.X.Offset
             local pillY = pillPos.Y.Scale * vp.Y + pillPos.Y.Offset
-            MainFrame.Position = UDim2.fromOffset(
-                math.floor(pillX + 10 - (mfW - PILL_W) / 2),
-                math.floor(pillY + 2)
-            )
+            local targetX = math.floor(pillX + 10 - (mfW - PILL_W) / 2)
+            local targetY = math.floor(pillY + 2)
+            -- Show MainFrame di posisi pill dengan ukuran pill
+            MainFrame.Size = UDim2.new(0, PILL_W, 0, PILL_H)
+            MainFrame.Position = UDim2.fromOffset(pillX + 10, pillY + 10)
+            MainFrame.Visible = true
+            -- Expand MainFrame ke ukuran asli & posisi akhir
+            Tween(MainFrame, {Size = originalSize, Position = UDim2.fromOffset(targetX, targetY)}, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            -- Fade out pill
+            TweenPillTransparency(1, 0.2)
+            task.wait(0.2)
+            MinimizedPill.Visible = false
+            task.wait(0.1)
+            minimized = false
+            ctx.isMinimized = false
         end
 
         MinimizeButton.MouseButton1Click:Connect(DoMinimize)
