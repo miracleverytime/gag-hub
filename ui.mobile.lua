@@ -1122,8 +1122,8 @@ return function(ctx)
             if iconAsset then
                 iconLabel = Create("ImageLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 18, 0, 18),
-                    Position = UDim2.new(0.5, -9, 0.5, -9),
+                    Size = UDim2.new(0, 28, 0, 28),
+                    Position = UDim2.new(0.5, -14, 0.5, -14),
                     BackgroundTransparency = 1,
                     Image = iconAsset,
                     ImageColor3 = Colors.TextSecondary,
@@ -1133,12 +1133,12 @@ return function(ctx)
             else
                 iconLabel = Create("TextLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 18, 0, 18),
-                    Position = UDim2.new(0.5, -9, 0.5, -9),
+                    Size = UDim2.new(0, 28, 0, 28),
+                    Position = UDim2.new(0.5, -14, 0.5, -14),
                     BackgroundTransparency = 1,
                     Text = name:sub(1, 1),
                     TextColor3 = Colors.TextSecondary,
-                    TextSize = 15,
+                    TextSize = 20,
                     Font = FONT_BOLD,
                 })
             end
@@ -1176,7 +1176,7 @@ return function(ctx)
                 btn.BackgroundColor3 = ACTIVE_BG_COLOR
                 Tween(btn, {BackgroundTransparency = 0}, d)
                 Tween(glow, {Transparency = 0.55}, d)
-                Tween(indicator, {Size = UDim2.new(0, 3, 0, 22), BackgroundTransparency = 0}, d)
+                Tween(indicator, {Size = UDim2.new(0, 3, 0, 30), BackgroundTransparency = 0}, d)
                 if iconAsset then
                     Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0}, d)
                 else
