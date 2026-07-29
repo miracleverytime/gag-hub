@@ -108,6 +108,8 @@ return function(ctx)
     -- Xeno's isolated environment, breaking DoMinimize/DoRestore state tracking.
     local minimized = false
     ctx.isMinimized = false
+    -- Hoisted so CloseButton / keybinds (outside the platform branch) can call them.
+    local DoMinimize, DoRestore
 
     if ctx.isMobile then
         -- ====================== MOBILE MINIMIZE (BrandCard Pill) ======================
@@ -295,8 +297,8 @@ return function(ctx)
             Tween(PillLogoIcon, {ImageTransparency      = alpha}, dur)
         end
 
-        -- DoMinimize / DoRestore (didefinisikan sebelum pillClick agar closure tidak forward-reference)
-        local function DoMinimize()
+        -- DoMinimize / DoRestore (assign ke local outer agar CloseButton/keybinds bisa pakai)
+        DoMinimize = function()
             minimized = true
             ctx.isMinimized = true
             -- Posisi pill persis di posisi BrandCard sebelum minimize:
@@ -315,7 +317,7 @@ return function(ctx)
             MainFrame.Visible = false
         end
 
-        local function DoRestore()
+        DoRestore = function()
             if not minimized then return end
             -- Fade out pill
             TweenPillTransparency(1, 0.2)
@@ -625,6 +627,205 @@ return function(ctx)
             end
         end)
 
+        -- ====================== DESKTOP MINIMIZE / RESTORE ======================
+        -- Efek "sedot": MainFrame shrink ke pill, konten fade out.
+        -- Saat restore, pill expand balik ke full window.
+        local function StartPillBreathing()
+            task.spawn(function()
+                while minimized and MinimizedPill.Parent do
+                    Tween(PillStroke, {Color = Colors.Accent, Transparency = 0, Thickness = 2}, 1.0,
+                        Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                    task.wait(1.1)
+                    if not minimized then break end
+                    Tween(PillStroke, {Transparency = 0.85}, 1.2,
+                        Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+                    task.wait(1.3)
+                    if not minimized then break end
+                    Tween(PillStroke, {Transparency = 0, Thickness = 2}, 0.9,
+                        Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                    task.wait(1.0)
+                end
+                if PillStroke and PillStroke.Parent then
+                    Tween(PillStroke, {Color = Colors.Border, Transparency = 0, Thickness = 1}, 0.3)
+                end
+            end)
+        end
+
+        local function DefaultPillPosition()
+            local vp = ScreenGui.AbsoluteSize
+            local cx = math.floor(vp.X / 2 - PILL_W / 2 - 10 + 0.5)
+            return UDim2.new(0, cx, 0, 10)
+        end
+
+        local transparencySnapshot = {}
+        local function BuildSnapshot()
+            transparencySnapshot = {}
+            local targets = {ContentArea, Sidebar}
+            for _, root in ipairs(targets) do
+                transparencySnapshot[root] = {bg = root.BackgroundTransparency}
+                for _, d in ipairs(root:GetDescendants()) do
+                    if d:IsA("GuiObject") then
+                        local entry = {bg = d.BackgroundTransparency}
+                        if d:IsA("TextLabel") or d:IsA("TextButton") then entry.text = d.TextTransparency end
+                        if d:IsA("ImageLabel") or d:IsA("ImageButton") then entry.img = d.ImageTransparency end
+                        transparencySnapshot[d] = entry
+                    end
+                end
+            end
+            for _, btn in ipairs({MinimizeButton, CloseButton}) do
+                if btn then
+                    local e = {bg = btn.BackgroundTransparency}
+                    if btn:IsA("TextLabel") or btn:IsA("TextButton") then e.text = btn.TextTransparency end
+                    if btn:IsA("ImageLabel") or btn:IsA("ImageButton") then e.img = btn.ImageTransparency end
+                    transparencySnapshot[btn] = e
+                    for _, d in ipairs(btn:GetDescendants()) do
+                        if d:IsA("GuiObject") then
+                            local de = {bg = d.BackgroundTransparency}
+                            if d:IsA("TextLabel") or d:IsA("TextButton") then de.text = d.TextTransparency end
+                            if d:IsA("ImageLabel") or d:IsA("ImageButton") then de.img = d.ImageTransparency end
+                            transparencySnapshot[d] = de
+                        end
+                    end
+                end
+            end
+        end
+
+        local function RestoreFromSnapshot(duration)
+            for obj, snap in pairs(transparencySnapshot) do
+                if obj and obj.Parent then
+                    if duration and duration > 0 then
+                        local props = {BackgroundTransparency = snap.bg}
+                        if snap.text then props.TextTransparency  = snap.text end
+                        if snap.img  then props.ImageTransparency = snap.img  end
+                        Tween(obj, props, duration)
+                    else
+                        obj.BackgroundTransparency = snap.bg
+                        if snap.text then obj.TextTransparency  = snap.text end
+                        if snap.img  then obj.ImageTransparency = snap.img  end
+                    end
+                end
+            end
+        end
+
+        local function FadeOutContent(duration)
+            for obj, _ in pairs(transparencySnapshot) do
+                if obj and obj.Parent then
+                    local props = {BackgroundTransparency = 1}
+                    if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+                        props.TextTransparency = 1
+                    end
+                    if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+                        props.ImageTransparency = 1
+                    end
+                    Tween(obj, props, duration)
+                end
+            end
+        end
+
+        DoMinimize = function()
+            if minimized then return end
+            minimized = true
+            ctx.isMinimized = true
+
+            local targetPillPos = lastPillPosition or DefaultPillPosition()
+            local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2
+            local pillAbsY = targetPillPos.Y.Offset + 10 + PILL_H / 2
+
+            local topBarOriginalPos  = TopBar.Position
+            local topBarOriginalSize = TopBar.Size
+
+            BuildSnapshot()
+
+            local function FadeButton(btn, dur)
+                if not btn then return end
+                Tween(btn, {BackgroundTransparency = 1}, dur)
+                if btn:IsA("TextLabel") or btn:IsA("TextButton") then
+                    Tween(btn, {TextTransparency = 1}, dur)
+                end
+                if btn:IsA("ImageLabel") or btn:IsA("ImageButton") then
+                    Tween(btn, {ImageTransparency = 1}, dur)
+                end
+                for _, d in ipairs(btn:GetDescendants()) do
+                    if d:IsA("GuiObject") then
+                        local props = {BackgroundTransparency = 1}
+                        if d:IsA("TextLabel") or d:IsA("TextButton") then props.TextTransparency = 1 end
+                        if d:IsA("ImageLabel") or d:IsA("ImageButton") then props.ImageTransparency = 1 end
+                        Tween(d, props, dur)
+                    end
+                end
+            end
+            FadeButton(MinimizeButton, 0.06)
+            FadeButton(CloseButton,    0.06)
+            FadeOutContent(0.12)
+
+            task.delay(0.10, function()
+                if not minimized then return end
+                Tween(TopBar, {
+                    Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
+                    Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
+                }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+                Tween(MainFrame, {
+                    Size     = UDim2.new(0, PILL_W, 0, PILL_H),
+                    Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
+                }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            end)
+
+            task.delay(0.47, function()
+                if not minimized then return end
+                MinimizedPill.Position = targetPillPos
+                SetPillTransparency(0)
+                MinimizedPill.Visible = true
+                StartPillBreathing()
+                Sidebar.Visible     = false
+                ContentArea.Visible = false
+                MainFrame.Visible   = false
+                RestoreFromSnapshot(0)
+                TopBar.Size     = topBarOriginalSize
+                TopBar.Position = topBarOriginalPos
+            end)
+        end
+
+        DoRestore = function()
+            if not minimized then return end
+            minimized = false
+
+            lastPillPosition = MinimizedPill.Position
+            local pillAbsX = lastPillPosition.X.Offset + 10 + PILL_W / 2
+            local pillAbsY = lastPillPosition.Y.Offset + 10 + PILL_H / 2
+
+            FadeOutContent(0)
+
+            Sidebar.Visible     = true
+            ContentArea.Visible = true
+            MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
+            MainFrame.Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2)
+            MainFrame.Visible  = true
+            MinimizedPill.Visible = false
+
+            Tween(MainFrame, {
+                Size     = originalSize,
+                Position = UDim2.new(0.5, -450, 0.5, -300),
+            }, 0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+
+            task.delay(0.20, function()
+                if minimized then return end
+                RestoreFromSnapshot(0.18)
+            end)
+
+            task.delay(0.45, function()
+                ctx.isMinimized = false
+                ctx.SnapMainFramePosition()
+            end)
+        end
+
+        MinimizeButton.MouseButton1Click:Connect(function()
+            if minimized then DoRestore() else DoMinimize() end
+        end)
+        PillClick.MouseButton1Click:Connect(function()
+            if minimized and not pillHasMoved then DoRestore() end
+        end)
+    end -- end if ctx.isMobile/else untuk minimize
+
     -- ====================== WINDOW DRAG ======================
     local dragging, dragStart, startPos = false, nil, nil
     local function IsInsideTopBar(p)
@@ -637,6 +838,7 @@ return function(ctx)
     end
 
     local function BeginDrag(p)
+        if minimized then return end
         if IsInsideTopBar(p) then
             dragging = true
             dragStart = p
@@ -698,8 +900,6 @@ return function(ctx)
             end
         end)
     end
-
-    end -- end if ctx.isMobile/else untuk minimize
 
     -- ====================== CONFIRM CLOSE MODAL ======================
     local ConfirmModal = Create("Frame", {
