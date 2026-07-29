@@ -670,18 +670,26 @@ return function(ctx)
 
     -- Pixel snap — center vertikal dengan offset +24px agar tidak tertutup
     -- Roblox topbar (≈36px) namun tetap lebih ke tengah layar.
+    -- Flag: true jika user sudah pernah drag (jangan re-snap setelah itu)
+    local _userHasDragged = false
     local function SnapMainFramePosition()
+        -- FIX: jangan snap kalau user sudah drag manual
         if ctx.isMinimized then return end
+        if _userHasDragged then return end
         local vp = ScreenGui.AbsoluteSize
         if vp.X <= 0 or vp.Y <= 0 then return end
         local x = math.floor((vp.X - MainFrame.AbsoluteSize.X) / 2 + 0.5)
-        -- Geser sedikit ke bawah (offset +20) supaya tidak tertutup topbar Roblox
         local y = math.floor((vp.Y - MainFrame.AbsoluteSize.Y) / 2 + 0.5)
         MainFrame.Position = UDim2.fromOffset(x, y)
     end
-    ScreenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(SnapMainFramePosition)
-    MainFrame:GetPropertyChangedSignal("AbsoluteSize"):Connect(SnapMainFramePosition)
+    -- FIX: hanya listen AbsoluteSize ScreenGui (rotate HP), bukan MainFrame
+    -- supaya tidak melawan drag saat konten berubah ukuran
+    ScreenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+        _userHasDragged = false  -- reset saat orientasi berubah → snap ke tengah lagi
+        SnapMainFramePosition()
+    end)
     task.defer(SnapMainFramePosition)
+    ctx._setUserHasDragged = function(v) _userHasDragged = v end
 
     ctx.MainFrame    = MainFrame
     ctx.originalSize = originalSize
@@ -924,9 +932,53 @@ return function(ctx)
         BorderSizePixel = 0,
         Text = "",
         AutoButtonColor = false,
+        Active = true,  -- FIX: wajib ada supaya touch input diterima
         ZIndex = 10,
     })
     ctx.DragHandle = DragHandle
+
+    -- ====================== DRAG LOGIC (MOBILE) ======================
+    do
+        local dragging     = false
+        local dragStartPos = Vector2.new(0, 0)   -- posisi touch saat mulai
+        local frameStartPos = UDim2.new(0, 0, 0, 0) -- posisi MainFrame saat mulai
+
+        DragHandle.InputBegan:Connect(function(input)
+            if input.UserInputType ~= Enum.UserInputType.Touch
+            and input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+            dragging = true
+            _userHasDragged = true  -- FIX: tandai sudah drag, jangan auto-snap lagi
+            dragStartPos = Vector2.new(input.Position.X, input.Position.Y)
+            frameStartPos = MainFrame.Position
+        end)
+
+        UserInputService.InputChanged:Connect(function(input)
+            if not dragging then return end
+            if input.UserInputType ~= Enum.UserInputType.Touch
+            and input.UserInputType ~= Enum.UserInputType.MouseMovement then return end
+
+            local delta = Vector2.new(input.Position.X, input.Position.Y) - dragStartPos
+            local vp = ScreenGui.AbsoluteSize
+            local fSize = MainFrame.AbsoluteSize
+
+            -- Hitung posisi baru dalam offset pixels
+            local newX = frameStartPos.X.Offset + delta.X
+            local newY = frameStartPos.Y.Offset + delta.Y
+
+            -- Clamp supaya tidak keluar layar
+            newX = math.clamp(newX, 0, math.max(0, vp.X - fSize.X))
+            newY = math.clamp(newY, 0, math.max(0, vp.Y - fSize.Y))
+
+            MainFrame.Position = UDim2.fromOffset(math.floor(newX), math.floor(newY))
+        end)
+
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.Touch
+            or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+            end
+        end)
+    end
 
     -- No hover effects on mobile
 
