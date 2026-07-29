@@ -30,6 +30,7 @@ return function(ctx)
     local ScreenGui      = ctx.ScreenGui
     local MainFrame      = ctx.MainFrame
     local TopBar         = ctx.TopBar
+    local DragHandle     = ctx.DragHandle or TopBar
     local Sidebar        = ctx.Sidebar
     local ContentArea    = ctx.ContentArea
     local SearchBox      = ctx.SearchBox
@@ -428,15 +429,34 @@ return function(ctx)
     end
 
     if ctx.isMobile then
-        -- Explicit touch events are more reliable than InputChanged on mobile.
-        UserInputService.TouchStarted:Connect(function(touch)
-            BeginDrag(touch.Position)
+        -- Use a concrete TextButton target. Some mobile executors do not
+        -- propagate TouchStarted from non-interactive Frames consistently.
+        local dragInput = nil
+        DragHandle.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1
+                or input.UserInputType == Enum.UserInputType.Touch then
+                BeginDrag(input.Position)
+                if input.UserInputType == Enum.UserInputType.Touch then
+                    dragInput = input
+                end
+                input.Changed:Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        dragging = false
+                        dragInput = nil
+                    end
+                end)
+            end
         end)
-        UserInputService.TouchMoved:Connect(function(touch)
-            MoveDrag(touch.Position)
+        DragHandle.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement
+                or input.UserInputType == Enum.UserInputType.Touch then
+                dragInput = input
+            end
         end)
-        UserInputService.TouchEnded:Connect(function()
-            dragging = false
+        UserInputService.InputChanged:Connect(function(input)
+            if dragging and input == dragInput then
+                MoveDrag(input.Position)
+            end
         end)
     else
         UserInputService.InputBegan:Connect(function(input)

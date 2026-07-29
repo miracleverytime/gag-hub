@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "MOBILE-DRAG-V2"
+    local BUILD_TAG         = "MOBILE-DRAG-V3"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -912,6 +912,21 @@ return function(ctx)
         AutoButtonColor = false,
     })
     ctx.CloseButton = CloseButton
+
+    -- Transparent touch target for moving the window. It intentionally leaves
+    -- the right-side minimize and close controls uncovered.
+    local DragHandle = Create("TextButton", {
+        Name = "DragHandle",
+        Parent = TopBar,
+        Size = UDim2.new(1, -62, 1, 0),
+        Position = UDim2.new(0, 0, 0, 0),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Text = "",
+        AutoButtonColor = false,
+        ZIndex = 10,
+    })
+    ctx.DragHandle = DragHandle
 
     -- No hover effects on mobile
 
