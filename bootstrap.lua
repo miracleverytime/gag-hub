@@ -403,38 +403,58 @@ return function(ctx)
 
     -- ====================== WINDOW DRAG ======================
     local dragging, dragStart, startPos = false, nil, nil
-    -- Listen globally because touch input on mobile can be consumed by a
-    -- child of TopBar (BrandCard, status label, or the topbar patches).
-    UserInputService.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            local p = input.Position
-            local topbarPos = TopBar.AbsolutePosition
-            local topbarSize = TopBar.AbsoluteSize
-            local insideTopBar = p.X >= topbarPos.X
-                and p.X <= topbarPos.X + topbarSize.X
-                and p.Y >= topbarPos.Y
-                and p.Y <= topbarPos.Y + topbarSize.Y
-            if insideTopBar then
-                dragging = true
-                dragStart = p
-                startPos = MainFrame.Position
-            end
+    local function IsInsideTopBar(p)
+        local topbarPos = TopBar.AbsolutePosition
+        local topbarSize = TopBar.AbsoluteSize
+        return p.X >= topbarPos.X
+            and p.X <= topbarPos.X + topbarSize.X
+            and p.Y >= topbarPos.Y
+            and p.Y <= topbarPos.Y + topbarSize.Y
+    end
+
+    local function BeginDrag(p)
+        if IsInsideTopBar(p) then
+            dragging = true
+            dragStart = p
+            startPos = MainFrame.Position
         end
-    end)
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch) then
-            local delta = input.Position - dragStart
+    end
+
+    local function MoveDrag(p)
+        if dragging then
+            local delta = p - dragStart
             MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
-    end)
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
+    end
+
+    if ctx.isMobile then
+        -- Explicit touch events are more reliable than InputChanged on mobile.
+        UserInputService.TouchStarted:Connect(function(touch)
+            BeginDrag(touch.Position)
+        end)
+        UserInputService.TouchMoved:Connect(function(touch)
+            MoveDrag(touch.Position)
+        end)
+        UserInputService.TouchEnded:Connect(function()
             dragging = false
-        end
-    end)
+        end)
+    else
+        UserInputService.InputBegan:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                BeginDrag(input.Position)
+            end
+        end)
+        UserInputService.InputChanged:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                MoveDrag(input.Position)
+            end
+        end)
+        UserInputService.InputEnded:Connect(function(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragging = false
+            end
+        end)
+    end
 
     end -- end if ctx.isMobile/else untuk minimize
 
