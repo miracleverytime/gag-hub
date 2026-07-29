@@ -569,7 +569,8 @@ return function(ctx)
 
         task.wait(0.8)
         local remoteStatus = ctx.PacketRemote and "Remote" or "Remote \226\154\160 (check console)"
-        Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. " | [Insert] toggle | [F] fly", Colors.Success, 6)
+        local buildTag = ctx.isMobile and " | Mobile a36b029" or ""
+        Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. buildTag .. " | [Insert] toggle | [F] fly", Colors.Success, 6)
     end
 
     return ctx
