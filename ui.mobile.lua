@@ -667,7 +667,7 @@ return function(ctx)
         if vp.X <= 0 or vp.Y <= 0 then return end
         local x = math.floor((vp.X - MainFrame.AbsoluteSize.X) / 2 + 0.5)
         -- Geser sedikit ke bawah (offset +20) supaya tidak tertutup topbar Roblox
-        local y = math.floor((vp.Y - MainFrame.AbsoluteSize.Y) / 2 + 20 + 0.5)
+        local y = math.floor((vp.Y - MainFrame.AbsoluteSize.Y) / 2 + 0.5)
         MainFrame.Position = UDim2.fromOffset(x, y)
     end
     ScreenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(SnapMainFramePosition)
