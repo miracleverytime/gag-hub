@@ -291,7 +291,19 @@ return function(ctx)
             ctx.isMinimized = false
             MinimizedPill.Visible = false
             MainFrame.Visible = true
-            ctx.SnapMainFramePosition()
+            -- Posisi MainFrame sesuai posisi pill yang terakhir (bukan default center)
+            -- PillInner berada di (pillX + 10, pillY + 10) — sama dengan BrandCard sebelum minimize
+            -- BrandCard.X = MainFrame.X + (mfW - PILL_W) / 2  →  MainFrame.X = pillX + 10 - (mfW - PILL_W) / 2
+            -- BrandCard.Y = MainFrame.Y + 8                   →  MainFrame.Y = pillY + 10 - 8 = pillY + 2
+            local pillPos = MinimizedPill.Position
+            local vp = ScreenGui.AbsoluteSize
+            local mfW = vp.X * originalSize.X.Scale + originalSize.X.Offset
+            local pillX = pillPos.X.Scale * vp.X + pillPos.X.Offset
+            local pillY = pillPos.Y.Scale * vp.Y + pillPos.Y.Offset
+            MainFrame.Position = UDim2.fromOffset(
+                math.floor(pillX + 10 - (mfW - PILL_W) / 2),
+                math.floor(pillY + 2)
+            )
         end
 
         MinimizeButton.MouseButton1Click:Connect(DoMinimize)
