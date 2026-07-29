@@ -680,7 +680,7 @@ return function(ctx)
 
     -- ====================== TOP BAR (MOBILE) ======================
     local TOPBAR_H = 42   -- sedikit lebih tinggi supaya konten topbar tidak sumpek
-    local SIDEBAR_W = 64 -- mobile icon-only sidebar
+    local SIDEBAR_W = 58 -- compact mobile icon-only sidebar
     local TopBar = Create("Frame", {
         Name = "TopBar",
         Parent = MainFrame,
@@ -1122,8 +1122,8 @@ return function(ctx)
             if iconAsset then
                 iconLabel = Create("ImageLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 28, 0, 28),
-                    Position = UDim2.new(0.5, -14, 0.5, -14),
+                    Size = UDim2.new(0, 24, 0, 24),
+                    Position = UDim2.new(0.5, -12, 0.5, -12),
                     BackgroundTransparency = 1,
                     Image = iconAsset,
                     ImageColor3 = Colors.TextSecondary,
@@ -1133,12 +1133,12 @@ return function(ctx)
             else
                 iconLabel = Create("TextLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 28, 0, 28),
-                    Position = UDim2.new(0.5, -14, 0.5, -14),
+                    Size = UDim2.new(0, 24, 0, 24),
+                    Position = UDim2.new(0.5, -12, 0.5, -12),
                     BackgroundTransparency = 1,
                     Text = name:sub(1, 1),
                     TextColor3 = Colors.TextSecondary,
-                    TextSize = 20,
+                    TextSize = 18,
                     Font = FONT_BOLD,
                 })
             end
@@ -1200,8 +1200,8 @@ return function(ctx)
     -- menggantikan item teks Profile di daftar menu.
     local ProfileCard = Create("TextButton", {
         Parent = Sidebar,
-        Size = UDim2.new(0, 44, 0, 44),
-        Position = UDim2.new(0.5, -22, 0, 10),
+        Size = UDim2.new(0, 40, 0, 40),
+        Position = UDim2.new(0.5, -20, 0, 10),
         BackgroundColor3 = Colors.BackgroundLighter,
         BackgroundTransparency = 0.15,
         BorderSizePixel = 0,
@@ -1214,8 +1214,8 @@ return function(ctx)
     local ProfileAvatarStroke
     local ProfileAvatar = Create("ImageLabel", {
         Parent = ProfileCard,
-        Size = UDim2.new(0, 34, 0, 34),
-        Position = UDim2.new(0.5, -17, 0.5, -17),
+        Size = UDim2.new(0, 30, 0, 30),
+        Position = UDim2.new(0.5, -15, 0.5, -15),
         BackgroundColor3 = Colors.Surface,
         Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
         BorderSizePixel = 0,
