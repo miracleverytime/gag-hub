@@ -272,6 +272,15 @@ return function(ctx)
         local function DoMinimize()
             minimized = true
             ctx.isMinimized = true
+            -- Posisi pill persis di posisi BrandCard sebelum minimize:
+            -- BrandCard centered di TopBar (42px) → X = mf.X + (mf.W - 200)/2, Y = mf.Y + 8
+            -- MinimizedPill punya padding 10px, jadi offset -10
+            local mfPos = MainFrame.AbsolutePosition
+            local mfSize = MainFrame.AbsoluteSize
+            MinimizedPill.Position = UDim2.fromOffset(
+                math.floor(mfPos.X + (mfSize.X - PILL_W) / 2 - 10),
+                math.floor(mfPos.Y + 8 - 10)
+            )
             MainFrame.Visible = false
             MinimizedPill.Visible = true
         end
