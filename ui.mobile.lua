@@ -600,10 +600,17 @@ return function(ctx)
     UI.GetMutationColor = GetMutationColor
 
     -- ====================== MAIN GUI SHELL (MOBILE) ======================
+    -- Remove a previous injection so an older invisible/overlapping UI cannot
+    -- consume touch input or make the current build appear unchanged.
+    local previousGui = playerGui:FindFirstChild("MiracleHub")
+    if previousGui then
+        previousGui:Destroy()
+    end
     local ScreenGui = Create("ScreenGui", {
         Name = "MiracleHub",
         Parent = playerGui,
         ResetOnSpawn = false,
+        DisplayOrder = 100,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     })
     ctx.ScreenGui = ScreenGui
