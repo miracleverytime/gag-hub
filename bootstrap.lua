@@ -436,6 +436,35 @@ return function(ctx)
             end
         end
 
+        -- Layout asli (sebelum animasi minimize) — wajib di-reset setelah min/max
+        -- supaya tidak ada gap antara TopBar (42) vs Sidebar/Content (Y=TOPBAR_H).
+        local layoutTopBarSize   = TopBar.Size
+        local layoutTopBarPos    = TopBar.Position
+        local layoutSidebarSize  = Sidebar and Sidebar.Size or nil
+        local layoutSidebarPos   = Sidebar and Sidebar.Position or nil
+        local layoutContentSize  = ContentArea and ContentArea.Size or nil
+        local layoutContentPos   = ContentArea and ContentArea.Position or nil
+
+        local activeTopBarTween, activeMainFrameTween = nil, nil
+        local function CancelLayoutTweens()
+            if activeTopBarTween then pcall(function() activeTopBarTween:Cancel() end) activeTopBarTween = nil end
+            if activeMainFrameTween then pcall(function() activeMainFrameTween:Cancel() end) activeMainFrameTween = nil end
+        end
+
+        local function ResetMobileShellLayout()
+            CancelLayoutTweens()
+            TopBar.Size     = layoutTopBarSize
+            TopBar.Position = layoutTopBarPos
+            if Sidebar and layoutSidebarSize then
+                Sidebar.Size     = layoutSidebarSize
+                Sidebar.Position = layoutSidebarPos
+            end
+            if ContentArea and layoutContentSize then
+                ContentArea.Size     = layoutContentSize
+                ContentArea.Position = layoutContentPos
+            end
+        end
+
         -- DoMinimize / DoRestore — timing & easing identik desktop
         DoMinimize = function()
             if minimized then return end
@@ -446,9 +475,6 @@ return function(ctx)
             local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2
             local pillAbsY = targetPillPos.Y.Offset + 10 + PILL_H / 2
 
-            local topBarOriginalPos  = TopBar.Position
-            local topBarOriginalSize = TopBar.Size
-
             BuildSnapshot()
 
             FadeButton(MinimizeButton, 0.06)
@@ -457,11 +483,11 @@ return function(ctx)
 
             task.delay(0.10, function()
                 if not minimized then return end
-                Tween(TopBar, {
-                    Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
-                    Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
+                activeTopBarTween = Tween(TopBar, {
+                    Size     = UDim2.new(layoutTopBarSize.X.Scale, layoutTopBarSize.X.Offset, 0, PILL_H),
+                    Position = UDim2.new(layoutTopBarPos.X.Scale, layoutTopBarPos.X.Offset, 0, 0),
                 }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
-                Tween(MainFrame, {
+                activeMainFrameTween = Tween(MainFrame, {
                     Size     = UDim2.new(0, PILL_W, 0, PILL_H),
                     Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
                 }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
@@ -477,8 +503,9 @@ return function(ctx)
                 if ContentArea then ContentArea.Visible = false end
                 MainFrame.Visible = false
                 RestoreFromSnapshot(0)
-                TopBar.Size     = topBarOriginalSize
-                TopBar.Position = topBarOriginalPos
+                -- Hard-reset shell layout SEBELUM MainFrame invisible dibiarkan
+                -- (tween TopBar → PILL_H bisa nyangkut jika di-cancel/race)
+                ResetMobileShellLayout()
             end)
         end
 
@@ -492,6 +519,9 @@ return function(ctx)
 
             FadeOutContent(0)
 
+            -- Reset layout dulu (cancel residual TopBar tween) supaya gap hilang
+            ResetMobileShellLayout()
+
             if Sidebar then Sidebar.Visible = true end
             if ContentArea then ContentArea.Visible = true end
             MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
@@ -501,7 +531,7 @@ return function(ctx)
 
             -- Expand ke tengah (mobile default), bukan fixed 900×600 desktop
             local centerPos = CenterMainFramePosition()
-            Tween(MainFrame, {
+            activeMainFrameTween = Tween(MainFrame, {
                 Size     = originalSize,
                 Position = centerPos,
             }, 0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
@@ -512,6 +542,9 @@ return function(ctx)
             end)
 
             task.delay(0.45, function()
+                if minimized then return end
+                -- Pastikan layout shell masih original setelah expand selesai
+                ResetMobileShellLayout()
                 if ctx._setUserHasDragged then ctx._setUserHasDragged(false) end
                 ctx.isMinimized = false
                 if ctx.SnapMainFramePosition then ctx.SnapMainFramePosition() end

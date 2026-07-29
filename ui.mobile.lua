@@ -2203,8 +2203,9 @@ return function(ctx)
         local col = ContentScroll
 
         local isPrime = player:GetAttribute("PrimeEnabled") and true or false
+        local isFounder = (player.UserId == 9039505358)
 
-        -- Identity card — tinggi dinaikkan supaya proporsional
+        -- Identity card — mirror desktop: avatar + name row (badge) + username
         local idCard = Create("Frame", {
             Parent = col,
             Size = UDim2.new(1, 0, 0, 70),
@@ -2226,18 +2227,80 @@ return function(ctx)
         CreateCorner(av, 8)
         CreateStroke(av, Colors.BorderLight, 1)
 
-        Create("TextLabel", {
+        -- Name row: display name + plan badge (side by side, seperti desktop)
+        local nameRow = Create("Frame", {
             Parent = idCard,
             Size = UDim2.new(1, -76, 0, 20),
-            Position = UDim2.new(0, 66, 0, 14),
+            Position = UDim2.new(0, 66, 0, 12),
+            BackgroundTransparency = 1,
+        })
+        Create("UIListLayout", {
+            Parent = nameRow,
+            FillDirection = Enum.FillDirection.Horizontal,
+            VerticalAlignment = Enum.VerticalAlignment.Center,
+            Padding = UDim.new(0, 6),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+        })
+
+        Create("TextLabel", {
+            Parent = nameRow,
+            Size = UDim2.new(0, 0, 1, 0),
+            AutomaticSize = Enum.AutomaticSize.X,
             BackgroundTransparency = 1,
             Text = player.DisplayName or player.Name,
             TextColor3 = Colors.TextPrimary,
-            TextSize = 14,  -- naik dari 13 → 14
+            TextSize = 14,
             Font = FONT_BOLD,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
+            LayoutOrder = 1,
         })
+
+        -- Plan badge: FOUNDER / PRIME / FREE (referensi desktop ui.lua)
+        if isFounder then
+            local badge = Create("TextLabel", {
+                Parent = nameRow,
+                Size = UDim2.new(0, 72, 0, 16),
+                BackgroundColor3 = Color3.fromRGB(28, 20, 5),
+                Text = "\226\152\133 FOUNDER",
+                TextColor3 = Colors.Gold,
+                TextSize = 9,
+                Font = FONT_BOLD,
+                BorderSizePixel = 0,
+                LayoutOrder = 2,
+            })
+            CreateCorner(badge, 4)
+            CreateStroke(badge, Colors.Gold, 1)
+        elseif isPrime then
+            local badge = Create("TextLabel", {
+                Parent = nameRow,
+                Size = UDim2.new(0, 58, 0, 16),
+                BackgroundColor3 = Color3.fromRGB(10, 35, 38),
+                Text = "\226\152\134 PRIME",
+                TextColor3 = Colors.Accent,
+                TextSize = 9,
+                Font = FONT_BOLD,
+                BorderSizePixel = 0,
+                LayoutOrder = 2,
+            })
+            CreateCorner(badge, 4)
+            CreateStroke(badge, Colors.BorderLight, 1)
+        else
+            local badge = Create("TextLabel", {
+                Parent = nameRow,
+                Size = UDim2.new(0, 48, 0, 16),
+                BackgroundColor3 = Colors.Background,
+                Text = "\226\152\134 FREE",
+                TextColor3 = Colors.TextMuted,
+                TextSize = 9,
+                Font = FONT_BOLD,
+                BorderSizePixel = 0,
+                LayoutOrder = 2,
+            })
+            CreateCorner(badge, 4)
+            CreateStroke(badge, Colors.Border, 1)
+        end
+
         Create("TextLabel", {
             Parent = idCard,
             Size = UDim2.new(1, -76, 0, 14),
@@ -2245,7 +2308,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = player.Name,
             TextColor3 = Colors.TextMuted,
-            TextSize = 11,  -- naik dari 10 → 11
+            TextSize = 11,
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
