@@ -136,17 +136,20 @@ return function(ctx)
         })
 
         -- Visual pill — ukuran & warna identik BrandCard di ui.mobile.lua
+        -- Start transparan (alpha 1) seperti desktop; fade in saat minimize selesai.
         local PillInner = Create("Frame", {
             Name = "PillInner",
             Parent = MinimizedPill,
             Size = UDim2.new(0, PILL_W, 0, PILL_H),
             Position = UDim2.new(0, 10, 0, 10),
             BackgroundColor3 = Colors.BackgroundLighter,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 51,
         })
         CreateCorner(PillInner, 6)
         local PillStroke = CreateStroke(PillInner, Colors.Border, 1)
+        PillStroke.Transparency = 1
 
         -- Logo (identik ui.mobile.lua: 14×14, x=5)
         local PillLogoIcon = Create("ImageLabel", {
@@ -155,7 +158,7 @@ return function(ctx)
             Position = UDim2.new(0, 5, 0.5, -7),
             BackgroundTransparency = 1,
             Image = "rbxassetid://74186782815011",
-            ImageTransparency = 0,
+            ImageTransparency = 1,
             ScaleType = Enum.ScaleType.Fit,
             ZIndex = 52,
         })
@@ -169,7 +172,7 @@ return function(ctx)
             RichText = true,
             Text = 'MIRACLE<font color="' .. LIME_HEX_LOCAL .. '">HUB</font>',
             TextColor3 = Colors.TextPrimary,
-            TextTransparency = 0,
+            TextTransparency = 1,
             TextSize = 10,
             Font = Enum.Font.GothamBold,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -182,7 +185,7 @@ return function(ctx)
             Size = UDim2.new(0, 1, 1, -6),
             Position = UDim2.new(0, 87, 0, 3),
             BackgroundColor3 = Color3.fromRGB(58, 68, 80),
-            BackgroundTransparency = 0,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 52,
         })
@@ -195,7 +198,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Image = "rbxassetid://104426509560089",
             ImageColor3 = Colors.Accent,
-            ImageTransparency = 0,
+            ImageTransparency = 1,
             ScaleType = Enum.ScaleType.Fit,
             ZIndex = 52,
         })
@@ -209,7 +212,7 @@ return function(ctx)
             RichText = true,
             Text = '<font color="#71717A">FPS</font><font size="3"> </font><font color="' .. LIME_HEX_LOCAL .. '">--</font>',
             TextColor3 = Colors.TextSecondary,
-            TextTransparency = 0,
+            TextTransparency = 1,
             TextSize = 10,
             Font = Enum.Font.Code,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -222,7 +225,7 @@ return function(ctx)
             Size = UDim2.new(0, 1, 1, -6),
             Position = UDim2.new(0, 139, 0, 3),
             BackgroundColor3 = Color3.fromRGB(58, 68, 80),
-            BackgroundTransparency = 0,
+            BackgroundTransparency = 1,
             BorderSizePixel = 0,
             ZIndex = 52,
         })
@@ -235,7 +238,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Image = "rbxassetid://84466565972313",
             ImageColor3 = Colors.Accent,
-            ImageTransparency = 0,
+            ImageTransparency = 1,
             ScaleType = Enum.ScaleType.Fit,
             ZIndex = 52,
         })
@@ -249,7 +252,7 @@ return function(ctx)
             RichText = true,
             Text = '<font color="#71717A">MS</font><font size="3"> </font>--',
             TextColor3 = Colors.TextSecondary,
-            TextTransparency = 0,
+            TextTransparency = 1,
             TextSize = 10,
             Font = Enum.Font.Code,
             TextXAlignment = Enum.TextXAlignment.Left,
@@ -301,6 +304,32 @@ return function(ctx)
         -- Restore selalu ke tengah; minimize berikutnya kembali ke posisi pill terakhir.
         local lastPillPosition = nil
 
+        -- ====================== MOBILE MINIMIZE / RESTORE ======================
+        -- Animasi 1:1 mirror desktop: content fade → TopBar shrink → MainFrame
+        -- shrink ke pill → pill appear + breathing. Restore: expand + fade-in content.
+        -- Input touch/drag tetap di blok terpisah di bawah (tidak diubah).
+
+        local function StartPillBreathing()
+            task.spawn(function()
+                while minimized and MinimizedPill.Parent do
+                    Tween(PillStroke, {Color = Colors.Accent, Transparency = 0, Thickness = 2}, 1.0,
+                        Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                    task.wait(1.1)
+                    if not minimized then break end
+                    Tween(PillStroke, {Transparency = 0.85}, 1.2,
+                        Enum.EasingStyle.Sine, Enum.EasingDirection.In)
+                    task.wait(1.3)
+                    if not minimized then break end
+                    Tween(PillStroke, {Transparency = 0, Thickness = 2}, 0.9,
+                        Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+                    task.wait(1.0)
+                end
+                if PillStroke and PillStroke.Parent then
+                    Tween(PillStroke, {Color = Colors.Border, Transparency = 0, Thickness = 1}, 0.3)
+                end
+            end)
+        end
+
         local function DefaultPillPosition()
             -- BrandCard centered di TopBar MainFrame (42px) → Y = mf.Y + 8
             -- MinimizedPill padding 10px → offset -10
@@ -321,10 +350,93 @@ return function(ctx)
             return UDim2.fromOffset(x, y)
         end
 
-        -- DoMinimize / DoRestore (assign ke local outer agar CloseButton/keybinds bisa pakai)
-        -- Perilaku mirror desktop:
-        --   minimize → pill di lastPillPosition (atau default BrandCard)
-        --   restore  → MainFrame selalu ke tengah; lastPillPosition disimpan
+        local transparencySnapshot = {}
+        local function BuildSnapshot()
+            transparencySnapshot = {}
+            local targets = {ContentArea, Sidebar}
+            for _, root in ipairs(targets) do
+                if root then
+                    transparencySnapshot[root] = {bg = root.BackgroundTransparency}
+                    for _, d in ipairs(root:GetDescendants()) do
+                        if d:IsA("GuiObject") then
+                            local entry = {bg = d.BackgroundTransparency}
+                            if d:IsA("TextLabel") or d:IsA("TextButton") then entry.text = d.TextTransparency end
+                            if d:IsA("ImageLabel") or d:IsA("ImageButton") then entry.img = d.ImageTransparency end
+                            transparencySnapshot[d] = entry
+                        end
+                    end
+                end
+            end
+            for _, btn in ipairs({MinimizeButton, CloseButton}) do
+                if btn then
+                    local e = {bg = btn.BackgroundTransparency}
+                    if btn:IsA("TextLabel") or btn:IsA("TextButton") then e.text = btn.TextTransparency end
+                    if btn:IsA("ImageLabel") or btn:IsA("ImageButton") then e.img = btn.ImageTransparency end
+                    transparencySnapshot[btn] = e
+                    for _, d in ipairs(btn:GetDescendants()) do
+                        if d:IsA("GuiObject") then
+                            local de = {bg = d.BackgroundTransparency}
+                            if d:IsA("TextLabel") or d:IsA("TextButton") then de.text = d.TextTransparency end
+                            if d:IsA("ImageLabel") or d:IsA("ImageButton") then de.img = d.ImageTransparency end
+                            transparencySnapshot[d] = de
+                        end
+                    end
+                end
+            end
+        end
+
+        local function RestoreFromSnapshot(duration)
+            for obj, snap in pairs(transparencySnapshot) do
+                if obj and obj.Parent then
+                    if duration and duration > 0 then
+                        local props = {BackgroundTransparency = snap.bg}
+                        if snap.text then props.TextTransparency  = snap.text end
+                        if snap.img  then props.ImageTransparency = snap.img  end
+                        Tween(obj, props, duration)
+                    else
+                        obj.BackgroundTransparency = snap.bg
+                        if snap.text then obj.TextTransparency  = snap.text end
+                        if snap.img  then obj.ImageTransparency = snap.img  end
+                    end
+                end
+            end
+        end
+
+        local function FadeOutContent(duration)
+            for obj, _ in pairs(transparencySnapshot) do
+                if obj and obj.Parent then
+                    local props = {BackgroundTransparency = 1}
+                    if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+                        props.TextTransparency = 1
+                    end
+                    if obj:IsA("ImageLabel") or obj:IsA("ImageButton") then
+                        props.ImageTransparency = 1
+                    end
+                    Tween(obj, props, duration)
+                end
+            end
+        end
+
+        local function FadeButton(btn, dur)
+            if not btn then return end
+            Tween(btn, {BackgroundTransparency = 1}, dur)
+            if btn:IsA("TextLabel") or btn:IsA("TextButton") then
+                Tween(btn, {TextTransparency = 1}, dur)
+            end
+            if btn:IsA("ImageLabel") or btn:IsA("ImageButton") then
+                Tween(btn, {ImageTransparency = 1}, dur)
+            end
+            for _, d in ipairs(btn:GetDescendants()) do
+                if d:IsA("GuiObject") then
+                    local props = {BackgroundTransparency = 1}
+                    if d:IsA("TextLabel") or d:IsA("TextButton") then props.TextTransparency = 1 end
+                    if d:IsA("ImageLabel") or d:IsA("ImageButton") then props.ImageTransparency = 1 end
+                    Tween(d, props, dur)
+                end
+            end
+        end
+
+        -- DoMinimize / DoRestore — timing & easing identik desktop
         DoMinimize = function()
             if minimized then return end
             minimized = true
@@ -333,57 +445,77 @@ return function(ctx)
             local targetPillPos = lastPillPosition or DefaultPillPosition()
             local pillAbsX = targetPillPos.X.Offset + 10 + PILL_W / 2
             local pillAbsY = targetPillPos.Y.Offset + 10 + PILL_H / 2
-            local shrinkPos = UDim2.fromOffset(
-                math.floor(pillAbsX - PILL_W / 2),
-                math.floor(pillAbsY - PILL_H / 2)
-            )
 
-            SetPillTransparency(1)
-            MinimizedPill.Position = targetPillPos
-            MinimizedPill.Visible = true
-            TweenPillTransparency(0, 0.25)
+            local topBarOriginalPos  = TopBar.Position
+            local topBarOriginalSize = TopBar.Size
 
-            Tween(MainFrame, {
-                Size     = UDim2.new(0, PILL_W, 0, PILL_H),
-                Position = shrinkPos,
-            }, 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-            task.wait(0.3)
-            MainFrame.Visible = false
+            BuildSnapshot()
+
+            FadeButton(MinimizeButton, 0.06)
+            FadeButton(CloseButton,    0.06)
+            FadeOutContent(0.12)
+
+            task.delay(0.10, function()
+                if not minimized then return end
+                Tween(TopBar, {
+                    Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
+                    Position = UDim2.new(topBarOriginalPos.X.Scale, topBarOriginalPos.X.Offset, 0, 0),
+                }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+                Tween(MainFrame, {
+                    Size     = UDim2.new(0, PILL_W, 0, PILL_H),
+                    Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2),
+                }, 0.35, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
+            end)
+
+            task.delay(0.47, function()
+                if not minimized then return end
+                MinimizedPill.Position = targetPillPos
+                SetPillTransparency(0)
+                MinimizedPill.Visible = true
+                StartPillBreathing()
+                if Sidebar then Sidebar.Visible = false end
+                if ContentArea then ContentArea.Visible = false end
+                MainFrame.Visible = false
+                RestoreFromSnapshot(0)
+                TopBar.Size     = topBarOriginalSize
+                TopBar.Position = topBarOriginalPos
+            end)
         end
 
         DoRestore = function()
             if not minimized then return end
             minimized = false
 
-            -- Simpan posisi pill terakhir agar minimize berikutnya kembali ke sini
             lastPillPosition = MinimizedPill.Position
             local pillAbsX = lastPillPosition.X.Offset + 10 + PILL_W / 2
             local pillAbsY = lastPillPosition.Y.Offset + 10 + PILL_H / 2
 
-            -- Mulai expand dari posisi pill
-            MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
-            MainFrame.Position = UDim2.fromOffset(
-                math.floor(pillAbsX - PILL_W / 2),
-                math.floor(pillAbsY - PILL_H / 2)
-            )
-            MainFrame.Visible = true
+            FadeOutContent(0)
 
-            -- Expand ke tengah layar (default), bukan ke posisi pill
+            if Sidebar then Sidebar.Visible = true end
+            if ContentArea then ContentArea.Visible = true end
+            MainFrame.Size     = UDim2.new(0, PILL_W, 0, PILL_H)
+            MainFrame.Position = UDim2.new(0, pillAbsX - PILL_W/2, 0, pillAbsY - PILL_H/2)
+            MainFrame.Visible  = true
+            MinimizedPill.Visible = false
+
+            -- Expand ke tengah (mobile default), bukan fixed 900×600 desktop
             local centerPos = CenterMainFramePosition()
             Tween(MainFrame, {
                 Size     = originalSize,
                 Position = centerPos,
-            }, 0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+            }, 0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
-            TweenPillTransparency(1, 0.2)
-            task.wait(0.2)
-            MinimizedPill.Visible = false
-            task.wait(0.1)
+            task.delay(0.20, function()
+                if minimized then return end
+                RestoreFromSnapshot(0.18)
+            end)
 
-            -- Izinkan snap center (reset flag drag window)
-            if ctx._setUserHasDragged then ctx._setUserHasDragged(false) end
-            ctx.isMinimized = false
-            if ctx.SnapMainFramePosition then ctx.SnapMainFramePosition() end
+            task.delay(0.45, function()
+                if ctx._setUserHasDragged then ctx._setUserHasDragged(false) end
+                ctx.isMinimized = false
+                if ctx.SnapMainFramePosition then ctx.SnapMainFramePosition() end
+            end)
         end
 
         MinimizeButton.MouseButton1Click:Connect(DoMinimize)
