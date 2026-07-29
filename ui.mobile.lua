@@ -645,7 +645,7 @@ return function(ctx)
     -- Pakai scale lebih kecil supaya tidak nabrak game UI (hotbar, topbar, dll).
     -- 0.88 x 0.72 memberi margin ~6% kiri/kanan dan ~14% atas/bawah — cukup
     -- untuk menghindari Roblox topbar (≈36px) dan hotbar (≈60px) pada layar kecil.
-    local originalSize = UDim2.new(0.88, 0, 0.72, 0)
+    local originalSize = UDim2.new(0.58, 0, 0.72, 0)
     local MainFrame = Create("Frame", {
         Name = "MainFrame",
         Parent = ScreenGui,
@@ -751,7 +751,7 @@ return function(ctx)
     local BrandCard = Create("Frame", {
         Parent = TopBar,
         Size = UDim2.new(0, 190, 0, 26),
-        Position = UDim2.new(0.5, -95, 0.5, -13),
+        Position = UDim2.new(0.5, -110, 0.5, -13),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
     })
