@@ -1093,29 +1093,34 @@ return function(ctx)
         confBtnW, confBtnH, confCorner = 110, 36, 16
     end
     local confTargetSize = UDim2.new(0, confW, 0, confH)
-    local confStartSize  = UDim2.new(0, math.floor(confW * 0.85), 0, math.floor(confH * 0.85))
 
+    -- Overlay transparan (tanpa shadow/dim). Pop animasi pakai UIScale
+    -- supaya ukuran box tetap → wrap teks tidak bergeser saat muncul.
     local ConfirmModal = Create("Frame", {
         Parent = ScreenGui,
-        Size = UDim2.new(1,0,1,0),
-        BackgroundColor3 = Color3.fromRGB(0,0,0),
+        Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
+        BorderSizePixel = 0,
         Visible = false,
         ZIndex = 1000,
     })
     local ConfirmBox = Create("Frame", {
         Parent = ConfirmModal,
-        Size = confStartSize,
-        Position = UDim2.new(0.5, -math.floor(confW/2), 0.5, -math.floor(confH/2)),
+        Size = confTargetSize,
+        Position = UDim2.new(0.5, -math.floor(confW / 2), 0.5, -math.floor(confH / 2)),
         BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
         ZIndex = 1001,
     })
     CreateCorner(ConfirmBox, confCorner)
     CreateStroke(ConfirmBox, Colors.Border, 1)
+    local ConfScale = Instance.new("UIScale")
+    ConfScale.Scale = 1
+    ConfScale.Parent = ConfirmBox
+
     local confContent = Create("Frame", {
         Parent = ConfirmBox,
-        Size = UDim2.new(1, -confPad*2, 1, -confPad*2),
+        Size = UDim2.new(1, -confPad * 2, 1, -confPad * 2),
         Position = UDim2.new(0, confPad, 0, confPad),
         BackgroundTransparency = 1,
         ZIndex = 1002,
@@ -1139,15 +1144,20 @@ return function(ctx)
         LayoutOrder = 1,
         ZIndex = 1002,
     })
+    -- Body: fixed 2-line break via RichText newline agar wrap tidak berubah
     Create("TextLabel", {
         Parent = confContent,
         Size = UDim2.new(1, 0, 0, ctx.isMobile and 34 or 36),
         BackgroundTransparency = 1,
-        Text = "All automation loops will stop. Re-inject to use again.",
+        RichText = true,
+        Text = ctx.isMobile
+            and "All automation loops will stop.<br/>Re-inject to use again."
+            or "All automation loops will stop. Re-inject to use again.",
         TextColor3 = Colors.TextSecondary,
         TextSize = confBodySz,
         Font = Enum.Font.Gotham,
         TextXAlignment = Enum.TextXAlignment.Center,
+        TextYAlignment = Enum.TextYAlignment.Center,
         TextWrapped = true,
         LayoutOrder = 2,
         ZIndex = 1002,
@@ -1198,20 +1208,22 @@ return function(ctx)
             DoMinimize()
             return
         end
-        ConfirmBox.Size = confStartSize
-        ConfirmBox.Position = UDim2.new(0.5, -math.floor(confW/2), 0.5, -math.floor(confH/2))
-        ConfirmModal.BackgroundTransparency = 0.45
+        ConfirmBox.Size = confTargetSize
+        ConfirmBox.Position = UDim2.new(0.5, -math.floor(confW / 2), 0.5, -math.floor(confH / 2))
+        ConfScale.Scale = 0.85
         ConfirmModal.Visible = true
-        Tween(ConfirmBox, {Size = confTargetSize}, 0.3, Enum.EasingStyle.Back)
+        Tween(ConfScale, {Scale = 1}, 0.3, Enum.EasingStyle.Back)
     end)
     ConfNo.MouseButton1Click:Connect(function()
-        Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
-        task.wait(0.3)
+        Tween(ConfScale, {Scale = 0.9}, 0.15)
+        task.wait(0.15)
         ConfirmModal.Visible = false
+        ConfScale.Scale = 1
     end)
     ConfYes.MouseButton1Click:Connect(function()
-        Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
-        task.wait(0.25)
+        Tween(ConfScale, {Scale = 0.9}, 0.12)
+        task.wait(0.12)
+        ConfirmModal.Visible = false
         local collapseSize = ctx.isMobile
             and UDim2.new(originalSize.X.Scale, originalSize.X.Offset, 0, 0)
             or UDim2.new(0, 900, 0, 0)
