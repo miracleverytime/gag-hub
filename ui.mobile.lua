@@ -765,11 +765,14 @@ return function(ctx)
     ctx.SearchBox = SearchBox
 
     -- BrandCard — compact mobile (MIRACLEHUB | FPS | MS).
-    -- Lebar tiap segmen dibuat eksplisit agar teks tidak menabrak divider/icon.
+    -- BrandSeg width diberi ruang cukup agar teks "MIRACLEHUB" tidak menembus
+    -- divider (referensi desktop ui.lua: BrandSeg 82px @ TextSize 14).
+    -- Di mobile: 62px @ TextSize 10, dengan gap 3px sebelum divider — sama
+    -- seperti pola desktop yang memberi jarak aman antara teks dan divider.
     local BrandCard = Create("Frame", {
         Parent = TopBar,
-        Size = UDim2.new(0, 190, 0, 26),
-        Position = UDim2.new(0.5, -110, 0.5, -13),
+        Size = UDim2.new(0, 200, 0, 26),
+        Position = UDim2.new(0.5, -100, 0.5, -13),
         BackgroundColor3 = Colors.BackgroundLighter,
         BorderSizePixel = 0,
     })
@@ -787,7 +790,7 @@ return function(ctx)
     })
     local BrandSeg = Create("TextLabel", {
         Parent = BrandCard,
-        Size = UDim2.new(0, 55, 1, 0),
+        Size = UDim2.new(0, 62, 1, 0),
         Position = UDim2.new(0, 22, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
@@ -801,7 +804,7 @@ return function(ctx)
     Create("Frame", {
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -6),
-        Position = UDim2.new(0, 80, 0, 3),
+        Position = UDim2.new(0, 87, 0, 3),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -809,7 +812,7 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 11, 0, 11),
-        Position = UDim2.new(0, 88, 0.5, -5),
+        Position = UDim2.new(0, 95, 0.5, -5),
         BackgroundTransparency = 1,
         Image = "rbxassetid://104426509560089",
         ImageColor3 = Colors.Accent,
@@ -818,7 +821,7 @@ return function(ctx)
     local FpsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 30, 1, 0),
-        Position = UDim2.new(0, 100, 0, 0),
+        Position = UDim2.new(0, 107, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">FPS</font><font size="3"> </font><font color="' .. LIME_HEX .. '">--</font>',
@@ -831,7 +834,7 @@ return function(ctx)
     Create("Frame", {
         Parent = BrandCard,
         Size = UDim2.new(0, 1, 1, -6),
-        Position = UDim2.new(0, 132, 0, 3),
+        Position = UDim2.new(0, 139, 0, 3),
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
@@ -839,7 +842,7 @@ return function(ctx)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 11, 0, 11),
-        Position = UDim2.new(0, 140, 0.5, -5),
+        Position = UDim2.new(0, 147, 0.5, -5),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84466565972313",
         ImageColor3 = Colors.Accent,
@@ -848,7 +851,7 @@ return function(ctx)
     local MsSeg = Create("TextLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 32, 1, 0),
-        Position = UDim2.new(0, 154, 0, 0),
+        Position = UDim2.new(0, 161, 0, 0),
         BackgroundTransparency = 1,
         RichText = true,
         Text = '<font color="#71717A">MS</font><font size="3"> </font>--',
