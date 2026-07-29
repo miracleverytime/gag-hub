@@ -1081,6 +1081,20 @@ return function(ctx)
     end
 
     -- ====================== CONFIRM CLOSE MODAL ======================
+    -- Desktop: 380×200. Mobile: compact 240×148 agar tidak hampir seukuran menu.
+    local confW, confH, confPad, confGap, confTitleSz, confBodySz, confBtnW, confBtnH, confCorner
+    if ctx.isMobile then
+        confW, confH, confPad, confGap = 240, 148, 14, 8
+        confTitleSz, confBodySz = 15, 11
+        confBtnW, confBtnH, confCorner = 88, 32, 10
+    else
+        confW, confH, confPad, confGap = 380, 200, 24, 10
+        confTitleSz, confBodySz = 20, 13
+        confBtnW, confBtnH, confCorner = 110, 36, 16
+    end
+    local confTargetSize = UDim2.new(0, confW, 0, confH)
+    local confStartSize  = UDim2.new(0, math.floor(confW * 0.85), 0, math.floor(confH * 0.85))
+
     local ConfirmModal = Create("Frame", {
         Parent = ScreenGui,
         Size = UDim2.new(1,0,1,0),
@@ -1091,23 +1105,92 @@ return function(ctx)
     })
     local ConfirmBox = Create("Frame", {
         Parent = ConfirmModal,
-        Size = UDim2.new(0, 380, 0, 200),
-        Position = UDim2.new(0.5,-190,0.5,-100),
+        Size = confStartSize,
+        Position = UDim2.new(0.5, -math.floor(confW/2), 0.5, -math.floor(confH/2)),
         BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
         ZIndex = 1001,
     })
-    CreateCorner(ConfirmBox, 16)
+    CreateCorner(ConfirmBox, confCorner)
     CreateStroke(ConfirmBox, Colors.Border, 1)
-    local confContent = Create("Frame", {Parent=ConfirmBox, Size=UDim2.new(1,-48,1,-48), Position=UDim2.new(0,24,0,24), BackgroundTransparency=1, ZIndex=1002})
-    Create("UIListLayout", {Parent=confContent, Padding=UDim.new(0,10), HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center, SortOrder=Enum.SortOrder.LayoutOrder})
-    Create("TextLabel", {Parent=confContent, Size=UDim2.new(1,0,0,28), BackgroundTransparency=1, Text="Close Miracle Hub?", TextColor3=Colors.TextPrimary, TextSize=20, Font=Enum.Font.GothamBold, TextXAlignment=Enum.TextXAlignment.Center, LayoutOrder=1, ZIndex=1002})
-    Create("TextLabel", {Parent=confContent, Size=UDim2.new(1,0,0,36), BackgroundTransparency=1, Text="All automation loops will stop. Re-inject to use again.", TextColor3=Colors.TextSecondary, TextSize=13, Font=Enum.Font.Gotham, TextXAlignment=Enum.TextXAlignment.Center, TextWrapped=true, LayoutOrder=2, ZIndex=1002})
-    local btnRow = Create("Frame", {Parent=confContent, Size=UDim2.new(1,0,0,38), BackgroundTransparency=1, LayoutOrder=3, ZIndex=1002})
-    Create("UIListLayout", {Parent=btnRow, Padding=UDim.new(0,12), FillDirection=Enum.FillDirection.Horizontal, HorizontalAlignment=Enum.HorizontalAlignment.Center, VerticalAlignment=Enum.VerticalAlignment.Center})
-    local ConfYes = Create("TextButton", {Parent=btnRow, Size=UDim2.new(0,110,0,36), BackgroundColor3=Color3.fromRGB(180,80,80), Text="Yes, Close", TextColor3=Colors.TextPrimary, TextSize=13, Font=Enum.Font.GothamBold, BorderSizePixel=0, ZIndex=1002, AutoButtonColor=false})
+    local confContent = Create("Frame", {
+        Parent = ConfirmBox,
+        Size = UDim2.new(1, -confPad*2, 1, -confPad*2),
+        Position = UDim2.new(0, confPad, 0, confPad),
+        BackgroundTransparency = 1,
+        ZIndex = 1002,
+    })
+    Create("UIListLayout", {
+        Parent = confContent,
+        Padding = UDim.new(0, confGap),
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+        SortOrder = Enum.SortOrder.LayoutOrder,
+    })
+    Create("TextLabel", {
+        Parent = confContent,
+        Size = UDim2.new(1, 0, 0, ctx.isMobile and 20 or 28),
+        BackgroundTransparency = 1,
+        Text = "Close Miracle Hub?",
+        TextColor3 = Colors.TextPrimary,
+        TextSize = confTitleSz,
+        Font = Enum.Font.GothamBold,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        LayoutOrder = 1,
+        ZIndex = 1002,
+    })
+    Create("TextLabel", {
+        Parent = confContent,
+        Size = UDim2.new(1, 0, 0, ctx.isMobile and 34 or 36),
+        BackgroundTransparency = 1,
+        Text = "All automation loops will stop. Re-inject to use again.",
+        TextColor3 = Colors.TextSecondary,
+        TextSize = confBodySz,
+        Font = Enum.Font.Gotham,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        TextWrapped = true,
+        LayoutOrder = 2,
+        ZIndex = 1002,
+    })
+    local btnRow = Create("Frame", {
+        Parent = confContent,
+        Size = UDim2.new(1, 0, 0, confBtnH + 2),
+        BackgroundTransparency = 1,
+        LayoutOrder = 3,
+        ZIndex = 1002,
+    })
+    Create("UIListLayout", {
+        Parent = btnRow,
+        Padding = UDim.new(0, ctx.isMobile and 8 or 12),
+        FillDirection = Enum.FillDirection.Horizontal,
+        HorizontalAlignment = Enum.HorizontalAlignment.Center,
+        VerticalAlignment = Enum.VerticalAlignment.Center,
+    })
+    local ConfYes = Create("TextButton", {
+        Parent = btnRow,
+        Size = UDim2.new(0, confBtnW, 0, confBtnH),
+        BackgroundColor3 = Color3.fromRGB(180, 80, 80),
+        Text = "Yes, Close",
+        TextColor3 = Colors.TextPrimary,
+        TextSize = ctx.isMobile and 12 or 13,
+        Font = Enum.Font.GothamBold,
+        BorderSizePixel = 0,
+        ZIndex = 1002,
+        AutoButtonColor = false,
+    })
     CreateCorner(ConfYes, 8)
-    local ConfNo = Create("TextButton", {Parent=btnRow, Size=UDim2.new(0,110,0,36), BackgroundColor3=Colors.Surface, Text="Cancel", TextColor3=Colors.TextPrimary, TextSize=13, Font=Enum.Font.GothamBold, BorderSizePixel=0, ZIndex=1002, AutoButtonColor=false})
+    local ConfNo = Create("TextButton", {
+        Parent = btnRow,
+        Size = UDim2.new(0, confBtnW, 0, confBtnH),
+        BackgroundColor3 = Colors.Surface,
+        Text = "Cancel",
+        TextColor3 = Colors.TextPrimary,
+        TextSize = ctx.isMobile and 12 or 13,
+        Font = Enum.Font.GothamBold,
+        BorderSizePixel = 0,
+        ZIndex = 1002,
+        AutoButtonColor = false,
+    })
     CreateCorner(ConfNo, 8)
 
     CloseButton.MouseButton1Click:Connect(function()
@@ -1115,8 +1198,11 @@ return function(ctx)
             DoMinimize()
             return
         end
+        ConfirmBox.Size = confStartSize
+        ConfirmBox.Position = UDim2.new(0.5, -math.floor(confW/2), 0.5, -math.floor(confH/2))
+        ConfirmModal.BackgroundTransparency = 0.45
         ConfirmModal.Visible = true
-        Tween(ConfirmBox, {Size=UDim2.new(0,380,0,200)}, 0.3, Enum.EasingStyle.Back)
+        Tween(ConfirmBox, {Size = confTargetSize}, 0.3, Enum.EasingStyle.Back)
     end)
     ConfNo.MouseButton1Click:Connect(function()
         Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.25)
@@ -1126,7 +1212,10 @@ return function(ctx)
     ConfYes.MouseButton1Click:Connect(function()
         Tween(ConfirmModal, {BackgroundTransparency = 1}, 0.2)
         task.wait(0.25)
-        Tween(MainFrame, {Size=UDim2.new(0,900,0,0)}, 0.3)
+        local collapseSize = ctx.isMobile
+            and UDim2.new(originalSize.X.Scale, originalSize.X.Offset, 0, 0)
+            or UDim2.new(0, 900, 0, 0)
+        Tween(MainFrame, {Size = collapseSize}, 0.3)
         task.wait(0.3)
         ScreenGui:Destroy()
     end)
