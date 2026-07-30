@@ -1436,7 +1436,7 @@ return function(ctx)
 
         local header = Create("Frame", {
             Parent = block,
-            Size = UDim2.new(1, 0, 0, 18),
+            Size = UDim2.new(1, 0, 0, 16),  -- dikecilkan dari 18 → 16
             BackgroundTransparency = 1,
             LayoutOrder = 0,
         })
@@ -1446,7 +1446,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = string.upper(cleanTitle),
             TextColor3 = accentColor or Colors.Accent,
-            TextSize = 11,
+            TextSize = 10,  -- dikecilkan dari 11 → 10
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.X,
@@ -1460,7 +1460,7 @@ return function(ctx)
         })
         task.defer(function()
             if titleLbl.Parent and divider.Parent then
-                local w = titleLbl.AbsoluteSize.X + 10
+                local w = titleLbl.AbsoluteSize.X + 8  -- dikecilkan dari 10 → 8
                 divider.Position = UDim2.new(0, w, 0.5, 0)
                 divider.Size = UDim2.new(1, -w, 0, 1)
             end
@@ -1481,7 +1481,7 @@ return function(ctx)
     local function CreateSubHeader(parent, text)
         local h = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 16),
+            Size = UDim2.new(1, 0, 0, 14),  -- dikecilkan dari 16 → 14
             BackgroundTransparency = 1,
         })
         Create("TextLabel", {
@@ -1490,7 +1490,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextSecondary,
-            TextSize = 12,
+            TextSize = 10,  -- dikecilkan dari 12 → 10
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
@@ -2108,18 +2108,18 @@ return function(ctx)
             BorderSizePixel = 0,
             AutomaticSize = Enum.AutomaticSize.Y,
         })
-        CreateCorner(c, 8)
+        CreateCorner(c, 6)  -- dikecilkan dari 8 → 6
         CreateStroke(c, Colors.Border, 1)
-        CreatePadding(c, 10)
-        CreateListLayout(c, 4)
+        CreatePadding(c, 8)  -- dikecilkan dari 10 → 8
+        CreateListLayout(c, 3)  -- dikecilkan dari 4 → 3
         if title then
             Create("TextLabel", {
                 Parent = c,
-                Size = UDim2.new(1, 0, 0, 14),
+                Size = UDim2.new(1, 0, 0, 12),  -- dikecilkan dari 14 → 12
                 BackgroundTransparency = 1,
                 Text = string.upper(title),
                 TextColor3 = color or Colors.Accent,
-                TextSize = 11,
+                TextSize = 10,  -- dikecilkan dari 11 → 10
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
@@ -2130,7 +2130,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = desc,
             TextColor3 = Colors.TextMuted,
-            TextSize = 11,
+            TextSize = 10,  -- dikecilkan dari 11 → 10
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.Y,
@@ -2142,31 +2142,31 @@ return function(ctx)
     local function CreateStatRow(parent, label, value, valColor)
         local r = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 40),  -- naik dari 34 → 40
+            Size = UDim2.new(1, 0, 0, 34),  -- dikecilkan dari 40 → 34
             BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
         })
-        CreateCorner(r, 8)
+        CreateCorner(r, 6)  -- dikecilkan dari 8 → 6
         CreateStroke(r, Colors.Border, 1)
         Create("TextLabel", {
             Parent = r,
             Size = UDim2.new(0.5, -10, 1, 0),
-            Position = UDim2.new(0, 12, 0, 0),
+            Position = UDim2.new(0, 10, 0, 0),  -- dikecilkan dari 12 → 10
             BackgroundTransparency = 1,
             Text = label,
             TextColor3 = Colors.TextSecondary,
-            TextSize = 13,  -- naik dari 11 → 13
+            TextSize = 11,  -- dikecilkan dari 13 → 11
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
         local valLbl = Create("TextLabel", {
             Parent = r,
-            Size = UDim2.new(0.5, -12, 1, 0),
+            Size = UDim2.new(0.5, -10, 1, 0),  -- dikecilkan dari -12 → -10
             Position = UDim2.new(0.5, 0, 0, 0),
             BackgroundTransparency = 1,
             Text = tostring(value),
             TextColor3 = valColor or Colors.Accent,
-            TextSize = 13,  -- naik dari 11 → 13
+            TextSize = 11,  -- dikecilkan dari 13 → 11
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Right,
         })

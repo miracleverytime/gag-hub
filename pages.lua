@@ -646,7 +646,7 @@ return function(ctx)
         })
         CreateListLayout(listArea, 6)
 
-        local ROW_H, ROW_GAP = 28, 6
+        local ROW_H, ROW_GAP = 24, 4  -- dikecilkan dari 28/6 → 24/4
 
         local function RebuildInventory()
             if not listArea or not listArea.Parent then return end
@@ -740,32 +740,32 @@ return function(ctx)
 
                 local row = Create("Frame", {
                     Parent          = listContainer,
-                    Size            = UDim2.new(1, 0, 0, 40),
+                    Size            = UDim2.new(1, 0, 0, 36),  -- dikecilkan dari 40 → 36
                     BackgroundColor3 = Colors.BackgroundLighter,
                     BorderSizePixel = 0,
                 })
-                CreateCorner(row, 8)
+                CreateCorner(row, 6)  -- dikecilkan dari 8 → 6
                 CreateStroke(row, col, 1)
                 local bullet = Create("Frame", {
                     Parent          = row,
-                    Size            = UDim2.new(0, 7, 0, 7),
-                    Position        = UDim2.new(0, 12, 0.5, -3),
+                    Size            = UDim2.new(0, 6, 0, 6),  -- dikecilkan dari 7 → 6
+                    Position        = UDim2.new(0, 10, 0.5, -3),
                     BackgroundColor3 = col,
                     BorderSizePixel = 0,
                 })
-                CreateCorner(bullet, 4)
-                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 130, 1, 0), Position = UDim2.new(0, 26,  0, 0), BackgroundTransparency = 1, Text = petName,  TextColor3 = col,               TextSize = 13, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd })
-                Create("TextLabel", { Parent = row, Size = UDim2.new(0,  90, 1, 0), Position = UDim2.new(0, 164, 0, 0), BackgroundTransparency = 1, Text = rarity,   TextColor3 = col,               TextSize = 12, Font = Enum.Font.Gotham,     TextXAlignment = Enum.TextXAlignment.Left })
-                Create("TextLabel", { Parent = row, Size = UDim2.new(0,  80, 1, 0), Position = UDim2.new(0, 262, 0, 0), BackgroundTransparency = 1, Text = distStr,  TextColor3 = Colors.TextMuted,  TextSize = 12, Font = Enum.Font.Gotham,     TextXAlignment = Enum.TextXAlignment.Left })
+                CreateCorner(bullet, 3)
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 120, 1, 0), Position = UDim2.new(0, 22,  0, 0), BackgroundTransparency = 1, Text = petName,  TextColor3 = col,               TextSize = 11, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd })  -- dikecilkan 130→120, TextSize 13→11
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0,  80, 1, 0), Position = UDim2.new(0, 148, 0, 0), BackgroundTransparency = 1, Text = rarity,   TextColor3 = col,               TextSize = 10, Font = Enum.Font.Gotham,     TextXAlignment = Enum.TextXAlignment.Left })  -- dikecilkan 90→80, pos 164→148, TextSize 12→10
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0,  70, 1, 0), Position = UDim2.new(0, 234, 0, 0), BackgroundTransparency = 1, Text = distStr,  TextColor3 = Colors.TextMuted,  TextSize = 10, Font = Enum.Font.Gotham,     TextXAlignment = Enum.TextXAlignment.Left })  -- dikecilkan 80→70, pos 262→234, TextSize 12→10
 
                 local tpBtn = Create("TextButton", {
                     Parent          = row,
-                    Size            = UDim2.new(0, 64, 0, 26),
-                    Position        = UDim2.new(1, -72, 0.5, -13),
+                    Size            = UDim2.new(0, 56, 0, 22),  -- dikecilkan dari 64/26 → 56/22
+                    Position        = UDim2.new(1, -62, 0.5, -11),  -- posisi disesuaikan
                     BackgroundColor3 = Colors.Surface,
                     Text            = "TP \226\134\146",
                     TextColor3      = col,
-                    TextSize        = 12,
+                    TextSize        = 11,  -- dikecilkan dari 12 → 11
                     Font            = Enum.Font.GothamBold,
                     BorderSizePixel = 0,
                     AutoButtonColor = false,
