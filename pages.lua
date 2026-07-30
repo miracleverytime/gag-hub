@@ -450,25 +450,547 @@ return function(ctx)
     -- ====================== PAGE 2: INVENTORY ======================
     ctx.registerPage("Inventory", function()
         
-        -- Section 1 akan saya lanjutkan di message berikutnya...
-        CreateInfoText(Create("Frame", {Parent = ctx.ContentArea, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,100)}), 
-            "🚧 Under Construction", 
-            "Inventory page is being built...")
+        -- Cache Logic references used only on this page
+        local ScanWildPets      = Logic.ScanWildPets
+        local HumanizePetName   = Logic.HumanizePetName
+        local RarityColor       = Logic.RarityColor
+        local PET_RARITY_LOOKUP = Logic.PET_RARITY_LOOKUP
+        local SmartMoveToPet    = Logic.SmartMoveToPet
+        local BuyWildPet        = Logic.BuyWildPet
+        local IsWildPetFree     = Logic.IsWildPetFree
+
+        local rarityOrd = { Super = 6, Mythic = 5, Legendary = 4, Rare = 3, Uncommon = 2, Common = 1 }
+        local sizeOrd   = { Huge = 3, Big = 2, Normal = 1 }
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 1: 🎒 Backpack Overview
+        -- ═══════════════════════════════════════════════════════════
+        local _, bagContent = CreateSectionCard("🎒 Backpack", 1, Colors.Accent)
+        
+        local _, fruitLbl  = CreateStatRow(bagContent, "Harvested Fruits in Bag", "?", Colors.Warning)
+        local _, seedLbl   = CreateStatRow(bagContent, "Seeds in Bag", "?", Colors.Success)
+        local _, petCntLbl = CreateStatRow(bagContent, "Pets in Bag", "?", Colors.Frozen)
+        local _, capLbl    = CreateStatRow(bagContent, "Capacity", "? / " .. MAX_FRUIT_CAP, Colors.Accent)
+        
+        task.spawn(function()
+            while GetActivePage() == "Inventory" do
+                task.wait(0.5)
+                if GetActivePage() ~= "Inventory" then break end
+                local fruits, seeds, pets = 0, 0, 0
+                for _, t in ipairs(player.Backpack:GetChildren()) do
+                    if     t:GetAttribute("HarvestedFruit") then fruits = fruits + 1
+                    elseif t:GetAttribute("SeedTool") or t:GetAttribute("SeedName") then seeds = seeds + 1
+                    elseif t:GetAttribute("Pet") then pets = pets + 1
+                    end
+                end
+                fruitLbl.Text  = tostring(fruits)
+                seedLbl.Text   = tostring(seeds)
+                petCntLbl.Text = tostring(pets)
+                capLbl.Text    = fruits .. " / " .. tostring(player:GetAttribute("MaxFruitCapacity") or MAX_FRUIT_CAP)
+            end
+        end)
+
+        CreateActionButton(bagContent, "📋 List All Fruits in Bag", function()
+            local items = {}
+            for _, t in ipairs(player.Backpack:GetChildren()) do
+                local fn = t:GetAttribute("FruitName")
+                if fn then
+                    local mut = GetMutation(t)
+                    local sm  = t:GetAttribute("SizeMultiplier") or 1
+                    local entry = fn
+                    if mut ~= "" and mut ~= "None" then entry = "[" .. mut .. "] " .. entry end
+                    entry = entry .. " x" .. string.format("%.2f", sm)
+                    table.insert(items, entry)
+                end
+            end
+            if #items == 0 then
+                Notify("Bag", "No fruits in backpack.", Colors.TextMuted)
+            else
+                Notify("Bag (" .. #items .. " fruits)", table.concat(items, ", "):sub(1, 150), Colors.Accent, 7)
+            end
+        end)
+
+        CreateActionButton(bagContent, "📦 Scan Crates in Backpack", function()
+            local cratesInBag = GetCratesInInventory()
+            if #cratesInBag == 0 then
+                Notify("Scan Crates", "No crates found in backpack.", Colors.TextMuted)
+                return
+            end
+            local names = {}
+            for _, entry in ipairs(cratesInBag) do table.insert(names, entry.name) end
+            Notify("Crates in Bag (" .. #cratesInBag .. ")", table.concat(names, ", "):sub(1, 150), Colors.Warning, 6)
+        end)
+
+        CreateActionButton(bagContent, "🔍 Inspect Held Item", function()
+            local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+            if ct then
+                local weight = ct:GetAttribute("Weight")
+                local mut    = GetMutation(ct)
+                local sm     = ct:GetAttribute("SizeMultiplier")
+                local decay  = ct:GetAttribute("DecayAlpha")
+                local fn     = ct:GetAttribute("FruitName") or ct:GetAttribute("Fruit") or ct.Name
+                if weight then
+                    Notify("Inspect: " .. fn,
+                        string.format("Wt:%.2fkg | Mut:%s | x%.2f size | Decay:%.4f", weight, mut, sm or 1, decay or 0),
+                        GetMutationColor(mut), 6)
+                else
+                    local seedName = ct:GetAttribute("SeedTool") or ct:GetAttribute("SeedName")
+                    if seedName then
+                        Notify("Inspect: Seed", "Type: " .. seedName, Colors.Success)
+                    else
+                        Notify("Inspect", ct.Name .. " — not a fruit or seed.", Colors.TextMuted)
+                    end
+                end
+            else
+                Notify("Inspect", "Not holding anything.", Colors.TextMuted)
+            end
+        end, Colors.Gold)
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 2: 🐾 Pet Inventory
+        -- ═══════════════════════════════════════════════════════════
+        local _, petContent = CreateSectionCard("🐾 Pet Inventory", 2, Colors.Frozen)
+        local listArea = Create("Frame", {
+            Parent              = petContent,
+            Size                = UDim2.new(1, 0, 0, 0),
+            AutomaticSize       = Enum.AutomaticSize.Y,
+            BackgroundTransparency = 1,
+        })
+        CreateListLayout(listArea, 6)
+
+        local ROW_H, ROW_GAP = 24, 4
+
+        local function RebuildInventory()
+            if not listArea or not listArea.Parent then return end
+            for _, c in ipairs(listArea:GetChildren()) do
+                if not c:IsA("UIListLayout") then c:Destroy() end
+            end
+            local playerPets = {}
+            for _, t in ipairs(player.Backpack:GetChildren()) do
+                local petName = t:GetAttribute("Pet") or t:GetAttribute("PetSpecies")
+                if petName then
+                    table.insert(playerPets, {
+                        name    = petName,
+                        size    = t:GetAttribute("PetSize")  or "Normal",
+                        petType = t:GetAttribute("PetType")  or "",
+                    })
+                end
+            end
+            table.sort(playerPets, function(a, b)
+                local ra = rarityOrd[PET_RARITY_LOOKUP[a.name] or ""] or 0
+                local rb = rarityOrd[PET_RARITY_LOOKUP[b.name] or ""] or 0
+                if ra ~= rb then return ra > rb end
+                return (sizeOrd[a.size] or 1) > (sizeOrd[b.size] or 1)
+            end)
+            CreateSubHeader(listArea, "Pets in Backpack (" .. #playerPets .. ")")
+            if #playerPets == 0 then
+                CreateInfoText(listArea, nil, "No pets in backpack.", Colors.TextMuted)
+                return
+            end
+            local scrollH   = 8 * ROW_H + 7 * ROW_GAP
+            local scrollWrap = Create("Frame", { Parent = listArea, Size = UDim2.new(1, 0, 0, scrollH), BackgroundTransparency = 1 })
+            local petScroll  = Create("ScrollingFrame", {
+                Parent                = scrollWrap,
+                Size                  = UDim2.new(1, 0, 1, 0),
+                BackgroundTransparency = 1,
+                BorderSizePixel       = 0,
+                ScrollBarThickness    = 3,
+                ScrollBarImageColor3  = Colors.Border,
+                CanvasSize            = UDim2.new(0, 0, 0, 0),
+                AutomaticCanvasSize   = Enum.AutomaticSize.Y,
+            })
+            CreateListLayout(petScroll, ROW_GAP)
+            for i, pet in ipairs(playerPets) do
+                local rarity    = PET_RARITY_LOOKUP[pet.name] or "Unknown"
+                local rarityCol = RarityColor[rarity] or Colors.TextSecondary
+                local valStr    = rarity
+                if pet.size ~= "Normal" then valStr = rarity .. " (" .. pet.size .. ")" end
+                local displayName = (pet.petType == "Rainbow" and "🌈 " or "") .. pet.name
+                CreateStatRow(petScroll, i .. ". " .. displayName, valStr, rarityCol)
+            end
+        end
+
+        RebuildInventory()
+        player.Backpack.ChildAdded:Connect(function(child)
+            if child:GetAttribute("Pet") or child:GetAttribute("PetSpecies") then task.defer(RebuildInventory) end
+        end)
+        player.Backpack.ChildRemoved:Connect(function(child)
+            if child:GetAttribute("Pet") or child:GetAttribute("PetSpecies") then task.defer(RebuildInventory) end
+        end)
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 3: 🔍 Pet Finder
+        -- ═══════════════════════════════════════════════════════════
+        local _, finderContent = CreateSectionCard("🔍 Pet Finder", 3, Colors.Warning)
+        local listContainer = Create("Frame", {
+            Parent              = finderContent,
+            Size                = UDim2.new(1, 0, 0, 0),
+            BackgroundTransparency = 1,
+            AutomaticSize       = Enum.AutomaticSize.Y,
+        })
+        CreateListLayout(listContainer, 4)
+
+        local function RebuildPetList()
+            if not listContainer or not listContainer.Parent then return end
+            for _, c in ipairs(listContainer:GetChildren()) do
+                if not c:IsA("UIListLayout") then c:Destroy() end
+            end
+            local pets = ScanWildPets("All")
+            if #pets == 0 then
+                CreateInfoText(listContainer, nil, "No unclaimed wild pets found nearby.", Colors.TextMuted)
+                return
+            end
+            CreateSubHeader(listContainer, #pets .. " pet(s) available")
+            for i, entry in ipairs(pets) do
+                if i > 15 then
+                    CreateInfoText(listContainer, nil, "... and " .. (#pets - 15) .. " more.", Colors.TextMuted)
+                    break
+                end
+                local part, rarity, dist = entry.part, entry.rarity, entry.dist
+                local col     = RarityColor[rarity] or Colors.TextSecondary
+                local distStr = dist < math.huge and string.format("%.0f studs", dist) or "?"
+                local petName = HumanizePetName(entry.name or "Unknown")
+
+                local row = Create("Frame", {
+                    Parent          = listContainer,
+                    Size            = UDim2.new(1, 0, 0, 36),
+                    BackgroundColor3 = Colors.BackgroundLighter,
+                    BorderSizePixel = 0,
+                })
+                CreateCorner(row, 6)
+                CreateStroke(row, col, 1)
+                local bullet = Create("Frame", {
+                    Parent          = row,
+                    Size            = UDim2.new(0, 6, 0, 6),
+                    Position        = UDim2.new(0, 10, 0.5, -3),
+                    BackgroundColor3 = col,
+                    BorderSizePixel = 0,
+                })
+                CreateCorner(bullet, 3)
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 120, 1, 0), Position = UDim2.new(0, 22, 0, 0), BackgroundTransparency = 1, Text = petName, TextColor3 = col, TextSize = 11, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd })
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 80, 1, 0), Position = UDim2.new(0, 148, 0, 0), BackgroundTransparency = 1, Text = rarity, TextColor3 = col, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left })
+                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 70, 1, 0), Position = UDim2.new(0, 234, 0, 0), BackgroundTransparency = 1, Text = distStr, TextColor3 = Colors.TextMuted, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left })
+
+                local tpBtn = Create("TextButton", {
+                    Parent          = row,
+                    Size            = UDim2.new(0, 56, 0, 22),
+                    Position        = UDim2.new(1, -62, 0.5, -11),
+                    BackgroundColor3 = Colors.Surface,
+                    Text            = "TP →",
+                    TextColor3      = col,
+                    TextSize        = 11,
+                    Font            = Enum.Font.GothamBold,
+                    BorderSizePixel = 0,
+                    AutoButtonColor = false,
+                })
+                CreateCorner(tpBtn, 6)
+                tpBtn.MouseEnter:Connect(function() Tween(tpBtn, { BackgroundColor3 = Colors.SurfaceLight }, 0.1) end)
+                tpBtn.MouseLeave:Connect(function() Tween(tpBtn, { BackgroundColor3 = Colors.Surface }, 0.1) end)
+                tpBtn.MouseButton1Click:Connect(function()
+                    if not part or not part.Parent then
+                        Notify("Pet Finder", "That pet has already disappeared!", Colors.Error)
+                        RebuildPetList()
+                        return
+                    end
+                    if not player.Character then return end
+                    Notify("Pet Finder", "Moving → " .. petName .. " (" .. rarity .. ")", col, 3)
+                    task.spawn(function()
+                        SmartMoveToPet(part.Position, function()
+                            if part and part.Parent and IsWildPetFree(part) then
+                                if Logic.WaitForWildPetApproach then
+                                    Logic.WaitForWildPetApproach(part, 1.2, 10)
+                                end
+                                BuyWildPet(part)
+                            end
+                        end)
+                    end)
+                end)
+            end
+        end
+
+        local finderPageAlive = true
+        local finderConn
+        finderConn = RunService.Heartbeat:Connect(function()
+            if GetActivePage() ~= "Inventory" then
+                finderPageAlive = false
+                finderConn:Disconnect()
+            end
+        end)
+
+        task.spawn(function()
+            while finderPageAlive and _G._MiracleHubSession == SESSION do
+                task.wait(2)
+                if finderPageAlive and GetActivePage() == "Inventory" then
+                    pcall(RebuildPetList)
+                end
+            end
+        end)
+
+        CreateActionButton(finderContent, "⚡ TP to Nearest Pet", function()
+            local pets = ScanWildPets("All")
+            if #pets == 0 then Notify("Pet Finder", "No pets available right now.", Colors.Error) return end
+            local nearest = pets[1]
+            local pName   = HumanizePetName(nearest.name or "Unknown")
+            Notify("Pet Finder", "Moving -> " .. pName .. " (" .. nearest.rarity .. ")", RarityColor[nearest.rarity] or Colors.Warning, 4)
+            task.spawn(function()
+                SmartMoveToPet(nearest.part.Position, function()
+                    if nearest.part and nearest.part.Parent and IsWildPetFree(nearest.part) then
+                        if Logic.WaitForWildPetApproach then
+                            Logic.WaitForWildPetApproach(nearest.part, 1.2, 10)
+                        end
+                        BuyWildPet(nearest.part)
+                    end
+                end)
+            end)
+        end, Colors.Warning)
+
+        task.defer(RebuildPetList)
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 4: 💰 Selling Tools
+        -- ═══════════════════════════════════════════════════════════
+        local _, sellToolsContent = CreateSectionCard("💰 Selling", 4, Colors.Gold)
+
+        CreateActionButton(sellToolsContent, "🔍 Preview Inventory Value", function()
+            if not Networking then Notify("Preview", "Sell system unavailable!", Colors.Error) return end
+            local ok, data = pcall(function() return Networking.NPCS.PreviewSellAll:Fire() end)
+            if ok and data and data.FruitCount then
+                local ddOk, ddData = pcall(function() return Networking.NPCS.CheckDailyDeal:Fire() end)
+                local ddAvail = ddOk and ddData and ddData.Available
+                local msg = data.FruitCount .. " fruits | Normal: " .. tostring(data.TotalValue or 0) .. "¢"
+                if ddAvail then
+                    local ddPrice = math.max(1, math.floor((data.TotalBaseValue or data.TotalValue or 0) * 5))
+                    msg = msg .. " | Daily Deal: " .. tostring(ddPrice) .. "¢ (5x!) ⭐"
+                end
+                Notify("Preview Sell", msg, Colors.Gold, 6)
+            else
+                Notify("Preview Sell", "No fruits in backpack.", Colors.TextMuted)
+            end
+        end)
+
+        CreateActionButton(sellToolsContent, "⚡ Sell All Now", function()
+            if not Networking then Notify("Sell", "Sell system unavailable! Try reloading the hub.", Colors.Error) return end
+            local ok, result = pcall(function() return Networking.NPCS.SellAll:Fire() end)
+            if ok and result and result.Success then
+                Notify("Sell", "Sold " .. (result.SoldCount or "?") .. " fruits = " .. tostring(result.SellPrice or 0) .. "¢", Colors.Gold, 10)
+            else
+                Notify("Sell", "Failed: " .. tostring(result and result.Reason or "Networking error"), Colors.Error)
+            end
+        end, Colors.Gold)
+
+        CreateActionButton(sellToolsContent, "🎯 Sell with Filters", function()
+            if not Networking then Notify("Sell", "Sell system unavailable!", Colors.Error) return end
+            local fruits = {}
+            for _, tool in ipairs(player.Backpack:GetChildren()) do
+                if tool:GetAttribute("FruitName") or tool:GetAttribute("HarvestedFruit") then
+                    table.insert(fruits, tool)
+                end
+            end
+            if #fruits == 0 then Notify("Sell", "No fruits in backpack.", Colors.TextMuted) return end
+            local sold, skipped = 0, 0
+            for _, tool in ipairs(fruits) do
+                if ShouldKeepFruit(tool) then
+                    skipped = skipped + 1
+                else
+                    local fruitId = tool:GetAttribute("Id")
+                    if not fruitId then
+                        skipped = skipped + 1
+                    else
+                        local ok, result = pcall(function() return Networking.NPCS.SellFruit:Fire(fruitId) end)
+                        if ok and result and result.Success then
+                            sold = sold + 1
+                        elseif result and result.Reason == "Favorited" then
+                            skipped = skipped + 1
+                        end
+                    end
+                end
+                task.wait(States.sellDelay or 0.1)
+            end
+            Notify("Sell with Filters", "Sold " .. sold .. " fruit(s), skipped " .. skipped, Colors.Gold, 10)
+        end)
             
     end)
 
     -- ====================== PAGE 3: SHOW ======================
     ctx.registerPage("Show", function()
-        CreateInfoText(Create("Frame", {Parent = ctx.ContentArea, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,100)}), 
-            "🚧 Under Construction", 
-            "Show page is being built...")
+        
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 1: 👁️ ESP
+        -- ═══════════════════════════════════════════════════════════
+        local _, espContent = CreateSectionCard("👁️ ESP", 1, Colors.Electric)
+        
+        CreateToggle(espContent, "ESP Players", "espPlayers", "Shows player names/tags above heads")
+        CreateToggle(espContent, "ESP Wild Pets", "espItems", "Highlights wild pets in workspace")
+        CreateToggle(espContent, "ESP Fruits", "espFruits", "Highlights harvestable fruits on the plot")
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 2: 📊 Live Stats
+        -- ═══════════════════════════════════════════════════════════
+        local _, statsContent = CreateSectionCard("📊 Live Stats", 2, Colors.Accent)
+        
+        local _, hpLbl = CreateStatRow(statsContent, "Health", "100 / 100", Colors.Success)
+        local _, wsLbl = CreateStatRow(statsContent, "WalkSpeed", tostring(ctx.humanoid and ctx.humanoid.WalkSpeed or "?"), Colors.Accent)
+        local _, jpLbl = CreateStatRow(statsContent, "JumpPower", tostring(ctx.humanoid and ctx.humanoid.JumpPower or "?"), Colors.Accent)
+        CreateStatRow(statsContent, "Plot ID", MY_PLOT_ID, Colors.Warning)
+        local _, bpLbl = CreateStatRow(statsContent, "Backpack Items", #player.Backpack:GetChildren(), Colors.TextSecondary)
+
+        task.spawn(function()
+            local bpTick = 0
+            while GetActivePage() == "Show" do
+                local dt = task.wait()
+                if not ctx.humanoid then continue end
+                hpLbl.Text = math.floor(ctx.humanoid.Health) .. " / " .. ctx.humanoid.MaxHealth
+                wsLbl.Text = string.format("%.1f", ctx.humanoid.WalkSpeed)
+                jpLbl.Text = string.format("%.1f", ctx.humanoid.JumpPower)
+                bpTick = bpTick + dt
+                if bpTick >= 0.5 then
+                    bpTick = 0
+                    bpLbl.Text = tostring(#player.Backpack:GetChildren())
+                end
+            end
+        end)
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 3: 🎨 Graphics
+        -- ═══════════════════════════════════════════════════════════
+        local _, graphicsContent = CreateSectionCard("🎨 Graphics", 3, Colors.Warning)
+        
+        CreateActionButton(graphicsContent, "Ultra Low Graphics (Permanent until rejoin)", function()
+            if ctx.UltraLow and ctx.UltraLow.Active then
+                Notify("Ultra Low", "Already active. Rejoin to reset.", Colors.Warning)
+                return
+            end
+            if not ctx.UltraLow then
+                Notify("Ultra Low", "Ultra Low module not found.", Colors.Error)
+                return
+            end
+            Notify("Ultra Low", "Applying... Don't close the hub.", Colors.Warning, 3)
+            task.spawn(function() ctx.UltraLow.Apply() end)
+        end)
+        
     end)
 
     -- ====================== PAGE 4: MISC ======================
     ctx.registerPage("Misc", function()
-        CreateInfoText(Create("Frame", {Parent = ctx.ContentArea, BackgroundTransparency = 1, Size = UDim2.new(1,0,0,100)}), 
-            "🚧 Under Construction", 
-            "Misc page is being built...")
+        
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 1: 🏃 Movement
+        -- ═══════════════════════════════════════════════════════════
+        local _, moveContent = CreateSectionCard("🏃 Movement", 1, Colors.Electric)
+        
+        CreateToggle(moveContent, "Lock WalkSpeed", "lockWalkSpeed")
+        CreateSlider(moveContent, "WalkSpeed", 1, 500, "walkSpeed")
+        CreateToggle(moveContent, "Lock JumpPower", "lockJumpPower")
+        CreateSlider(moveContent, "JumpPower", 1, 500, "jumpPower")
+        CreateToggle(moveContent, "Infinite Jump", "infiniteJump")
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 2: ✈️ Fly
+        -- ═══════════════════════════════════════════════════════════
+        local _, flyContent = CreateSectionCard("✈️ Fly", 2, Colors.TextSecondary)
+        
+        CreateInfoText(flyContent, "Controls", "[F] Toggle Fly | [W/A/S/D] Move | [Space] Up | [Ctrl] Down")
+
+        local _, _, setFlyVisual = CreateToggle(flyContent, "Fly", "fly",
+            "Hold WASD to fly, Space=up, Ctrl=down",
+            function(state)
+                if ctx.ToggleFly then
+                    ctx.ToggleFly(state)
+                else
+                    Notify("Misc", "Fly " .. (state and "ON" or "OFF"), state and Colors.Success or Colors.TextMuted)
+                end
+            end)
+
+        ctx._setFlyVisual = setFlyVisual
+        CreateSlider(flyContent, "Fly Speed", 1, 300, "flySpeed")
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 3: 🎁 Mailbox
+        -- ═══════════════════════════════════════════════════════════
+        local _, mailContent = CreateSectionCard("🎁 Mailbox", 3, Colors.Rainbow)
+        
+        CreateActionButton(mailContent, "Check Mailbox Now", function()
+            local plot = GetMyPlot()
+            if not plot then Notify("Mailbox", "Your plot was not found!", Colors.Error) return end
+            local signs   = plot:FindFirstChild("Signs")
+            local mailbox = signs and signs:FindFirstChild("GreyMailBox")
+            if not mailbox then Notify("Mailbox", "Mailbox not found on your plot.", Colors.Error) return end
+            local found = false
+            for _, desc in ipairs(mailbox:GetDescendants()) do
+                if desc:IsA("ProximityPrompt") and desc.Name == "MailboxPrompt" then
+                    SafeFirePrompt(desc)
+                    found = true
+                    break
+                end
+            end
+            Notify("Mailbox",
+                found and "Mailbox checked on Plot " .. MY_PLOT_ID or "Mailbox could not be opened.",
+                found and Colors.Rainbow or Colors.Error)
+        end, Colors.Rainbow)
+
+        CreateActionButton(mailContent, "Show Bid Info (Held Item)", function()
+            local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
+            if ct then
+                local bidPrice  = ct:GetAttribute("BidPrice")
+                local bidsAsked = ct:GetAttribute("BidsAsked")
+                if bidPrice or bidsAsked then
+                    Notify("Bid Info", "BidPrice: " .. tostring(bidPrice) .. " | BidsAsked: " .. tostring(bidsAsked), Colors.Gold, 6)
+                else
+                    Notify("Bid", "No bid attrs on: " .. ct.Name, Colors.TextMuted)
+                end
+            else
+                Notify("Bid", "Not holding anything.", Colors.TextMuted)
+            end
+        end)
+
+        -- ═══════════════════════════════════════════════════════════
+        -- Section 4: 🌐 Server Info
+        -- ═══════════════════════════════════════════════════════════
+        local PlayersService  = game:GetService("Players")
+        local TeleportService = game:GetService("TeleportService")
+
+        local _, serverContent = CreateSectionCard("🌐 Server Info", 4, Colors.Accent)
+        
+        CreateStatRow(serverContent, "Job ID", game.JobId:sub(1, 20) .. "...", Colors.TextMuted)
+        CreateStatRow(serverContent, "Place ID", tostring(game.PlaceId), Colors.TextMuted)
+        local _, pcLbl = CreateStatRow(serverContent, "Players in Server", #PlayersService:GetPlayers(), Colors.Success)
+
+        local playerPlotLabels = {}
+        CreateSubHeader(serverContent, "Other Players")
+        for _, p in ipairs(PlayersService:GetPlayers()) do
+            if p ~= player then
+                local _, pPlotLbl = CreateStatRow(serverContent,
+                    p.DisplayName .. " (@" .. p.Name .. ")",
+                    "Plot " .. (p:GetAttribute("PlotId") or "?"),
+                    Colors.TextMuted)
+                table.insert(playerPlotLabels, { p = p, lbl = pPlotLbl })
+            end
+        end
+
+        task.spawn(function()
+            while GetActivePage() == "Misc" do
+                task.wait(1)
+                if GetActivePage() ~= "Misc" then break end
+                pcLbl.Text = tostring(#PlayersService:GetPlayers())
+                for _, entry in ipairs(playerPlotLabels) do
+                    if entry.lbl and entry.lbl.Parent then
+                        entry.lbl.Text = "Plot " .. tostring(entry.p:GetAttribute("PlotId") or "?")
+                    end
+                end
+            end
+        end)
+
+        CreateActionButton(serverContent, "Rejoin Server", function()
+            Notify("Server", "Rejoining in 2s...", Colors.Warning)
+            task.wait(2)
+            TeleportService:Teleport(game.PlaceId, player)
+        end, Colors.Warning)
+
+        CreateActionButton(serverContent, "Copy Job ID", function()
+            setclipboard(game.JobId)
+            Notify("Server", "Job ID copied.", Colors.Accent)
+        end)
+        
     end)
 
     -- ====================== PAGE 5: SETTINGS ======================
