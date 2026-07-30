@@ -1231,26 +1231,16 @@ return function(ctx)
         return button
     end
 
-    -- Build sidebar buttons; store refs on ctx for bootstrap wiring
+    -- Build sidebar buttons; store refs on ctx for bootstrap wiring (RESTRUCTURED - 5 pages)
     local sb = {}
-    CreateSectionHeader(SidebarContent, "AUTOMATION", 1)
-    sb.Farm     = CreateSidebarButton(SidebarContent, "\226\157\167", "Farm", 2)       -- ❧ leaf/plant outline
-    sb.Plot     = CreateSidebarButton(SidebarContent, "\226\138\158", "Plot", 3)       -- ⊞ grid outline
-    sb.Shop     = CreateSidebarButton(SidebarContent, "\226\138\161", "Shop", 4)       -- ⊡ box outline
-    sb.Sell     = CreateSidebarButton(SidebarContent, "\226\138\153", "Sell", 5)       -- ⊙ circle outline
-    sb.Pets     = CreateSidebarButton(SidebarContent, "\226\151\139", "Pets", 6)       -- ○ half circle outline
-    sb.Eggs     = CreateSidebarButton(SidebarContent, "\226\151\141", "Eggs", 7)       -- ◍ dotted circle outline
+    CreateSectionHeader(SidebarContent, "MAIN", 1)
+    sb.Automatic = CreateSidebarButton(SidebarContent, "\226\154\153", "Automatic", 2)  -- ⚙ gear/automation
+    sb.Inventory = CreateSidebarButton(SidebarContent, "\226\151\143", "Inventory", 3)  -- ● bag/inventory
+    sb.Show      = CreateSidebarButton(SidebarContent, "\226\151\142", "Show", 4)       -- ◎ eye/visibility
 
-    CreateSectionHeader(SidebarContent, "PLAYER", 8)
-    sb.Player   = CreateSidebarButton(SidebarContent, "\226\138\156", "Player", 9)    -- ⊜ person outline
-    sb.Visuals  = CreateSidebarButton(SidebarContent, "\226\151\142", "Visuals", 10)  -- ◎ eye/circle outline
-    sb.Teleport = CreateSidebarButton(SidebarContent, "\226\150\183", "Teleport", 11) -- ▷ arrow outline
-
-    CreateSectionHeader(SidebarContent, "MISC", 12)
-    sb.Utility  = CreateSidebarButton(SidebarContent, "\226\152\134", "Utility", 13)  -- ☆ star outline (hollow)
-    sb.Mailer   = CreateSidebarButton(SidebarContent, "\226\156\137", "Mailer", 14)   -- ✉ envelope outline
-    sb.Server   = CreateSidebarButton(SidebarContent, "\226\151\183", "Server", 15)   -- ◷ clock outline
-    sb.Settings = CreateSidebarButton(SidebarContent, "\226\152\134", "Settings", 16) -- ☆ cog outline
+    CreateSectionHeader(SidebarContent, "MISC", 5)
+    sb.Misc      = CreateSidebarButton(SidebarContent, "\226\152\134", "Misc", 6)       -- ☆ utilities
+    sb.Settings  = CreateSidebarButton(SidebarContent, "\226\154\153", "Settings", 7)   -- ⚙ settings
     ctx.sidebarButtonRefs = sb
 
     -- ====================== PROFILE CARD (top of sidebar, Neo) ======================

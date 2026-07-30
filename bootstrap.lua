@@ -48,13 +48,13 @@ return function(ctx)
     local LoadingPercent   = ctx.LoadingPercent
     local LoadingStatus    = ctx.LoadingStatus
 
-    -- ====================== SIDEBAR CONNECTIONS ======================
+    -- ====================== SIDEBAR CONNECTIONS (RESTRUCTURED - 5 pages) ======================
     local pageMap = {
-        [sb.Farm] = "Farm", [sb.Plot] = "Plot", [sb.Shop] = "Shop",
-        [sb.Sell] = "Sell", [sb.Pets] = "Pets", [sb.Eggs] = "Eggs",
-        [sb.Player] = "Player", [sb.Visuals] = "Visuals", [sb.Teleport] = "Teleport",
-        [sb.Utility] = "Utility", [sb.Mailer] = "Mailer",
-        [sb.Server] = "Server", [sb.Settings] = "Settings",
+        [sb.Automatic] = "Automatic",
+        [sb.Inventory] = "Inventory",
+        [sb.Show] = "Show",
+        [sb.Misc] = "Misc",
+        [sb.Settings] = "Settings",
     }
     for btn, pageName in pairs(pageMap) do
         btn.MouseButton1Click:Connect(function()
@@ -62,21 +62,21 @@ return function(ctx)
         end)
     end
 
-    -- ====================== SEARCH FUNCTIONALITY ======================
+    -- ====================== SEARCH FUNCTIONALITY (RESTRUCTURED) ======================
     local searchAllItems = {
-        {"auto plant", "Farm"}, {"plant seed", "Farm"}, {"auto harvest", "Farm"}, {"harvest", "Farm"},
-        {"water", "Farm"}, {"sprinkler", "Farm"}, {"bamboo", "Farm"}, {"blueberry", "Farm"},
-        {"auto buy", "Shop"}, {"buy seed", "Shop"}, {"crate", "Shop"}, {"restock", "Shop"}, {"shop", "Shop"},
-        {"auto buy crate", "Shop"}, {"open crate", "Shop"}, {"beli crate", "Shop"}, {"crate shop", "Shop"},
-        {"sell", "Sell"}, {"auto sell", "Sell"}, {"bag", "Sell"}, {"fruit", "Sell"},
-        {"pet", "Pets"}, {"wild pet", "Pets"}, {"bunny", "Pets"}, {"frog", "Pets"}, {"equip pet", "Pets"},
-        {"egg", "Eggs"}, {"hatch", "Eggs"}, {"open egg", "Eggs"},
-        {"walk", "Player"}, {"speed", "Player"}, {"fly", "Player"}, {"jump", "Player"},
-        {"esp", "Visuals"}, {"highlight", "Visuals"}, {"bright", "Visuals"}, {"fog", "Visuals"},
-        {"teleport", "Teleport"}, {"tp", "Teleport"}, {"seeds shop", "Teleport"},
-        {"inspect", "Utility"}, {"mailbox", "Utility"}, {"gift", "Utility"}, {"bid", "Mailer"},
-        {"server", "Server"}, {"rejoin", "Server"},
-        {"settings", "Settings"}, {"config", "Settings"}, {"keybind", "Settings"},
+        {"auto plant", "Automatic"}, {"plant seed", "Automatic"}, {"auto harvest", "Automatic"}, {"harvest", "Automatic"},
+        {"water", "Automatic"}, {"sprinkler", "Automatic"}, {"farming", "Automatic"},
+        {"auto buy", "Automatic"}, {"buy seed", "Automatic"}, {"crate", "Automatic"}, {"shop", "Automatic"},
+        {"auto buy crate", "Automatic"}, {"open crate", "Automatic"}, {"shopping", "Automatic"},
+        {"sell", "Automatic"}, {"auto sell", "Automatic"}, {"selling", "Automatic"},
+        {"pet", "Inventory"}, {"wild pet", "Inventory"}, {"bunny", "Inventory"}, {"frog", "Inventory"},
+        {"catch", "Automatic"}, {"auto catch", "Automatic"},
+        {"bag", "Inventory"}, {"fruit", "Inventory"}, {"inventory", "Inventory"}, {"backpack", "Inventory"},
+        {"inspect", "Inventory"}, {"scan", "Inventory"},
+        {"walk", "Misc"}, {"speed", "Misc"}, {"fly", "Misc"}, {"jump", "Misc"}, {"movement", "Misc"},
+        {"esp", "Show"}, {"highlight", "Show"}, {"visual", "Show"}, {"stats", "Show"},
+        {"mailbox", "Misc"}, {"gift", "Automatic"}, {"server", "Misc"}, {"rejoin", "Automatic"},
+        {"settings", "Settings"}, {"config", "Settings"},
     }
 
     SearchBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -1341,7 +1341,7 @@ return function(ctx)
         Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
         task.wait(0.3)
-        SetActivePage("Profile")
+        SetActivePage("Automatic")
 
         task.wait(0.8)
         local remoteStatus = ctx.PacketRemote and "Remote" or "Remote \226\154\160 (check console)"
