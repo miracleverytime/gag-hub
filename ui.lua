@@ -680,6 +680,7 @@ return function(ctx)
         Name = "MiracleHub",
         Parent = playerGui,
         ResetOnSpawn = false,
+        DisplayOrder = 999999,  -- Selalu di depan UI game
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
     })
     ctx.ScreenGui = ScreenGui
