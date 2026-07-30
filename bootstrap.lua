@@ -1376,8 +1376,8 @@ return function(ctx)
 
         task.wait(0.3)
         if _G._MiracleHubSession ~= SESSION_REVEAL then return end
-        -- Mobile dan desktop sekarang menggunakan halaman pertama yang sama: "Automatic"
-        SetActivePage("Automatic")
+        -- Mobile dan desktop menggunakan halaman pertama yang sama: "Profile"
+        SetActivePage("Profile")
 
         task.wait(0.8)
         if _G._MiracleHubSession ~= SESSION_REVEAL then return end
