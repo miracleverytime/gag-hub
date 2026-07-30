@@ -994,23 +994,15 @@ return function(ctx)
     ctx.ContentArea = ContentArea
     CreateCorner(ContentArea, 14)
 
-    -- Page header (sama seperti desktop)
+    -- Page header (sama seperti desktop) — RESTRUCTURED 5 TAB
     local PAGE_HEADER_H = 34
     local LUCIDE_ICONS = {
-        Farm     = "rbxassetid://80777208164591",
-        Plot     = "rbxassetid://87316251149405",
-        Shop     = "rbxassetid://76080467452382",
-        Sell     = "rbxassetid://140657030512024",
-        Pets     = "rbxassetid://116007211295034",
-        Eggs     = "rbxassetid://100365523847172",
-        Player   = "rbxassetid://89538326699568",
-        Visuals  = "rbxassetid://109331875518738",
-        Teleport = "rbxassetid://102771272796313",
-        Utility  = "rbxassetid://114046395678554",
-        Mailer   = "rbxassetid://131932847752233",
-        Server   = "rbxassetid://85074479673177",
-        Settings = "rbxassetid://133886562604149",
-        Profile  = "rbxassetid://89538326699568",  -- User icon sama kaya Player
+        Automatic = "rbxassetid://80777208164591",  -- Farm icon
+        Inventory = "rbxassetid://116007211295034", -- Pets/Bag icon
+        Show      = "rbxassetid://109331875518738", -- Visuals/Eye icon
+        Misc      = "rbxassetid://114046395678554", -- Utility/Tool icon
+        Settings  = "rbxassetid://133886562604149", -- Settings icon
+        Profile   = "rbxassetid://89538326699568",  -- User icon
     }
 
     local PageHeader = Create("Frame", {
@@ -1030,7 +1022,7 @@ return function(ctx)
         Size = UDim2.new(0, 14, 0, 14),
         Position = UDim2.new(0, 10, 0.5, -7),
         BackgroundTransparency = 1,
-        Image = LUCIDE_ICONS["Farm"] or "",
+        Image = LUCIDE_ICONS["Automatic"] or "",
         ImageColor3 = Colors.Accent,  -- changed to teal
         ImageTransparency = 0,  -- fully visible
         ScaleType = Enum.ScaleType.Fit,
@@ -1142,11 +1134,10 @@ return function(ctx)
     end
     UI.CreateSectionHeader = CreateSectionHeader
 
-    -- Sidebar nav groups (sama seperti desktop)
+    -- Sidebar nav groups (sama seperti desktop) — RESTRUCTURED 5 TAB
     local NAV_GROUPS = {
-        {header = "Game",  items = {"Farm", "Plot", "Shop", "Sell", "Pets", "Eggs"}},
-        {header = "Tools", items = {"Player", "Visuals", "Teleport", "Utility", "Mailer"}},
-        {header = "Other", items = {"Server", "Settings"}},
+        {header = "Main",  items = {"Automatic", "Inventory", "Show"}},
+        {header = "Other", items = {"Misc", "Settings"}},
     }
 
     -- Sidebar button interaction (sama dengan desktop)
@@ -1271,15 +1262,8 @@ return function(ctx)
     end
 
     -- ====================== BOOTSTRAP ALIAS (WAJIB) ======================
-    -- bootstrap.lua mengakses sb.Automatic, sb.Inventory, sb.Show, sb.Misc,
-    -- sb.Settings untuk wiring klik sidebar. Di mobile nama page berbeda,
-    -- jadi kita buat alias ke tombol mobile yang paling equivalent.
-    -- Tanpa ini: sb.Automatic == nil → pageMap[nil] → error saat pairs().
-    sb["Automatic"] = sb["Farm"]      -- halaman utama farming/automation
-    sb["Inventory"] = sb["Pets"]      -- bag / inventory → Pets paling dekat
-    sb["Show"]      = sb["Visuals"]   -- ESP / visual → Visuals
-    sb["Misc"]      = sb["Player"]    -- misc tools → Player
-    -- sb["Settings"] sudah ada dari NAV_GROUPS
+    -- REMOVED — sudah tidak diperlukan karena pages.lua dan ui.mobile.lua
+    -- sekarang menggunakan nama halaman yang sama (5 tab).
 
     ctx.sidebarButtonRefs = sb
 
@@ -1375,7 +1359,7 @@ return function(ctx)
             PageHeaderIcon.ImageColor3 = Colors.Accent  -- changed to teal
             PageHeaderIcon.ImageTransparency = 0
         else
-            PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
+            PageHeaderIcon.Image = LUCIDE_ICONS["Automatic"] or ""
             PageHeaderIcon.ImageColor3 = Colors.Accent  -- changed to teal
             PageHeaderIcon.ImageTransparency = 0
         end
