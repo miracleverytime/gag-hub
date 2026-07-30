@@ -466,6 +466,10 @@ return function(ctx)
         end
 
         -- DoMinimize / DoRestore — timing & easing identik desktop
+        -- MY_SESSION: guard semua task.delay supaya callback dari inject lama
+        -- tidak mengacak-acak GUI inject baru saat reinject.
+        local MY_SESSION = ctx.SESSION
+
         DoMinimize = function()
             if minimized then return end
             minimized = true
@@ -482,6 +486,7 @@ return function(ctx)
             FadeOutContent(0.12)
 
             task.delay(0.10, function()
+                if _G._MiracleHubSession ~= MY_SESSION then return end
                 if not minimized then return end
                 activeTopBarTween = Tween(TopBar, {
                     Size     = UDim2.new(layoutTopBarSize.X.Scale, layoutTopBarSize.X.Offset, 0, PILL_H),
@@ -494,6 +499,7 @@ return function(ctx)
             end)
 
             task.delay(0.47, function()
+                if _G._MiracleHubSession ~= MY_SESSION then return end
                 if not minimized then return end
                 MinimizedPill.Position = targetPillPos
                 SetPillTransparency(0)
@@ -537,17 +543,22 @@ return function(ctx)
             }, 0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
             task.delay(0.20, function()
+                if _G._MiracleHubSession ~= MY_SESSION then return end
                 if minimized then return end
                 RestoreFromSnapshot(0.18)
             end)
 
             task.delay(0.45, function()
+                if _G._MiracleHubSession ~= MY_SESSION then return end
                 if minimized then return end
                 -- Pastikan layout shell masih original setelah expand selesai
                 ResetMobileShellLayout()
                 if ctx._setUserHasDragged then ctx._setUserHasDragged(false) end
                 ctx.isMinimized = false
-                if ctx.SnapMainFramePosition then ctx.SnapMainFramePosition() end
+                -- pcall: guard kalau MainFrame sudah di-Destroy oleh reinject
+                pcall(function()
+                    if ctx.SnapMainFramePosition then ctx.SnapMainFramePosition() end
+                end)
             end)
         end
 
@@ -934,6 +945,10 @@ return function(ctx)
             end
         end
 
+        -- MY_SESSION_DESK: guard task.delay desktop supaya callback lama
+        -- tidak mengacak-acak GUI inject baru saat reinject.
+        local MY_SESSION_DESK = ctx.SESSION
+
         DoMinimize = function()
             if minimized then return end
             minimized = true
@@ -971,6 +986,7 @@ return function(ctx)
             FadeOutContent(0.12)
 
             task.delay(0.10, function()
+                if _G._MiracleHubSession ~= MY_SESSION_DESK then return end
                 if not minimized then return end
                 Tween(TopBar, {
                     Size     = UDim2.new(topBarOriginalSize.X.Scale, topBarOriginalSize.X.Offset, 0, PILL_H),
@@ -983,6 +999,7 @@ return function(ctx)
             end)
 
             task.delay(0.47, function()
+                if _G._MiracleHubSession ~= MY_SESSION_DESK then return end
                 if not minimized then return end
                 MinimizedPill.Position = targetPillPos
                 SetPillTransparency(0)
@@ -1020,13 +1037,17 @@ return function(ctx)
             }, 0.40, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
             task.delay(0.20, function()
+                if _G._MiracleHubSession ~= MY_SESSION_DESK then return end
                 if minimized then return end
                 RestoreFromSnapshot(0.18)
             end)
 
             task.delay(0.45, function()
+                if _G._MiracleHubSession ~= MY_SESSION_DESK then return end
                 ctx.isMinimized = false
-                ctx.SnapMainFramePosition()
+                pcall(function()
+                    ctx.SnapMainFramePosition()
+                end)
             end)
         end
 
@@ -1313,13 +1334,18 @@ return function(ctx)
     -- ====================== LOADING SCREEN REVEAL ======================
     -- loader.lua sudah mengisi LoadingBarFill/Percent/Status secara real-time.
     -- Bootstrap tinggal: snap bar ke 100%, teks "Ready!", fade out, reveal window.
+    -- SESSION_REVEAL: guard seluruh sequence supaya reinject cepat tidak
+    -- menjalankan reveal dari sesi lama setelah GUI baru sudah terbentuk.
     do
+        local SESSION_REVEAL = ctx.SESSION
+
         -- Snap bar ke 100% dengan tween singkat (biar smooth dari ~83% ke 100%)
         Tween(LoadingBarFill, {Size = UDim2.new(1, 0, 1, 0)}, 0.3)
         LoadingPercent.Text = "100%"
         LoadingStatus.Text  = "Ready!"
 
         task.wait(0.5)
+        if _G._MiracleHubSession ~= SESSION_REVEAL then return end
 
         -- Fade out loading container
         Tween(LoadingContainer, {BackgroundTransparency = 1}, 0.4)
@@ -1331,6 +1357,7 @@ return function(ctx)
             end
         end
         task.wait(0.5)
+        if _G._MiracleHubSession ~= SESSION_REVEAL then return end
         LoadingScreen:Destroy()
 
         -- Reveal main window
@@ -1341,9 +1368,11 @@ return function(ctx)
         Tween(MainFrame, {Size = originalSize}, 0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 
         task.wait(0.3)
+        if _G._MiracleHubSession ~= SESSION_REVEAL then return end
         SetActivePage("Automatic")
 
         task.wait(0.8)
+        if _G._MiracleHubSession ~= SESSION_REVEAL then return end
         local remoteStatus = ctx.PacketRemote and "Remote" or "Remote \226\154\160 (check console)"
         local buildTag = ctx.isMobile and " | Mobile a36b029" or ""
         Notify("Miracle Hub", "Loaded! Plot " .. MY_PLOT_ID .. " | " .. remoteStatus .. buildTag .. " | [Insert] toggle | [F] fly", Colors.Success, 6)

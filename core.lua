@@ -26,6 +26,11 @@ return function(ctx)
     ctx.ReplicatedStorage = ReplicatedStorage
     ctx.TeleportService   = TeleportService
 
+    -- ====================== PLATFORM DETECTION ======================
+    -- Harus diset di core (sebelum ui_mobile / ui dipanggil) supaya
+    -- bootstrap.lua bisa masuk ke branch mobile yang benar saat reinject.
+    ctx.isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+
     -- ====================== PLAYER REFS ======================
     local player    = Players.LocalPlayer
     local playerGui = player:WaitForChild("PlayerGui")
