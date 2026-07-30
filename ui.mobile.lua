@@ -1046,7 +1046,7 @@ return function(ctx)
         BackgroundTransparency = 1,
         Text = "PROFILE  •  " .. BUILD_TAG,
         TextColor3 = Colors.TextPrimary,
-        TextSize = 11,
+        TextSize = 9,  -- reduced from 11 → 9
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -1057,7 +1057,7 @@ return function(ctx)
         BackgroundColor3 = Colors.BackgroundLighter,
         Text = "IDLE",
         TextColor3 = Colors.TextMuted,
-        TextSize = 11,
+        TextSize = 9,  -- reduced from 11 → 9
         Font = FONT_MONO,
         BorderSizePixel = 0,
         Visible = false,
@@ -1446,7 +1446,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = string.upper(cleanTitle),
             TextColor3 = accentColor or Colors.Accent,
-            TextSize = 10,  -- dikecilkan dari 11 → 10
+            TextSize = 9,  -- reduced from 10 → 9
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.X,
@@ -1490,7 +1490,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextSecondary,
-            TextSize = 10,  -- dikecilkan dari 12 → 10
+            TextSize = 9,  -- reduced from 10 → 9
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
@@ -2180,7 +2180,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "// " .. text,
             TextColor3 = Colors.TextMuted,
-            TextSize = 11,  -- muted/secondary
+            TextSize = 9,  -- reduced from 11 → 9
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             LayoutOrder = layoutOrder,
@@ -2612,7 +2612,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "INFORMATION",
             TextColor3 = Colors.Accent,
-            TextSize = 10,  -- dikecilkan dari 11 → 10
+            TextSize = 9,  -- reduced from 10 → 9
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.X,
