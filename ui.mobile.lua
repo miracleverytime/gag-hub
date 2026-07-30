@@ -2441,6 +2441,17 @@ return function(ctx)
             ImageColor3 = Colors.TextMuted,
         })
 
+        -- Backdrop to catch outside clicks
+        local modalBackdrop = Create("TextButton", {
+            Parent = ScreenGui,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,  -- invisible but catches clicks
+            Text = "",
+            Visible = false,
+            ZIndex = 199,
+            AutoButtonColor = false,
+        })
+
         -- Modal frame
         local loopModal = Create("Frame", {
             Parent = ScreenGui,
@@ -2570,39 +2581,22 @@ return function(ctx)
             modalOpen = not modalOpen
             if modalOpen then
                 refreshModal()
+                modalBackdrop.Visible = true
                 loopModal.Visible = true
                 infoBtn.ImageColor3 = Colors.Accent
             else
+                modalBackdrop.Visible = false
                 loopModal.Visible = false
                 infoBtn.ImageColor3 = Colors.TextMuted
             end
         end)
 
-        -- Auto-close on outside click
-        UserInputService.InputBegan:Connect(function(input, gp)
-            if gp then return end
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or
-               input.UserInputType == Enum.UserInputType.Touch then
-                if modalOpen then
-                    task.defer(function()
-                        local mp = UserInputService:GetMouseLocation()
-                        local mp2 = Vector2.new(mp.X, mp.Y)
-                        local mPos  = loopModal.AbsolutePosition
-                        local mSize = loopModal.AbsoluteSize
-                        local inModal = mp2.X >= mPos.X and mp2.X <= mPos.X + mSize.X
-                                     and mp2.Y >= mPos.Y and mp2.Y <= mPos.Y + mSize.Y
-                        local iPos  = infoBtn.AbsolutePosition
-                        local iSize = infoBtn.AbsoluteSize
-                        local inIcon = mp2.X >= iPos.X and mp2.X <= iPos.X + iSize.X
-                                    and mp2.Y >= iPos.Y and mp2.Y <= iPos.Y + iSize.Y
-                        if not inModal and not inIcon then
-                            modalOpen = false
-                            loopModal.Visible = false
-                            infoBtn.ImageColor3 = Colors.TextMuted
-                        end
-                    end)
-                end
-            end
+        -- Close modal when clicking backdrop (outside modal)
+        modalBackdrop.MouseButton1Click:Connect(function()
+            modalOpen = false
+            modalBackdrop.Visible = false
+            loopModal.Visible = false
+            infoBtn.ImageColor3 = Colors.TextMuted
         end)
 
         -- INFORMATION section
