@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "MOBILE-DRAG-6"
+    local BUILD_TAG         = "MOBILE-DRAG-7"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
