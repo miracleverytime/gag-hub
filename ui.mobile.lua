@@ -1045,8 +1045,8 @@ return function(ctx)
         Position = UDim2.new(0, 30, 0, 0),
         BackgroundTransparency = 1,
         Text = "PROFILE  •  " .. BUILD_TAG,
-        TextColor3 = Colors.TextPrimary,
-        TextSize = 9,  -- reduced from 11 → 9
+        TextColor3 = Colors.Accent,  -- changed to teal
+        TextSize = 10,  -- increased from 9 → 10
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -1446,7 +1446,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = string.upper(cleanTitle),
             TextColor3 = accentColor or Colors.Accent,
-            TextSize = 9,  -- reduced from 10 → 9
+            TextSize = 10,  -- increased from 9 → 10
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.X,
@@ -1489,8 +1489,8 @@ return function(ctx)
             Size = UDim2.new(0, 140, 1, 0),
             BackgroundTransparency = 1,
             Text = text,
-            TextColor3 = Colors.TextSecondary,
-            TextSize = 9,  -- reduced from 10 → 9
+            TextColor3 = Colors.Accent,  -- changed to teal
+            TextSize = 10,  -- increased from 9 → 10
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
@@ -2179,8 +2179,8 @@ return function(ctx)
             Size = UDim2.new(1, 0, 0, 20),
             BackgroundTransparency = 1,
             Text = "// " .. text,
-            TextColor3 = Colors.TextMuted,
-            TextSize = 9,  -- reduced from 11 → 9
+            TextColor3 = Colors.Accent,  -- changed to teal
+            TextSize = 10,  -- increased from 9 → 10
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             LayoutOrder = layoutOrder,
@@ -2612,7 +2612,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "INFORMATION",
             TextColor3 = Colors.Accent,
-            TextSize = 9,  -- reduced from 10 → 9
+            TextSize = 10,  -- increased from 9 → 10
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.X,
