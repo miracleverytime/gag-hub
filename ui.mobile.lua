@@ -2203,6 +2203,7 @@ return function(ctx)
         local col = ContentScroll
 
         local isFounder = (player.UserId == 9039505358)
+        local isPrime = player:GetAttribute("PrimeEnabled") and true or false
 
         -- Identity card — mirror desktop: avatar + name row (badge) + username
         local idCard = Create("Frame", {
@@ -2484,7 +2485,6 @@ return function(ctx)
             })
         end
 
-        local isFounder = (player.UserId == 9039505358)
         accountRow(84171650897655,  "Plan",        isFounder and "-" or (isPrime and "Prime \194\183 Lifetime" or "Free"))
         accountRow(100521852773201, "Game",        "Grow A Garden 2")
         accountRow(79697495020129,  "Hub Version", ctx.HubVersion or "v2.0.1")
