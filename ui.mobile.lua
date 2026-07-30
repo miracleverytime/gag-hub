@@ -1035,8 +1035,8 @@ return function(ctx)
         Position = UDim2.new(0, 10, 0.5, -7),
         BackgroundTransparency = 1,
         Image = LUCIDE_ICONS["Farm"] or "",
-        ImageColor3 = Colors.TextPrimary,
-        ImageTransparency = 0.15,
+        ImageColor3 = Colors.Accent,  -- changed to teal
+        ImageTransparency = 0,  -- fully visible
         ScaleType = Enum.ScaleType.Fit,
     })
     local PageHeaderTitle = Create("TextLabel", {
@@ -1365,12 +1365,12 @@ return function(ctx)
         local activeIcon = LUCIDE_ICONS[pageName]
         if activeIcon then
             PageHeaderIcon.Image = activeIcon
-            PageHeaderIcon.ImageColor3 = Color3.new(1, 1, 1)
+            PageHeaderIcon.ImageColor3 = Colors.Accent  -- changed to teal
             PageHeaderIcon.ImageTransparency = 0
         else
             PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
-            PageHeaderIcon.ImageColor3 = Colors.TextPrimary
-            PageHeaderIcon.ImageTransparency = 0.15
+            PageHeaderIcon.ImageColor3 = Colors.Accent  -- changed to teal
+            PageHeaderIcon.ImageTransparency = 0
         end
 
         -- Update sidebar highlights
