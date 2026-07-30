@@ -648,9 +648,9 @@ return function(ctx)
 
     -- ====================== MAIN FRAME (MOBILE — SAFE SIZE) ======================
     -- Pakai scale lebih kecil supaya tidak nabrak game UI (hotbar, topbar, dll).
-    -- 0.60 x 0.80 memberi layout yang lebih besar di layar mobile — cukup
+    -- 0.60 x 0.85 memberi layout yang lebih besar di layar mobile — cukup
     -- untuk menghindari Roblox topbar (≈36px) dan hotbar (≈60px) pada layar kecil.
-    local originalSize = UDim2.new(0.60, 0, 0.80, 0)
+    local originalSize = UDim2.new(0.60, 0, 0.85, 0)
     local MainFrame = Create("Frame", {
         Name = "MainFrame",
         Parent = ScreenGui,
