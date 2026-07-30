@@ -1057,6 +1057,14 @@ return function(ctx)
     -- Lucide Icons diupload sebagai Decal ke Roblox, lalu dipakai via ImageLabel.
     -- ImageColor3 diubah saat active/hover untuk tinting effect.
     local LUCIDE_ICONS = {
+        -- New pages (restructured)
+        Automatic = "rbxassetid://133886562604149",  -- Cog (automation)
+        Inventory = "rbxassetid://76080467452382",   -- ShoppingCart (bag/inventory)
+        Show      = "rbxassetid://109331875518738",  -- Eye (visuals)
+        Misc      = "rbxassetid://114046395678554",  -- Wrench (utilities)
+        Settings  = "rbxassetid://133886562604149",  -- Cog (settings)
+        
+        -- Old pages (kept for fallback compatibility)
         Farm     = "rbxassetid://80777208164591",  -- Leaf
         Plot     = "rbxassetid://87316251149405",  -- Grid
         Shop     = "rbxassetid://76080467452382",  -- ShoppingCart
@@ -1069,7 +1077,6 @@ return function(ctx)
         Utility  = "rbxassetid://114046395678554",  -- Wrench
         Mailer   = "rbxassetid://131932847752233",  -- Mail
         Server   = "rbxassetid://85074479673177",  -- Server
-        Settings = "rbxassetid://133886562604149",  -- Cog
     }
 
     -- =============== UNIFIED SIDEBAR INTERACTION SYSTEM ===============
@@ -1410,7 +1417,7 @@ return function(ctx)
         Size = UDim2.new(0, 18, 0, 18),
         Position = UDim2.new(0, 16, 0.5, -9),
         BackgroundTransparency = 1,
-        Image = LUCIDE_ICONS["Farm"] or "",  -- default ke Farm icon
+        Image = LUCIDE_ICONS["Automatic"] or "",  -- default ke Automatic icon
         ImageColor3 = Colors.TextPrimary,
         ImageTransparency = 0.15,
         ScaleType = Enum.ScaleType.Fit,
@@ -1549,14 +1556,14 @@ return function(ctx)
                 PageHeaderIcon.ImageColor3 = Color3.new(1, 1, 1)
                 PageHeaderIcon.ImageTransparency = 0
             else
-                -- Fallback: tunjukkan ikon default Farm jika tidak ada asset
-                PageHeaderIcon.Image = LUCIDE_ICONS["Farm"] or ""
+                -- Fallback: tunjukkan ikon default Automatic jika tidak ada asset
+                PageHeaderIcon.Image = LUCIDE_ICONS["Automatic"] or ""
                 PageHeaderIcon.ImageColor3 = Colors.TextPrimary
                 PageHeaderIcon.ImageTransparency = 0.15
             end
         else
-            -- Profile page: pakai icon User (sama seperti sidebar Player)
-            PageHeaderIcon.Image = LUCIDE_ICONS["Player"] or ""
+            -- Profile page: pakai icon Settings (sama seperti sidebar Settings)
+            PageHeaderIcon.Image = LUCIDE_ICONS["Settings"] or ""
             PageHeaderIcon.ImageColor3 = Colors.Accent
             PageHeaderIcon.ImageTransparency = 0
         end

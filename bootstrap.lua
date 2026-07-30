@@ -4,7 +4,7 @@
 --
 -- Wires: sidebar buttons, search, window drag, minimize/restore + M logo,
 --   confirm-close modal, keybinds, and the loading sequence that reveals
---   the window and calls SetActivePage("Farm").
+--   the window and calls SetActivePage("Automatic").
 --
 -- Reads from ctx: Colors, States, MY_PLOT_ID, UI.*, ScreenGui, MainFrame,
 --   TopBar, Sidebar, ContentArea, SearchBox, CloseButton, MinimizeButton,
