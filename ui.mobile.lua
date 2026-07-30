@@ -2207,37 +2207,37 @@ return function(ctx)
         -- Identity card — mirror desktop: avatar + name row (badge) + username
         local idCard = Create("Frame", {
             Parent = col,
-            Size = UDim2.new(1, 0, 0, 70),
+            Size = UDim2.new(1, 0, 0, 60),  -- dikecilkan dari 70 → 60
             BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
             LayoutOrder = 1,
         })
-        CreateCorner(idCard, 10)
+        CreateCorner(idCard, 8)  -- radius dikecilkan dari 10 → 8
         CreateStroke(idCard, Colors.Border, 1)
 
         local av = Create("ImageLabel", {
             Parent = idCard,
-            Size = UDim2.new(0, 44, 0, 44),
-            Position = UDim2.new(0, 12, 0.5, -22),
+            Size = UDim2.new(0, 38, 0, 38),  -- dikecilkan dari 44 → 38
+            Position = UDim2.new(0, 10, 0.5, -19),
             BackgroundColor3 = Colors.Surface,
             Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
             BorderSizePixel = 0,
         })
-        CreateCorner(av, 8)
+        CreateCorner(av, 7)
         CreateStroke(av, Colors.BorderLight, 1)
 
         -- Name row: display name + plan badge (side by side, seperti desktop)
         local nameRow = Create("Frame", {
             Parent = idCard,
-            Size = UDim2.new(1, -76, 0, 20),
-            Position = UDim2.new(0, 66, 0, 12),
+            Size = UDim2.new(1, -62, 0, 18),  -- height dikecilkan dari 20 → 18
+            Position = UDim2.new(0, 56, 0, 10),  -- posisi disesuaikan
             BackgroundTransparency = 1,
         })
         Create("UIListLayout", {
             Parent = nameRow,
             FillDirection = Enum.FillDirection.Horizontal,
             VerticalAlignment = Enum.VerticalAlignment.Center,
-            Padding = UDim.new(0, 6),
+            Padding = UDim.new(0, 5),  -- padding dikecilkan dari 6 → 5
             SortOrder = Enum.SortOrder.LayoutOrder,
         })
 
@@ -2248,7 +2248,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = player.DisplayName or player.Name,
             TextColor3 = Colors.TextPrimary,
-            TextSize = 14,
+            TextSize = 12,  -- dikecilkan dari 14 → 12
             Font = FONT_BOLD,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -2258,11 +2258,11 @@ return function(ctx)
         -- Plan badge: FOUNDER (emas) / default (plain gray FREE)
         local badge = Create("TextLabel", {
             Parent = nameRow,
-            Size = UDim2.new(0, isFounder and 72 or 48, 0, 16),
+            Size = UDim2.new(0, isFounder and 66 or 42, 0, 14),  -- dikecilkan dari 72/48 → 66/42, height 16 → 14
             BackgroundColor3 = isFounder and Color3.fromRGB(28, 20, 5) or Colors.Surface,
             Text = isFounder and "\226\152\133 FOUNDER" or "\226\152\134 FREE",
             TextColor3 = isFounder and Colors.Gold or Colors.TextMuted,
-            TextSize = 9,
+            TextSize = 8,  -- dikecilkan dari 9 → 8
             Font = FONT_BOLD,
             BorderSizePixel = 0,
             LayoutOrder = 2,
@@ -2272,12 +2272,12 @@ return function(ctx)
 
         Create("TextLabel", {
             Parent = idCard,
-            Size = UDim2.new(1, -76, 0, 14),
-            Position = UDim2.new(0, 66, 0, 38),
+            Size = UDim2.new(1, -62, 0, 12),  -- height dikecilkan dari 14 → 12
+            Position = UDim2.new(0, 56, 0, 33),  -- posisi disesuaikan
             BackgroundTransparency = 1,
             Text = player.Name,
             TextColor3 = Colors.TextMuted,
-            TextSize = 11,
+            TextSize = 10,  -- dikecilkan dari 11 → 10
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -2301,14 +2301,14 @@ return function(ctx)
         local function makeStatRow(rowOrder)
             local row = Create("Frame", {
                 Parent = statGrid,
-                Size = UDim2.new(1, 0, 0, 54),  -- naik dari 46 → 54
+                Size = UDim2.new(1, 0, 0, 46),  -- dikecilkan dari 54 → 46
                 BackgroundTransparency = 1,
                 LayoutOrder = rowOrder,
             })
             Create("UIListLayout", {
                 Parent = row,
                 FillDirection = Enum.FillDirection.Horizontal,
-                Padding = UDim.new(0, 6),
+                Padding = UDim.new(0, 4),  -- dikecilkan dari 6 → 4
                 SortOrder = Enum.SortOrder.LayoutOrder,
             })
             return row
@@ -2317,18 +2317,18 @@ return function(ctx)
         local function statCell(parent, order, iconId, valueText, labelText)
             local cell = Create("Frame", {
                 Parent = parent,
-                Size = UDim2.new(0.5, -3, 1, 0),
+                Size = UDim2.new(0.5, -2, 1, 0),  -- spacing dikecilkan dari -3 → -2
                 BackgroundColor3 = Colors.BackgroundLighter,
                 BorderSizePixel = 0,
                 LayoutOrder = order,
             })
-            CreateCorner(cell, 8)
+            CreateCorner(cell, 6)  -- radius dikecilkan dari 8 → 6
             CreateStroke(cell, Colors.Border, 1)
-            -- Icon kecil di kanan atas
+            -- Icon kecil di kiri atas
             Create("ImageLabel", {
                 Parent = cell,
-                Size = UDim2.new(0, 13, 0, 13),
-                Position = UDim2.new(0, 10, 0, 8),
+                Size = UDim2.new(0, 11, 0, 11),  -- dikecilkan dari 13 → 11
+                Position = UDim2.new(0, 8, 0, 7),  -- posisi disesuaikan
                 BackgroundTransparency = 1,
                 Image = "rbxassetid://" .. iconId,
                 ImageColor3 = Colors.Accent,
@@ -2336,24 +2336,24 @@ return function(ctx)
             -- Label muted di kanan icon
             Create("TextLabel", {
                 Parent = cell,
-                Size = UDim2.new(1, -28, 0, 13),
-                Position = UDim2.new(0, 28, 0, 8),
+                Size = UDim2.new(1, -24, 0, 11),  -- dikecilkan dari -28/13 → -24/11
+                Position = UDim2.new(0, 24, 0, 7),  -- posisi disesuaikan
                 BackgroundTransparency = 1,
                 Text = labelText,
                 TextColor3 = Colors.TextMuted,
-                TextSize = 11,  -- muted/secondary
+                TextSize = 9,  -- dikecilkan dari 11 → 9
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
             -- Value di bawah
             local v = Create("TextLabel", {
                 Parent = cell,
-                Size = UDim2.new(1, -12, 0, 20),
-                Position = UDim2.new(0, 10, 0, 26),
+                Size = UDim2.new(1, -10, 0, 18),  -- dikecilkan dari -12/20 → -10/18
+                Position = UDim2.new(0, 8, 0, 23),  -- posisi disesuaikan
                 BackgroundTransparency = 1,
                 Text = valueText,
                 TextColor3 = Colors.TextPrimary,
-                TextSize = 14,  -- naik dari 13 → 14
+                TextSize = 12,  -- dikecilkan dari 14 → 12
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
@@ -2401,7 +2401,7 @@ return function(ctx)
         -- INFORMATION section
         local infoHeader = Create("Frame", {
             Parent = col,
-            Size = UDim2.new(1, 0, 0, 20),
+            Size = UDim2.new(1, 0, 0, 18),  -- dikecilkan dari 20 → 18
             BackgroundTransparency = 1,
             LayoutOrder = 3,
         })
@@ -2411,7 +2411,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "INFORMATION",
             TextColor3 = Colors.Accent,
-            TextSize = 11,
+            TextSize = 10,  -- dikecilkan dari 11 → 10
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.X,
@@ -2441,44 +2441,44 @@ return function(ctx)
             AutomaticSize = Enum.AutomaticSize.Y,
             LayoutOrder = 4,
         })
-        CreateListLayout(accountBlock, 6)
+        CreateListLayout(accountBlock, 4)  -- spacing dikecilkan dari 6 → 4
 
         local function accountRow(iconId, labelText, valueText)
             local r = Create("Frame", {
                 Parent = accountBlock,
-                Size = UDim2.new(1, 0, 0, 44),
+                Size = UDim2.new(1, 0, 0, 38),  -- dikecilkan dari 44 → 38
                 BackgroundColor3 = Colors.BackgroundLighter,
                 BorderSizePixel = 0,
             })
-            CreateCorner(r, 10)
+            CreateCorner(r, 8)  -- radius dikecilkan dari 10 → 8
             CreateStroke(r, Colors.Border, 1)
             Create("ImageLabel", {
                 Parent = r,
-                Size = UDim2.new(0, 16, 0, 16),
-                Position = UDim2.new(0, 12, 0.5, -8),
+                Size = UDim2.new(0, 14, 0, 14),  -- dikecilkan dari 16 → 14
+                Position = UDim2.new(0, 10, 0.5, -7),  -- posisi disesuaikan
                 BackgroundTransparency = 1,
                 Image = "rbxassetid://" .. iconId,
                 ImageColor3 = Colors.TextMuted,
             })
             Create("TextLabel", {
                 Parent = r,
-                Size = UDim2.new(0.5, -44, 1, 0),
-                Position = UDim2.new(0, 38, 0, 0),
+                Size = UDim2.new(0.5, -40, 1, 0),  -- dikecilkan dari -44 → -40
+                Position = UDim2.new(0, 34, 0, 0),  -- posisi disesuaikan
                 BackgroundTransparency = 1,
                 Text = labelText,
                 TextColor3 = Colors.TextPrimary,
-                TextSize = 14,
+                TextSize = 12,  -- dikecilkan dari 14 → 12
                 Font = FONT_BODY,
                 TextXAlignment = Enum.TextXAlignment.Left,
             })
             Create("TextLabel", {
                 Parent = r,
-                Size = UDim2.new(0.5, -12, 1, 0),
+                Size = UDim2.new(0.5, -10, 1, 0),  -- dikecilkan dari -12 → -10
                 Position = UDim2.new(0.5, 0, 0, 0),
                 BackgroundTransparency = 1,
                 Text = valueText,
                 TextColor3 = Colors.Accent,
-                TextSize = 13,
+                TextSize = 11,  -- dikecilkan dari 13 → 11
                 Font = FONT_MONO,
                 TextXAlignment = Enum.TextXAlignment.Right,
             })
