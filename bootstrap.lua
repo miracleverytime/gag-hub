@@ -49,17 +49,33 @@ return function(ctx)
     local LoadingStatus    = ctx.LoadingStatus
 
     -- ====================== SIDEBAR CONNECTIONS (RESTRUCTURED - 5 pages) ======================
-    local pageMap = {
-        [sb.Automatic] = "Automatic",
-        [sb.Inventory] = "Inventory",
-        [sb.Show] = "Show",
-        [sb.Misc] = "Misc",
-        [sb.Settings] = "Settings",
-    }
+    -- Mobile: sb.Automatic/Inventory/Show/Misc adalah alias ke tombol mobile
+    --         (Farm/Pets/Visuals/Player). pageName juga disesuaikan.
+    -- Guard nil: kalau salah satu alias tidak terdefinisi, skip saja (tidak crash).
+    local pageMap
+    if ctx.isMobile then
+        pageMap = {
+            [sb.Automatic] = "Farm",
+            [sb.Inventory] = "Pets",
+            [sb.Show]      = "Visuals",
+            [sb.Misc]      = "Player",
+            [sb.Settings]  = "Settings",
+        }
+    else
+        pageMap = {
+            [sb.Automatic] = "Automatic",
+            [sb.Inventory] = "Inventory",
+            [sb.Show]      = "Show",
+            [sb.Misc]      = "Misc",
+            [sb.Settings]  = "Settings",
+        }
+    end
     for btn, pageName in pairs(pageMap) do
-        btn.MouseButton1Click:Connect(function()
-            SetActivePage(pageName)
-        end)
+        if btn then  -- guard nil key dari alias yang gagal
+            btn.MouseButton1Click:Connect(function()
+                SetActivePage(pageName)
+            end)
+        end
     end
 
     -- ====================== SEARCH FUNCTIONALITY (RESTRUCTURED) ======================
@@ -96,8 +112,20 @@ return function(ctx)
                 break
             end
         end
-        if bestPage and bestPage ~= GetActivePage() then
-            SetActivePage(bestPage)
+        if bestPage then
+            -- Mobile: remap desktop page names ke mobile equivalents
+            if ctx.isMobile then
+                local mobileRemap = {
+                    Automatic = "Farm",
+                    Inventory = "Pets",
+                    Show      = "Visuals",
+                    Misc      = "Player",
+                }
+                bestPage = mobileRemap[bestPage] or bestPage
+            end
+            if bestPage ~= GetActivePage() then
+                SetActivePage(bestPage)
+            end
         end
     end)
 
@@ -1369,7 +1397,8 @@ return function(ctx)
 
         task.wait(0.3)
         if _G._MiracleHubSession ~= SESSION_REVEAL then return end
-        SetActivePage("Automatic")
+        -- Mobile: halaman pertama adalah "Farm" (bukan "Automatic" yang hanya ada di desktop)
+        SetActivePage(ctx.isMobile and "Farm" or "Automatic")
 
         task.wait(0.8)
         if _G._MiracleHubSession ~= SESSION_REVEAL then return end

@@ -1270,6 +1270,17 @@ return function(ctx)
         end
     end
 
+    -- ====================== BOOTSTRAP ALIAS (WAJIB) ======================
+    -- bootstrap.lua mengakses sb.Automatic, sb.Inventory, sb.Show, sb.Misc,
+    -- sb.Settings untuk wiring klik sidebar. Di mobile nama page berbeda,
+    -- jadi kita buat alias ke tombol mobile yang paling equivalent.
+    -- Tanpa ini: sb.Automatic == nil → pageMap[nil] → error saat pairs().
+    sb["Automatic"] = sb["Farm"]      -- halaman utama farming/automation
+    sb["Inventory"] = sb["Pets"]      -- bag / inventory → Pets paling dekat
+    sb["Show"]      = sb["Visuals"]   -- ESP / visual → Visuals
+    sb["Misc"]      = sb["Player"]    -- misc tools → Player
+    -- sb["Settings"] sudah ada dari NAV_GROUPS
+
     ctx.sidebarButtonRefs = sb
 
     -- Profile card — mengikuti referensi desktop: avatar berada di sidebar,
