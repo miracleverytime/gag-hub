@@ -40,8 +40,8 @@ local MODULES = {
         -- SATU-SATUNYA baris yang berubah
         name      = IS_MOBILE and "ui.mobile.lua" or "ui.lua",
         label     = "Loading assets & icons...",
-        preDelay  = IS_MOBILE and 1.5 or 2.5,
-        postDelay = IS_MOBILE and 1.0 or 2.0,
+        preDelay  = IS_MOBILE and 3.5 or 2.5,
+        postDelay = IS_MOBILE and 2.5 or 2.0,
     },
     {
         name      = "ultralow.lua",
@@ -52,19 +52,19 @@ local MODULES = {
     {
         name      = "logic.lua",
         label     = "Loading features...",
-        preDelay  = 2.5,
-        postDelay = 2.0,
+        preDelay  = IS_MOBILE and 3.0 or 2.5,
+        postDelay = IS_MOBILE and 2.5 or 2.0,
     },
     {
         name      = "pages.lua",
         label     = "Almost there...",
-        preDelay  = 2.0,
-        postDelay = 1.5,
+        preDelay  = IS_MOBILE and 2.5 or 2.0,
+        postDelay = IS_MOBILE and 2.0 or 1.5,
     },
     {
         name      = "bootstrap.lua",
         label     = "Finishing up...",
-        preDelay  = 1.0,
+        preDelay  = IS_MOBILE and 1.5 or 1.0,
         postDelay = 0.0,
     },
 }
