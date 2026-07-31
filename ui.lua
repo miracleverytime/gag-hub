@@ -2183,7 +2183,7 @@ return function(ctx)
             Size = UDim2.new(0, 16, 0, 16),
             Position = UDim2.new(1, -28, 0.5, -8),
             BackgroundTransparency = 1,
-            Image = "rbxassetid://112132361230885",
+            Image = "rbxassetid://87603982093749",
             ImageColor3 = Color3.fromRGB(255, 255, 255),
         })
 
@@ -2322,7 +2322,7 @@ return function(ctx)
         pill.MouseButton1Click:Connect(function()
             if isDisabled then return end
             isOpen = not isOpen
-            arrowLbl.Image = isOpen and "rbxassetid://98993107300320" or "rbxassetid://112132361230885"
+            arrowLbl.Image = isOpen and "rbxassetid://91893725917501" or "rbxassetid://87603982093749"
             if isOpen then
                 panel.Visible = true
                 panel.Size = UDim2.new(1, 0, 0, 0)
@@ -2342,7 +2342,7 @@ return function(ctx)
 
             if disabled and isOpen then
                 isOpen = false
-                arrowLbl.Image = "rbxassetid://112132361230885"
+                arrowLbl.Image = "rbxassetid://87603982093749"
                 Tween(panel, {Size = UDim2.new(1, 0, 0, 0)}, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
                 task.delay(0.19, function()
                     if not isOpen then panel.Visible = false end
