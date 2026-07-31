@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "MOBILE-DRAG-17"
+    local BUILD_TAG         = "MOBILE-DRAG-18"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1033,7 +1033,7 @@ return function(ctx)
         Position = UDim2.new(0, 30, 0, 0),
         BackgroundTransparency = 1,
         Text = "PROFILE  •  " .. BUILD_TAG,
-        TextColor3 = Colors.Accent,  -- changed to teal
+        TextColor3 = Colors.TextPrimary,
         TextSize = 10,  -- increased from 9 → 10
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
