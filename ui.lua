@@ -1354,7 +1354,7 @@ return function(ctx)
         Size = UDim2.new(0, 11, 0, 11),
         Position = UDim2.new(0.5, -5, 0, 6),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://74186782815011",
+        Image = "rbxassetid://84624577851012",
         ImageColor3 = Colors.Accent,
         ZIndex = 21,
     })
@@ -1420,8 +1420,8 @@ return function(ctx)
         Position = UDim2.new(0, 16, 0.5, -9),
         BackgroundTransparency = 1,
         Image = LUCIDE_ICONS["Automation"] or "",  -- default ke Automation icon
-        ImageColor3 = Colors.TextPrimary,
-        ImageTransparency = 0.15,
+        ImageColor3 = Colors.Accent,
+        ImageTransparency = 0,
         ScaleType = Enum.ScaleType.Fit,
     })
     local PageHeaderTitle = Create("TextLabel", {
