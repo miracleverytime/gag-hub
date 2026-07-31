@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "MOBILE-DRAG-12"
+    local BUILD_TAG         = "MOBILE-DRAG-14"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -781,7 +781,7 @@ return function(ctx)
         Size = UDim2.new(0, 14, 0, 14),
         Position = UDim2.new(0, 5, 0.5, -7),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://74186782815011",
+        Image = "rbxassetid://84624577851012",
         ScaleType = Enum.ScaleType.Fit,
     })
     local BrandSeg = Create("TextLabel", {
@@ -810,7 +810,7 @@ return function(ctx)
         Size = UDim2.new(0, 11, 0, 11),
         Position = UDim2.new(0, 95, 0.5, -5),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://104426509560089",
+        Image = "rbxassetid://129878718789617",
         ImageColor3 = Colors.Accent,
         ScaleType = Enum.ScaleType.Fit,
     })
@@ -840,7 +840,7 @@ return function(ctx)
         Size = UDim2.new(0, 11, 0, 11),
         Position = UDim2.new(0, 147, 0.5, -5),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://84466565972313",
+        Image = "rbxassetid://95382524305209",
         ImageColor3 = Colors.Accent,
         ScaleType = Enum.ScaleType.Fit,
     })
@@ -898,7 +898,7 @@ return function(ctx)
         Size = UDim2.new(0, 24, 0, 24),
         Position = UDim2.new(0, 3, 0.5, -12),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://99157156810403",
+        Image = "rbxassetid://104518176906587",
         ImageColor3 = Colors.TextPrimary,
         ScaleType = Enum.ScaleType.Fit,
         BorderSizePixel = 0,
@@ -912,7 +912,7 @@ return function(ctx)
         Size = UDim2.new(0, 24, 0, 24),
         Position = UDim2.new(0, 29, 0.5, -12),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://82747583388019",
+        Image = "rbxassetid://112586621030897",
         ImageColor3 = Colors.TextPrimary,
         ScaleType = Enum.ScaleType.Fit,
         BorderSizePixel = 0,
@@ -998,11 +998,11 @@ return function(ctx)
     local PAGE_HEADER_H = 34
     local LUCIDE_ICONS = {
         Automation = "rbxassetid://94453083847569",  -- Automation icon
-        Inventory = "rbxassetid://116007211295034", -- Pets/Bag icon
-        Show      = "rbxassetid://109331875518738", -- Visuals/Eye icon
-        Misc      = "rbxassetid://114046395678554", -- Utility/Tool icon
-        Settings  = "rbxassetid://133886562604149", -- Settings icon
-        Profile   = "rbxassetid://89538326699568",  -- User icon
+        Inventory = "rbxassetid://132085929213539", -- Package (bag/inventory)
+        Show      = "rbxassetid://119728161663428", -- Eye (visuals)
+        Misc      = "rbxassetid://84735219386165", -- Wrench (utilities)
+        Settings  = "rbxassetid://70852659887126", -- Cog (settings)
+        Profile   = "rbxassetid://109307407487169",  -- User icon
     }
 
     local PageHeader = Create("Frame", {
@@ -1128,7 +1128,7 @@ return function(ctx)
         Size = UDim2.new(0, 11, 0, 11),
         Position = UDim2.new(0.5, -5, 0, 6),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://75393844690192",
+        Image = "rbxassetid://84624577851012",
         ImageColor3 = Colors.Accent,
         ZIndex = 21,
     })
@@ -1977,7 +1977,7 @@ return function(ctx)
             Size = UDim2.new(0, 16, 0, 16),
             Position = UDim2.new(1, -28, 0.5, -8),
             BackgroundTransparency = 1,
-            Image = "rbxassetid://76183523786785",
+            Image = "rbxassetid://112132361230885",
             ImageColor3 = Color3.fromRGB(255, 255, 255),
         })
 
@@ -2097,7 +2097,7 @@ return function(ctx)
         pill.MouseButton1Click:Connect(function()
             if isDisabled then return end
             isOpen = not isOpen
-            arrowLbl.Image = isOpen and "rbxassetid://70479509562650" or "rbxassetid://76183523786785"
+            arrowLbl.Image = isOpen and "rbxassetid://98993107300320" or "rbxassetid://112132361230885"
             if isOpen then
                 panel.Visible = true
                 panel.Size = UDim2.new(1, 0, 0, 0)
@@ -2115,7 +2115,7 @@ return function(ctx)
             isDisabled = disabled
             if disabled and isOpen then
                 isOpen = false
-                arrowLbl.Image = "rbxassetid://76183523786785"
+                arrowLbl.Image = "rbxassetid://112132361230885"
                 Tween(panel, {Size = UDim2.new(1, 0, 0, 0)}, 0.18, Enum.EasingStyle.Quart, Enum.EasingDirection.In)
                 task.delay(0.19, function()
                     if not isOpen then panel.Visible = false end
@@ -2399,10 +2399,10 @@ return function(ctx)
 
         local row1 = makeStatRow(1)
         local row2 = makeStatRow(2)
-        local sessionVal  = statCell(row1, 1, 136103650662391, "00:00:00", "SESSION")
-        local playersVal  = statCell(row1, 2, 124978844700371, "0",        "PLAYERS")
-        local memoryVal   = statCell(row2, 1, 118492548320850, "0",        "MEMORY MB")
-        local activeVal, activeCell = statCell(row2, 2, 120958905213540, "0", "ACTIVE")
+        local sessionVal  = statCell(row1, 1, 119313259933057, "00:00:00", "SESSION")
+        local playersVal  = statCell(row1, 2, 135699590689133, "0",        "PLAYERS")
+        local memoryVal   = statCell(row2, 1, 76226717331199, "0",        "MEMORY MB")
+        local activeVal, activeCell = statCell(row2, 2, 91630752576074, "0", "ACTIVE")
 
         local AUTOMATION_KEYS = {
             "autoPlant", "autoPlantAllSeeds", "autoHarvest",
@@ -2473,7 +2473,7 @@ return function(ctx)
             Size = UDim2.new(0, 14, 0, 14),  -- smaller: 18→14
             Position = UDim2.new(1, -24, 0, 8),  -- adjusted position
             BackgroundTransparency = 1,
-            Image = "rbxassetid://72579596890456",
+            Image = "rbxassetid://78743611615605",
             ImageColor3 = Colors.TextMuted,
         })
 
@@ -2721,10 +2721,10 @@ return function(ctx)
             })
         end
 
-        accountRow(84171650897655,  "Plan",        isFounder and "-" or (isPrime and "Prime \194\183 Lifetime" or "Free"))
-        accountRow(100521852773201, "Game",        "Grow A Garden 2")
-        accountRow(79697495020129,  "Hub Version", ctx.HubVersion or "v2.0.1")
-        accountRow(88921554280153,  "Platform",    "Mobile")
+        accountRow(78743611615605,  "Plan",        isFounder and "Founder" or (isPrime and "Prime \194\183 Lifetime" or "Free"))
+        accountRow(138507780718324, "Game",        "Grow A Garden 2")
+        accountRow(79093652727225,  "Hub Version", ctx.HubVersion or "v2.0.1")
+        accountRow(96449431961981,  "Platform",    "Mobile")
     end)
 
     ctx.UI = UI
