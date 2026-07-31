@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "MOBILE-DRAG-22"
+    local BUILD_TAG         = "MOBILE-DRAG-23"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -994,8 +994,8 @@ return function(ctx)
     ctx.ContentArea = ContentArea
     CreateCorner(ContentArea, 14)
 
-    -- Page header (sama seperti desktop) — RESTRUCTURED 5 TAB
-    local PAGE_HEADER_H = 34
+    -- LUCIDE_ICONS tetap didefinisikan karena dipakai sidebar & page header icon
+    -- (page header dihapus di mobile, namun icons masih dipakai sidebar)
     local LUCIDE_ICONS = {
         Automation = "rbxassetid://94453083847569",  -- Automation icon
         Inventory = "rbxassetid://132085929213539", -- Package (bag/inventory)
@@ -1005,58 +1005,20 @@ return function(ctx)
         Profile   = "rbxassetid://109307407487169",  -- User icon
     }
 
-    local PageHeader = Create("Frame", {
-        Parent = ContentArea,
-        Size = UDim2.new(1, 0, 0, PAGE_HEADER_H),
-        BackgroundTransparency = 1,
-    })
-    Create("Frame", {
-        Parent = PageHeader,
-        Size = UDim2.new(1, -24, 0, 1),
-        Position = UDim2.new(0, 12, 1, -1),
-        BackgroundColor3 = Colors.Border,
-        BorderSizePixel = 0,
-    })
-    local PageHeaderIcon = Create("ImageLabel", {
-        Parent = PageHeader,
-        Size = UDim2.new(0, 14, 0, 14),
-        Position = UDim2.new(0, 10, 0.5, -7),
-        BackgroundTransparency = 1,
-        Image = LUCIDE_ICONS["Automation"] or "",
-        ImageColor3 = Colors.Accent,  -- changed to teal
-        ImageTransparency = 0,  -- fully visible
-        ScaleType = Enum.ScaleType.Fit,
-    })
-    local PageHeaderTitle = Create("TextLabel", {
-        Parent = PageHeader,
-        Size = UDim2.new(1, -120, 1, 0),
-        Position = UDim2.new(0, 30, 0, 0),
-        BackgroundTransparency = 1,
-        Text = "PROFILE  •  " .. BUILD_TAG,
-        TextColor3 = Colors.TextPrimary,
-        TextSize = 10,  -- increased from 9 → 10
-        Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Left,
-    })
-    local PageChip = Create("TextLabel", {
-        Parent = PageHeader,
-        Size = UDim2.new(0, 46, 0, 18),
-        Position = UDim2.new(1, -56, 0.5, -9),
-        BackgroundColor3 = Colors.BackgroundLighter,
-        Text = "IDLE",
-        TextColor3 = Colors.TextMuted,
-        TextSize = 9,  -- reduced from 11 → 9
-        Font = FONT_MONO,
-        BorderSizePixel = 0,
-        Visible = false,
-    })
-    CreateCorner(PageChip, 5)
-    local PageChipStroke = CreateStroke(PageChip, Colors.Border, 1)
+    -- Page header DIHAPUS untuk mobile — ContentScroll langsung isi penuh
+    -- ContentArea. Stub untuk kompatibilitas dengan SetActivePage
+    -- (icon/title/chip sudah tidak ada, jadi referensi dibikin no-op).
+    local PageHeaderIcon = {}
+    local PageHeaderTitle = {}
+    local PageChip = {}
+    local PageChipStroke = {}
+    PageChip.Visible = false
+    PageChip.Text = "IDLE"
 
     local ContentScroll = Create("ScrollingFrame", {
         Parent = ContentArea,
-        Size = UDim2.new(1, 0, 1, -PAGE_HEADER_H),
-        Position = UDim2.new(0, 0, 0, PAGE_HEADER_H),
+        Size = UDim2.new(1, 0, 1, 0),
+        Position = UDim2.new(0, 0, 0, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ScrollBarThickness = 6,
@@ -1410,17 +1372,7 @@ return function(ctx)
         ActivePage = pageName
         PageTitle.Text = pageName
 
-        -- Update page header icon
-        local activeIcon = LUCIDE_ICONS[pageName]
-        if activeIcon then
-            PageHeaderIcon.Image = activeIcon
-            PageHeaderIcon.ImageColor3 = Colors.Accent  -- changed to teal
-            PageHeaderIcon.ImageTransparency = 0
-        else
-            PageHeaderIcon.Image = LUCIDE_ICONS["Automation"] or ""
-            PageHeaderIcon.ImageColor3 = Colors.Accent  -- changed to teal
-            PageHeaderIcon.ImageTransparency = 0
-        end
+        -- Page header icon/title/chip sudah dihapus di mobile — no-op
 
         -- Update sidebar highlights
         for key, sbref in pairs(sidebarStateRefs) do
@@ -1444,17 +1396,8 @@ return function(ctx)
             Tween(ProfileAvatarStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
         end
 
-        PageHeaderTitle.Text = string.upper(pageName) .. "  •  " .. BUILD_TAG
-
         ClearContent()
         if Pages[pageName] then Pages[pageName]() end
-
-        if pageName == "Profile" then
-            PageChip.Visible = false
-        else
-            PageChip.Visible = true
-            RefreshPageChip()
-        end
 
         ContentScroll.CanvasPosition = Vector2.new(0, 0)
     end
