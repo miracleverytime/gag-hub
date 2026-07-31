@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "MOBILE-DRAG-21"
+    local BUILD_TAG         = "MOBILE-DRAG-22"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -693,7 +693,7 @@ return function(ctx)
 
     -- ====================== TOP BAR (MOBILE) ======================
     local TOPBAR_H = 42   -- sedikit lebih tinggi supaya konten topbar tidak sumpek
-    local SIDEBAR_W = 88 -- diperbesar dari 58 → 88 agar footer "Powered by Miracle Labs" proporsional di mobile
+    local SIDEBAR_W = 95 -- diperbesar dari 58 → 95 agar footer "Powered by Miracle Labs" proporsional di mobile
     local TopBar = Create("Frame", {
         Name = "TopBar",
         Parent = MainFrame,
@@ -1099,10 +1099,10 @@ return function(ctx)
         BorderSizePixel = 0,
     })
 
-    -- Sidebar scrollable content — adjust height untuk memberi ruang footer (52px)
+    -- Sidebar scrollable content — adjust height untuk memberi ruang footer (28px)
     local SidebarContent = Create("ScrollingFrame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -1, 1, -120),  -- 68 (top) + 52 (footer) = 120
+        Size = UDim2.new(1, -1, 1, -96),  -- 68 (top) + 28 (footer) = 96
         Position = UDim2.new(0, 0, 0, 64),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
@@ -1117,16 +1117,16 @@ return function(ctx)
     -- Footer: icon ⚡ + "Powered by" + "Miracle Labs" (sama seperti desktop)
     local SidebarFooter = Create("Frame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 52),
-        Position = UDim2.new(0, 0, 1, -52),
+        Size = UDim2.new(1, 0, 0, 28),
+        Position = UDim2.new(0, 0, 1, -28),
         BackgroundColor3 = Colors.BackgroundLight,
         BorderSizePixel = 0,
         ZIndex = 20,
     })
     Create("ImageLabel", {
         Parent = SidebarFooter,
-        Size = UDim2.new(0, 11, 0, 11),
-        Position = UDim2.new(0.5, -5, 0, 6),
+        Size = UDim2.new(0, 8, 0, 8),
+        Position = UDim2.new(0, 9, 0.5, -4),
         BackgroundTransparency = 1,
         Image = "rbxassetid://84624577851012",
         ImageColor3 = Colors.Accent,
@@ -1134,28 +1134,17 @@ return function(ctx)
     })
     Create("TextLabel", {
         Parent = SidebarFooter,
-        Size = UDim2.new(1, 0, 0, 14),
-        Position = UDim2.new(0, 0, 0, 21),
+        Size = UDim2.new(1, -22, 1, 0),
+        Position = UDim2.new(0, 20, 0, 0),
         BackgroundTransparency = 1,
-        Text = "Powered by",
+        RichText = true,
+        Text = '<font color="#71717A">powered by</font> <font color="#949BA5">Miracle Labs</font>',
         TextColor3 = Colors.TextMuted,
-        TextTransparency = 0.3,
-        TextSize = 11,
+        TextTransparency = 0.2,
+        TextSize = 9,
         Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 21,
-    })
-    Create("TextLabel", {
-        Parent = SidebarFooter,
-        Size = UDim2.new(1, 0, 0, 14),
-        Position = UDim2.new(0, 0, 0, 35),
-        BackgroundTransparency = 1,
-        Text = "Miracle Labs",
-        TextColor3 = Colors.TextMuted,
-        TextTransparency = 0.3,
-        TextSize = 11,
-        Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Center,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
         ZIndex = 21,
     })
 
