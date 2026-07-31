@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "MOBILE-DRAG-20"
+    local BUILD_TAG         = "MOBILE-DRAG-21"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1111,8 +1111,8 @@ return function(ctx)
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
     })
-    CreatePadding(SidebarContent, 4)
-    CreateListLayout(SidebarContent, 3)
+    CreatePadding(SidebarContent, 6)
+    CreateListLayout(SidebarContent, 2)
 
     -- Footer: icon ⚡ + "Powered by" + "Miracle Labs" (sama seperti desktop)
     local SidebarFooter = Create("Frame", {
@@ -1198,12 +1198,16 @@ return function(ctx)
     local SetActivePage
 
     for _, group in ipairs(NAV_GROUPS) do
+        -- Section header (sama seperti desktop: "// MAIN", "// OTHER")
+        sidebarOrder += 1
+        CreateSectionHeader(SidebarContent, string.upper(group.header), sidebarOrder)
+
         for _, name in ipairs(group.items) do
             sidebarOrder += 1
             local iconAsset = LUCIDE_ICONS[name]
             local btn = Create("TextButton", {
                 Parent = SidebarContent,
-                Size = UDim2.new(1, 0, 0, 30),  -- lebih tinggi supaya touch target ≥30px
+                Size = UDim2.new(1, 0, 0, 32),  -- touch target ≥32px (mobile)
                 BackgroundTransparency = 1,
                 BackgroundColor3 = HOVER_BG_COLOR,
                 Text = "",
@@ -1211,7 +1215,7 @@ return function(ctx)
                 LayoutOrder = sidebarOrder,
                 AutoButtonColor = false,
             })
-            CreateCorner(btn, 6)
+            CreateCorner(btn, 7)
 
             local glow = Create("UIStroke", {
                 Parent = btn,
@@ -1230,12 +1234,13 @@ return function(ctx)
             })
             CreateCorner(indicator, 1)
 
+            -- Icon (kiri, 14×14 supaya proporsional dengan lebar sidebar 88px)
             local iconLabel
             if iconAsset then
                 iconLabel = Create("ImageLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 24, 0, 24),
-                    Position = UDim2.new(0.5, -12, 0.5, -12),
+                    Size = UDim2.new(0, 14, 0, 14),
+                    Position = UDim2.new(0, 9, 0.5, -7),
                     BackgroundTransparency = 1,
                     Image = iconAsset,
                     ImageColor3 = Colors.TextSecondary,
@@ -1245,29 +1250,45 @@ return function(ctx)
             else
                 iconLabel = Create("TextLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 24, 0, 24),
-                    Position = UDim2.new(0.5, -12, 0.5, -12),
+                    Size = UDim2.new(0, 14, 0, 14),
+                    Position = UDim2.new(0, 9, 0.5, -7),
                     BackgroundTransparency = 1,
                     Text = name:sub(1, 1),
                     TextColor3 = Colors.TextSecondary,
-                    TextSize = 18,
+                    TextSize = 12,
                     Font = FONT_BOLD,
                 })
             end
 
+            -- Text label (kanan icon) — sebelumnya icon-only, sekarang menampilkan nama
+            local textLabel = Create("TextLabel", {
+                Parent = btn,
+                Size = UDim2.new(1, -30, 1, 0),
+                Position = UDim2.new(0, 28, 0, 0),
+                BackgroundTransparency = 1,
+                Text = name,
+                TextColor3 = Colors.TextPrimary,
+                TextSize = 12,
+                Font = FONT_BODY,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                TextTruncate = Enum.TextTruncate.AtEnd,
+            })
+
             local ref = {
                 button = btn, indicator = indicator, glow = glow,
-                icon = iconLabel, label = nil, isImage = (iconAsset ~= nil),
+                icon = iconLabel, label = textLabel, isImage = (iconAsset ~= nil),
                 hovered = false,
             }
             SidebarButtons[name] = ref
 
-            -- State applicators (no hover on mobile)
+            -- State applicators (no hover on mobile, tapi state tween tetap konsisten)
             local function applyIdle(animate)
                 local d = animate and SIDE_TWEEN or 0
                 Tween(btn, {BackgroundTransparency = 1}, d)
                 Tween(glow, {Transparency = 1}, d)
                 Tween(indicator, {Size = UDim2.new(0, 2, 0, 0), BackgroundTransparency = 1}, d)
+                Tween(textLabel, {TextColor3 = Colors.TextPrimary}, d)
+                textLabel.Font = FONT_BODY
                 if iconAsset then
                     Tween(iconLabel, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.1}, d)
                 else
@@ -1277,6 +1298,7 @@ return function(ctx)
             local function applyHover()
                 btn.BackgroundColor3 = HOVER_BG_COLOR
                 Tween(btn, {BackgroundTransparency = 0.3}, SIDE_TWEEN)
+                Tween(textLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
                 if iconAsset then
                     Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0.35}, SIDE_TWEEN)
                 else
@@ -1288,7 +1310,9 @@ return function(ctx)
                 btn.BackgroundColor3 = ACTIVE_BG_COLOR
                 Tween(btn, {BackgroundTransparency = 0}, d)
                 Tween(glow, {Transparency = 0.55}, d)
-                Tween(indicator, {Size = UDim2.new(0, 3, 0, 30), BackgroundTransparency = 0}, d)
+                Tween(indicator, {Size = UDim2.new(0, 3, 0, 22), BackgroundTransparency = 0}, d)
+                Tween(textLabel, {TextColor3 = Colors.Accent}, d)
+                textLabel.Font = FONT_BOLD
                 if iconAsset then
                     Tween(iconLabel, {ImageColor3 = Colors.Accent, ImageTransparency = 0}, d)
                 else
