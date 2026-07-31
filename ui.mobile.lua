@@ -997,7 +997,7 @@ return function(ctx)
     -- Page header (sama seperti desktop) — RESTRUCTURED 5 TAB
     local PAGE_HEADER_H = 34
     local LUCIDE_ICONS = {
-        Automation = "rbxassetid://80777208164591",  -- Farm icon
+        Automation = "rbxassetid://94453083847569",  -- Automation icon
         Inventory = "rbxassetid://116007211295034", -- Pets/Bag icon
         Show      = "rbxassetid://109331875518738", -- Visuals/Eye icon
         Misc      = "rbxassetid://114046395678554", -- Utility/Tool icon

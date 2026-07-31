@@ -1059,7 +1059,7 @@ return function(ctx)
     -- ImageColor3 diubah saat active/hover untuk tinting effect.
     local LUCIDE_ICONS = {
         -- New pages (restructured)
-        Automation = "rbxassetid://133886562604149",  -- Cog (automation)
+        Automation = "rbxassetid://94453083847569",  -- Automation icon
         Inventory = "rbxassetid://76080467452382",   -- ShoppingCart (bag/inventory)
         Show      = "rbxassetid://109331875518738",  -- Eye (visuals)
         Misc      = "rbxassetid://114046395678554",  -- Wrench (utilities)
