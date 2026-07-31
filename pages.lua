@@ -4,7 +4,7 @@
 -- Registers each page via ctx.registerPage(name, builderFn).
 --
 -- STRUCTURE: 5 Pages (reduced from 13)
---   1. Automatic  - All automation loops
+--   1. Automation - All automation loops
 --   2. Inventory  - Bag/pet/item management
 --   3. Show       - ESP/visuals/stats
 --   4. Misc       - Movement/fly/mailbox/server
@@ -117,8 +117,8 @@ return function(ctx)
         end)
     end
 
-    -- ====================== PAGE 1: AUTOMATIC ======================
-    ctx.registerPage("Automatic", function()
+    -- ====================== PAGE 1: AUTOMATION ======================
+    ctx.registerPage("Automation", function()
 
         -- ═══════════════════════════════════════════════════════════
         -- Section 1: 🌱 Farming
@@ -178,9 +178,9 @@ return function(ctx)
         
         -- Live polling untuk update counter
         task.spawn(function()
-            while GetActivePage() == "Automatic" do
+            while GetActivePage() == "Automation" do
                 task.wait(1)
-                if GetActivePage() ~= "Automatic" then break end
+                if GetActivePage() ~= "Automation" then break end
                 pcall(function()
                     local myPlot = GetMyPlot()
                     if not myPlot then return end

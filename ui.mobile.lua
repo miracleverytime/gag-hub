@@ -997,7 +997,7 @@ return function(ctx)
     -- Page header (sama seperti desktop) — RESTRUCTURED 5 TAB
     local PAGE_HEADER_H = 34
     local LUCIDE_ICONS = {
-        Automatic = "rbxassetid://80777208164591",  -- Farm icon
+        Automation = "rbxassetid://80777208164591",  -- Farm icon
         Inventory = "rbxassetid://116007211295034", -- Pets/Bag icon
         Show      = "rbxassetid://109331875518738", -- Visuals/Eye icon
         Misc      = "rbxassetid://114046395678554", -- Utility/Tool icon
@@ -1022,7 +1022,7 @@ return function(ctx)
         Size = UDim2.new(0, 14, 0, 14),
         Position = UDim2.new(0, 10, 0.5, -7),
         BackgroundTransparency = 1,
-        Image = LUCIDE_ICONS["Automatic"] or "",
+        Image = LUCIDE_ICONS["Automation"] or "",
         ImageColor3 = Colors.Accent,  -- changed to teal
         ImageTransparency = 0,  -- fully visible
         ScaleType = Enum.ScaleType.Fit,
@@ -1181,7 +1181,7 @@ return function(ctx)
 
     -- Sidebar nav groups (sama seperti desktop) — RESTRUCTURED 5 TAB
     local NAV_GROUPS = {
-        {header = "Main",  items = {"Automatic", "Inventory", "Show"}},
+        {header = "Main",  items = {"Automation", "Inventory", "Show"}},
         {header = "Other", items = {"Misc", "Settings"}},
     }
 
@@ -1404,7 +1404,7 @@ return function(ctx)
             PageHeaderIcon.ImageColor3 = Colors.Accent  -- changed to teal
             PageHeaderIcon.ImageTransparency = 0
         else
-            PageHeaderIcon.Image = LUCIDE_ICONS["Automatic"] or ""
+            PageHeaderIcon.Image = LUCIDE_ICONS["Automation"] or ""
             PageHeaderIcon.ImageColor3 = Colors.Accent  -- changed to teal
             PageHeaderIcon.ImageTransparency = 0
         end

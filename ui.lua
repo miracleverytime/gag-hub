@@ -1059,7 +1059,7 @@ return function(ctx)
     -- ImageColor3 diubah saat active/hover untuk tinting effect.
     local LUCIDE_ICONS = {
         -- New pages (restructured)
-        Automatic = "rbxassetid://133886562604149",  -- Cog (automation)
+        Automation = "rbxassetid://133886562604149",  -- Cog (automation)
         Inventory = "rbxassetid://76080467452382",   -- ShoppingCart (bag/inventory)
         Show      = "rbxassetid://109331875518738",  -- Eye (visuals)
         Misc      = "rbxassetid://114046395678554",  -- Wrench (utilities)
@@ -1242,7 +1242,7 @@ return function(ctx)
     -- Build sidebar buttons; store refs on ctx for bootstrap wiring (RESTRUCTURED - 5 pages)
     local sb = {}
     CreateSectionHeader(SidebarContent, "MAIN", 1)
-    sb.Automatic = CreateSidebarButton(SidebarContent, "\226\154\153", "Automatic", 2)  -- ⚙ gear/automation
+    sb.Automation = CreateSidebarButton(SidebarContent, "\226\154\153", "Automation", 2)  -- ⚙ gear/automation
     sb.Inventory = CreateSidebarButton(SidebarContent, "\226\151\143", "Inventory", 3)  -- ● bag/inventory
     sb.Show      = CreateSidebarButton(SidebarContent, "\226\151\142", "Show", 4)       -- ◎ eye/visibility
 
@@ -1418,7 +1418,7 @@ return function(ctx)
         Size = UDim2.new(0, 18, 0, 18),
         Position = UDim2.new(0, 16, 0.5, -9),
         BackgroundTransparency = 1,
-        Image = LUCIDE_ICONS["Automatic"] or "",  -- default ke Automatic icon
+        Image = LUCIDE_ICONS["Automation"] or "",  -- default ke Automation icon
         ImageColor3 = Colors.TextPrimary,
         ImageTransparency = 0.15,
         ScaleType = Enum.ScaleType.Fit,
@@ -1557,8 +1557,8 @@ return function(ctx)
                 PageHeaderIcon.ImageColor3 = Color3.new(1, 1, 1)
                 PageHeaderIcon.ImageTransparency = 0
             else
-                -- Fallback: tunjukkan ikon default Automatic jika tidak ada asset
-                PageHeaderIcon.Image = LUCIDE_ICONS["Automatic"] or ""
+                -- Fallback: tunjukkan ikon default Automation jika tidak ada asset
+                PageHeaderIcon.Image = LUCIDE_ICONS["Automation"] or ""
                 PageHeaderIcon.ImageColor3 = Colors.TextPrimary
                 PageHeaderIcon.ImageTransparency = 0.15
             end

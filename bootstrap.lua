@@ -4,7 +4,7 @@
 --
 -- Wires: sidebar buttons, search, window drag, minimize/restore + M logo,
 --   confirm-close modal, keybinds, and the loading sequence that reveals
---   the window and calls SetActivePage("Automatic").
+--   the window and calls SetActivePage("Automation").
 --
 -- Reads from ctx: Colors, States, MY_PLOT_ID, UI.*, ScreenGui, MainFrame,
 --   TopBar, Sidebar, ContentArea, SearchBox, CloseButton, MinimizeButton,
@@ -52,7 +52,7 @@ return function(ctx)
     -- Mobile dan desktop sekarang menggunakan nama halaman yang sama (5 tab).
     -- Guard nil: kalau salah satu tombol tidak terdefinisi, skip saja (tidak crash).
     local pageMap = {
-        [sb.Automatic] = "Automatic",
+        [sb.Automation] = "Automation",
         [sb.Inventory] = "Inventory",
         [sb.Show]      = "Show",
         [sb.Misc]      = "Misc",
@@ -68,18 +68,18 @@ return function(ctx)
 
     -- ====================== SEARCH FUNCTIONALITY (RESTRUCTURED) ======================
     local searchAllItems = {
-        {"auto plant", "Automatic"}, {"plant seed", "Automatic"}, {"auto harvest", "Automatic"}, {"harvest", "Automatic"},
-        {"water", "Automatic"}, {"sprinkler", "Automatic"}, {"farming", "Automatic"},
-        {"auto buy", "Automatic"}, {"buy seed", "Automatic"}, {"crate", "Automatic"}, {"shop", "Automatic"},
-        {"auto buy crate", "Automatic"}, {"open crate", "Automatic"}, {"shopping", "Automatic"},
-        {"sell", "Automatic"}, {"auto sell", "Automatic"}, {"selling", "Automatic"},
+        {"auto plant", "Automation"}, {"plant seed", "Automation"}, {"auto harvest", "Automation"}, {"harvest", "Automation"},
+        {"water", "Automation"}, {"sprinkler", "Automation"}, {"farming", "Automation"},
+        {"auto buy", "Automation"}, {"buy seed", "Automation"}, {"crate", "Automation"}, {"shop", "Automation"},
+        {"auto buy crate", "Automation"}, {"open crate", "Automation"}, {"shopping", "Automation"},
+        {"sell", "Automation"}, {"auto sell", "Automation"}, {"selling", "Automation"},
         {"pet", "Inventory"}, {"wild pet", "Inventory"}, {"bunny", "Inventory"}, {"frog", "Inventory"},
-        {"catch", "Automatic"}, {"auto catch", "Automatic"},
+        {"catch", "Automation"}, {"auto catch", "Automation"},
         {"bag", "Inventory"}, {"fruit", "Inventory"}, {"inventory", "Inventory"}, {"backpack", "Inventory"},
         {"inspect", "Inventory"}, {"scan", "Inventory"},
         {"walk", "Misc"}, {"speed", "Misc"}, {"fly", "Misc"}, {"jump", "Misc"}, {"movement", "Misc"},
         {"esp", "Show"}, {"highlight", "Show"}, {"visual", "Show"}, {"stats", "Show"},
-        {"mailbox", "Misc"}, {"gift", "Automatic"}, {"server", "Misc"}, {"rejoin", "Automatic"},
+        {"mailbox", "Misc"}, {"gift", "Automation"}, {"server", "Misc"}, {"rejoin", "Automation"},
         {"settings", "Settings"}, {"config", "Settings"},
     }
 
