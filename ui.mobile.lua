@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "MOBILE-DRAG-23"
+    local BUILD_TAG         = "B-23"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -719,7 +719,7 @@ return function(ctx)
         BorderSizePixel = 0,
     })
 
-    -- ConnDot + CONNECTED — avatar profile sekarang berada di sidebar
+    -- ConnDot + CONNECTED + BUILD_TAG — semua info debug dikumpul di topbar kiri
     local ConnDot = Create("Frame", {
         Parent = TopBar,
         Size = UDim2.new(0, 6, 0, 6),
@@ -728,7 +728,7 @@ return function(ctx)
         BorderSizePixel = 0,
     })
     CreateCorner(ConnDot, 3)
-    Create("TextLabel", {
+    local ConnLabel = Create("TextLabel", {
         Parent = TopBar,
         Size = UDim2.new(0, 76, 1, 0),
         Position = UDim2.new(0, 20, 0, 0),
@@ -736,6 +736,18 @@ return function(ctx)
         Text = "CONNECTED",
         TextColor3 = Colors.Accent,
         TextSize = 11,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Left,
+    })
+    local BuildLabel = Create("TextLabel", {
+        Parent = TopBar,
+        Size = UDim2.new(0, 80, 1, 0),
+        Position = UDim2.new(0, 98, 0, 0),
+        BackgroundTransparency = 1,
+        Text = "• " .. BUILD_TAG,
+        TextColor3 = Colors.TextMuted,
+        TextTransparency = 0.3,
+        TextSize = 9,
         Font = FONT_MONO,
         TextXAlignment = Enum.TextXAlignment.Left,
     })
@@ -775,7 +787,7 @@ return function(ctx)
     CreateCorner(BrandCard, 6)
     CreateStroke(BrandCard, Colors.Border, 1)
 
-    -- Logo
+    -- Logo (Lucide)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 14, 0, 14),
@@ -804,7 +816,7 @@ return function(ctx)
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
-    -- FPS icon
+    -- FPS icon (Lucide)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 11, 0, 11),
@@ -834,7 +846,7 @@ return function(ctx)
         BackgroundColor3 = Color3.fromRGB(58, 68, 80),
         BorderSizePixel = 0,
     })
-    -- MS icon
+    -- MS icon (Lucide)
     Create("ImageLabel", {
         Parent = BrandCard,
         Size = UDim2.new(0, 11, 0, 11),
@@ -892,7 +904,7 @@ return function(ctx)
         BackgroundTransparency = 1,
     })
 
-    -- MinimizeButton
+    -- MinimizeButton (Lucide icon)
     local MinimizeButton = Create("ImageButton", {
         Parent = RightControls,
         Size = UDim2.new(0, 24, 0, 24),
@@ -906,7 +918,7 @@ return function(ctx)
     })
     ctx.MinimizeButton = MinimizeButton
 
-    -- CloseButton
+    -- CloseButton (Lucide icon)
     local CloseButton = Create("ImageButton", {
         Parent = RightControls,
         Size = UDim2.new(0, 24, 0, 24),
@@ -2317,7 +2329,7 @@ return function(ctx)
             })
             CreateCorner(cell, 6)  -- radius dikecilkan dari 8 → 6
             CreateStroke(cell, Colors.Border, 1)
-            -- Icon kecil di kiri atas
+            -- Icon kecil di kiri atas (Lucide)
             Create("ImageLabel", {
                 Parent = cell,
                 Size = UDim2.new(0, 11, 0, 11),  -- dikecilkan dari 13 → 11
@@ -2357,7 +2369,7 @@ return function(ctx)
         local row2 = makeStatRow(2)
         local sessionVal  = statCell(row1, 1, 119313259933057, "00:00:00", "SESSION")
         local playersVal  = statCell(row1, 2, 135699590689133, "0",        "PLAYERS")
-        local memoryVal   = statCell(row2, 1, 76226717331199, "0",        "MEMORY MB")
+        local memoryVal   = statCell(row2, 1, 76226717331199,  "0",        "MEMORY MB")
         local activeVal, activeCell = statCell(row2, 2, 79505679329467, "0", "ACTIVE")
 
         local AUTOMATION_KEYS = {
@@ -2423,7 +2435,7 @@ return function(ctx)
             antiAfk           = "Anti AFK",
         }
 
-        -- Info icon button (smaller for mobile)
+        -- Info icon button (Lucide icon, smaller for mobile)
         local infoBtn = Create("ImageButton", {
             Parent = activeCell,
             Size = UDim2.new(0, 14, 0, 14),  -- smaller: 18→14
