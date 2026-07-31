@@ -29,7 +29,14 @@ return function(ctx)
     -- ====================== PLATFORM DETECTION ======================
     -- Harus diset di core (sebelum ui_mobile / ui dipanggil) supaya
     -- bootstrap.lua bisa masuk ke branch mobile yang benar saat reinject.
-    ctx.isMobile = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+    -- FIX: pakai cache _G (sama seperti loader.lua) supaya re-inject setelah
+    -- Ultra Low aktif TIDAK flip ke desktop karena MouseEnabled berubah-ubah
+    -- di beberapa executor mobile.
+    ctx.isMobile = _G._MiracleHubIsMobile
+    if ctx.isMobile == nil then
+        ctx.isMobile = UserInputService.TouchEnabled
+        _G._MiracleHubIsMobile = ctx.isMobile
+    end
 
     -- ====================== PLAYER REFS ======================
     local player    = Players.LocalPlayer

@@ -15,11 +15,20 @@ local ctx   = {}
 
 -- ====================== PLATFORM DETECTION ======================
 -- Harus SEBELUM MODULES karena IS_MOBILE dipakai di tabel MODULES.
+-- FIX (re-inject setelah Ultra Low): "Touch and not Mouse" tidak reliable
+-- di semua executor mobile (Delta/Codex/Fluxus/Arceus) — MouseEnabled sering
+-- flip ke true setelah loading berat (Ultra Low aktif), sehingga deteksi
+-- jadi false dan script ke-load versi desktop saat re-inject.
+-- TouchEnabled exclusive untuk device/UI touch → itu sinyal utama.
+-- Cache di _G agar re-inject berikutnya konsisten dalam session yang sama.
 local function isMobilePlatform()
+    if _G._MiracleHubIsMobile ~= nil then
+        return _G._MiracleHubIsMobile
+    end
     local UIS = game:GetService("UserInputService")
-    -- Some mobile devices/executors report the virtual keyboard as enabled.
-    -- Touch + no mouse is a more reliable mobile signal than KeyboardEnabled.
-    return UIS.TouchEnabled and not UIS.MouseEnabled
+    local isMobile = UIS.TouchEnabled
+    _G._MiracleHubIsMobile = isMobile
+    return isMobile
 end
 
 local IS_MOBILE = isMobilePlatform()
