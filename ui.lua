@@ -1555,17 +1555,17 @@ return function(ctx)
             s.applyActive(true)
             if s.isImage then
                 PageHeaderIcon.Image = s.icon.Image
-                PageHeaderIcon.ImageColor3 = Color3.new(1, 1, 1)
+                PageHeaderIcon.ImageColor3 = Colors.Accent
                 PageHeaderIcon.ImageTransparency = 0
             else
                 -- Fallback: tunjukkan ikon default Automation jika tidak ada asset
                 PageHeaderIcon.Image = LUCIDE_ICONS["Automation"] or ""
-                PageHeaderIcon.ImageColor3 = Colors.TextPrimary
-                PageHeaderIcon.ImageTransparency = 0.15
+                PageHeaderIcon.ImageColor3 = Colors.Accent
+                PageHeaderIcon.ImageTransparency = 0
             end
         else
-            -- Profile page: pakai icon Settings (sama seperti sidebar Settings)
-            PageHeaderIcon.Image = LUCIDE_ICONS["Settings"] or ""
+            -- Profile page: pakai icon Profile (user)
+            PageHeaderIcon.Image = LUCIDE_ICONS["Profile"] or ""
             PageHeaderIcon.ImageColor3 = Colors.Accent
             PageHeaderIcon.ImageTransparency = 0
         end
