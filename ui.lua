@@ -844,7 +844,7 @@ return function(ctx)
         Size = UDim2.new(0, 26, 0, 26),
         Position = UDim2.new(0, 10, 0.5, -13),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://84624577851012",
+        Image = "rbxassetid://74186782815011",
         ScaleType = Enum.ScaleType.Fit,
     })
     local BrandSeg = Create("TextLabel", {
@@ -1354,7 +1354,7 @@ return function(ctx)
         Size = UDim2.new(0, 11, 0, 11),
         Position = UDim2.new(0.5, -5, 0, 6),
         BackgroundTransparency = 1,
-        Image = "rbxassetid://84624577851012",
+        Image = "rbxassetid://74186782815011",
         ImageColor3 = Colors.Accent,
         ZIndex = 21,
     })
@@ -2642,7 +2642,7 @@ return function(ctx)
         local sessionVal  = statCell(1, 119313259933057, "00:00:00", "SESSION")
         local playersVal  = statCell(2, 135699590689133, "0",        "PLAYERS")
         local memoryVal   = statCell(3, 76226717331199, "0",        "MEMORY MB")
-        local activeVal, activeCell = statCell(4, 91630752576074, "0", "ACTIVE LOOPS")
+        local activeVal, activeCell = statCell(4, 79505679329467, "0", "ACTIVE LOOPS")
 
         local Stats   = game:GetService("Stats")
         local Players = game:GetService("Players")
@@ -2703,7 +2703,7 @@ return function(ctx)
             Size = UDim2.new(0, 18, 0, 18),
             Position = UDim2.new(1, -32, 0, 13),
             BackgroundTransparency = 1,
-            Image = "rbxassetid://78743611615605",
+            Image = "rbxassetid://91630752576074",
             ImageColor3 = Colors.TextMuted,
         })
 
