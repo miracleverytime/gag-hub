@@ -4,7 +4,7 @@
 --
 -- Wires: sidebar buttons, search, window drag, minimize/restore + M logo,
 --   confirm-close modal, keybinds, and the loading sequence that reveals
---   the window and calls SetActivePage("Automation").
+--   the window and calls SetActivePage("Main").
 --
 -- Reads from ctx: Colors, States, MY_PLOT_ID, UI.*, ScreenGui, MainFrame,
 --   TopBar, Sidebar, ContentArea, SearchBox, CloseButton, MinimizeButton,
@@ -1376,8 +1376,8 @@ return function(ctx)
 
         task.wait(0.3)
         if _G._MiracleHubSession ~= SESSION_REVEAL then return end
-        -- Mobile dan desktop menggunakan halaman pertama yang sama: "Profile"
-        SetActivePage("Profile")
+        -- Default page: Main (profile info)
+        SetActivePage("Main")
 
         task.wait(0.8)
         if _G._MiracleHubSession ~= SESSION_REVEAL then return end

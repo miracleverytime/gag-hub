@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-29"
+    local BUILD_TAG         = "B-28"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -2645,12 +2645,8 @@ return function(ctx)
         accountRow(96449431961981,  "Platform",    "Mobile")
     end)
 
-    -- Default page saat pertama inject: Main
-    task.defer(function()
-        if SetActivePage then
-            SetActivePage("Main")
-        end
-    end)
+    -- Default page dihandle oleh bootstrap.lua (SetActivePage dipanggil
+    -- setelah loading screen selesai, ketika semua page sudah terdaftar).
 
     ctx.UI = UI
     return ctx
