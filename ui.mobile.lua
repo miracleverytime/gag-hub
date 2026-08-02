@@ -1314,18 +1314,32 @@ return function(ctx)
     })
     CreateCorner(ProfileCard, 9)
     local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
-    local ProfileAvatarStroke
-    local ProfileAvatar = Create("ImageLabel", {
+
+    -- Icon "Main" menggantikan profile avatar
+    local ProfileIcon = Create("ImageLabel", {
         Parent = ProfileCard,
-        Size = UDim2.new(0, 30, 0, 30),
-        Position = UDim2.new(0.5, -15, 0.5, -15),
-        BackgroundColor3 = Colors.Surface,
-        Image = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=150&h=150",
-        BorderSizePixel = 0,
+        Size = UDim2.new(0, 22, 0, 22),
+        Position = UDim2.new(0.5, -11, 0.5, -11),
+        BackgroundTransparency = 1,
+        Image = "rbxassetid://101376999186551",
+        ImageColor3 = Colors.Accent,
+        ScaleType = Enum.ScaleType.Fit,
         ZIndex = 6,
     })
-    CreateCorner(ProfileAvatar, 7)
-    ProfileAvatarStroke = CreateStroke(ProfileAvatar, Colors.Border, 1)
+
+    -- "Main" text label di bawah sidebar, menggantikan ProfileCard
+    local ProfileLabel = Create("TextLabel", {
+        Parent = Sidebar,
+        Size = UDim2.new(1, 0, 0, 14),
+        Position = UDim2.new(0, 0, 0, 52),
+        BackgroundTransparency = 1,
+        Text = "Main",
+        TextColor3 = Colors.TextSecondary,
+        TextSize = 10,
+        Font = FONT_MONO,
+        TextXAlignment = Enum.TextXAlignment.Center,
+        ZIndex = 5,
+    })
     ProfileCard.MouseButton1Click:Connect(function()
         SetActivePage("Profile")
     end)
@@ -1400,12 +1414,14 @@ return function(ctx)
             ProfileCard.BackgroundColor3 = ACTIVE_BG_COLOR
             Tween(ProfileCard, {BackgroundTransparency = 0.05}, SIDE_TWEEN)
             Tween(ProfileStroke, {Color = Colors.Accent, Transparency = 0.1}, SIDE_TWEEN)
-            Tween(ProfileAvatarStroke, {Color = Colors.Accent, Transparency = 0.1}, SIDE_TWEEN)
+            Tween(ProfileIcon, {ImageColor3 = Colors.Accent}, SIDE_TWEEN)
+            Tween(ProfileLabel, {TextColor3 = Colors.Accent}, SIDE_TWEEN)
         else
             ProfileCard.BackgroundColor3 = Colors.BackgroundLighter
             Tween(ProfileCard, {BackgroundTransparency = 0.15}, SIDE_TWEEN)
             Tween(ProfileStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
-            Tween(ProfileAvatarStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
+            Tween(ProfileIcon, {ImageColor3 = Colors.TextSecondary}, SIDE_TWEEN)
+            Tween(ProfileLabel, {TextColor3 = Colors.TextSecondary}, SIDE_TWEEN)
         end
 
         ClearContent()
