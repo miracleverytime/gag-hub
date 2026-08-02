@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-23"
+    local BUILD_TAG         = "B-25"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1301,59 +1301,70 @@ return function(ctx)
 
     -- Profile card — mengikuti referensi desktop: avatar berada di sidebar,
     -- menggantikan item teks Profile di daftar menu.
+    -- Style sama dengan sidebar button lainnya: height 32px, icon 14x14, text 12px
     local ProfileCard = Create("TextButton", {
         Parent = Sidebar,
-        Size = UDim2.new(0, 40, 0, 40),
-        Position = UDim2.new(0.5, -20, 0, 10),
-        BackgroundColor3 = Colors.BackgroundLighter,
-        BackgroundTransparency = 0.15,
+        Size = UDim2.new(1, 0, 0, 32),
+        Position = UDim2.new(0, 0, 0, 10),
+        BackgroundTransparency = 1,
+        BackgroundColor3 = HOVER_BG_COLOR,
         BorderSizePixel = 0,
         Text = "",
         AutoButtonColor = false,
         ZIndex = 5,
     })
-    CreateCorner(ProfileCard, 9)
-    local ProfileStroke = CreateStroke(ProfileCard, Colors.Border, 1)
+    CreateCorner(ProfileCard, 7)
 
-    -- Icon "Main" menggantikan profile avatar
+    local ProfileGlow = Create("UIStroke", {
+        Parent = ProfileCard,
+        Color = Colors.Accent,
+        Thickness = 1,
+        Transparency = 1,
+    })
+    local ProfileIndicator = Create("Frame", {
+        Parent = ProfileCard,
+        Size = UDim2.new(0, 2, 0, 0),
+        Position = UDim2.new(0, 0, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        BackgroundColor3 = Colors.Accent,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+    })
+    CreateCorner(ProfileIndicator, 1)
+
+    -- Icon "Main" (14x14, sama seperti sidebar button lain)
     local ProfileIcon = Create("ImageLabel", {
         Parent = ProfileCard,
-        Size = UDim2.new(0, 22, 0, 22),
-        Position = UDim2.new(0.5, -11, 0.5, -11),
+        Size = UDim2.new(0, 14, 0, 14),
+        Position = UDim2.new(0, 9, 0.5, -7),
         BackgroundTransparency = 1,
         Image = "rbxassetid://101376999186551",
-        ImageColor3 = Colors.Accent,
+        ImageColor3 = Colors.TextSecondary,
+        ImageTransparency = 0.1,
         ScaleType = Enum.ScaleType.Fit,
         ZIndex = 6,
     })
 
-    -- "Main" text label di bawah sidebar, menggantikan ProfileCard
+    -- "Main" text label (sama seperti sidebar button lain)
     local ProfileLabel = Create("TextLabel", {
-        Parent = Sidebar,
-        Size = UDim2.new(1, 0, 0, 14),
-        Position = UDim2.new(0, 0, 0, 52),
+        Parent = ProfileCard,
+        Size = UDim2.new(1, -30, 1, 0),
+        Position = UDim2.new(0, 28, 0, 0),
         BackgroundTransparency = 1,
         Text = "Main",
-        TextColor3 = Colors.TextSecondary,
-        TextSize = 10,
-        Font = FONT_MONO,
-        TextXAlignment = Enum.TextXAlignment.Center,
-        ZIndex = 5,
+        TextColor3 = Colors.TextPrimary,
+        TextSize = 12,
+        Font = FONT_BODY,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        ZIndex = 6,
     })
+
     ProfileCard.MouseButton1Click:Connect(function()
         SetActivePage("Profile")
     end)
 
-    ProfileCard.MouseEnter:Connect(function()
-        if ActivePage ~= "Profile" then
-            Tween(ProfileCard, {BackgroundTransparency = 0.05}, SIDE_TWEEN)
-        end
-    end)
-    ProfileCard.MouseLeave:Connect(function()
-        if ActivePage ~= "Profile" then
-            Tween(ProfileCard, {BackgroundTransparency = 0.15}, SIDE_TWEEN)
-        end
-    end)
+    -- No hover effects on mobile
 
     -- ====================== PAGE SYSTEM ======================
     local Pages = {}
@@ -1409,19 +1420,22 @@ return function(ctx)
             end
         end
 
-        -- Profile card memakai state aktif yang sama seperti referensi desktop.
+        -- Profile card memakai state aktif yang sama seperti sidebar button lain.
         if pageName == "Profile" then
             ProfileCard.BackgroundColor3 = ACTIVE_BG_COLOR
-            Tween(ProfileCard, {BackgroundTransparency = 0.05}, SIDE_TWEEN)
-            Tween(ProfileStroke, {Color = Colors.Accent, Transparency = 0.1}, SIDE_TWEEN)
-            Tween(ProfileIcon, {ImageColor3 = Colors.Accent}, SIDE_TWEEN)
+            Tween(ProfileCard, {BackgroundTransparency = 0}, SIDE_TWEEN)
+            Tween(ProfileGlow, {Transparency = 0.55}, SIDE_TWEEN)
+            Tween(ProfileIndicator, {Size = UDim2.new(0, 3, 0, 22), BackgroundTransparency = 0}, SIDE_TWEEN)
+            Tween(ProfileIcon, {ImageColor3 = Colors.Accent, ImageTransparency = 0}, SIDE_TWEEN)
             Tween(ProfileLabel, {TextColor3 = Colors.Accent}, SIDE_TWEEN)
+            ProfileLabel.Font = FONT_BOLD
         else
-            ProfileCard.BackgroundColor3 = Colors.BackgroundLighter
-            Tween(ProfileCard, {BackgroundTransparency = 0.15}, SIDE_TWEEN)
-            Tween(ProfileStroke, {Color = Colors.Border, Transparency = 0}, SIDE_TWEEN)
-            Tween(ProfileIcon, {ImageColor3 = Colors.TextSecondary}, SIDE_TWEEN)
-            Tween(ProfileLabel, {TextColor3 = Colors.TextSecondary}, SIDE_TWEEN)
+            Tween(ProfileCard, {BackgroundTransparency = 1}, SIDE_TWEEN)
+            Tween(ProfileGlow, {Transparency = 1}, SIDE_TWEEN)
+            Tween(ProfileIndicator, {Size = UDim2.new(0, 2, 0, 0), BackgroundTransparency = 1}, SIDE_TWEEN)
+            Tween(ProfileIcon, {ImageColor3 = Colors.TextSecondary, ImageTransparency = 0.1}, SIDE_TWEEN)
+            Tween(ProfileLabel, {TextColor3 = Colors.TextPrimary}, SIDE_TWEEN)
+            ProfileLabel.Font = FONT_BODY
         end
 
         ClearContent()
