@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-35"
+    local BUILD_TAG         = "B-36"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1203,13 +1203,13 @@ return function(ctx)
             })
             CreateCorner(indicator, 1)
 
-            -- Icon (kiri, 14×14 supaya proporsional dengan lebar sidebar 88px)
+            -- Icon (kiri, 16×16 supaya proporsional dengan lebar sidebar 88px)
             local iconLabel
             if iconAsset then
                 iconLabel = Create("ImageLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 14, 0, 14),
-                    Position = UDim2.new(0, 9, 0.5, -7),
+                    Size = UDim2.new(0, 16, 0, 16),
+                    Position = UDim2.new(0, 9, 0.5, -8),
                     BackgroundTransparency = 1,
                     Image = iconAsset,
                     ImageColor3 = Colors.TextSecondary,
@@ -1219,8 +1219,8 @@ return function(ctx)
             else
                 iconLabel = Create("TextLabel", {
                     Parent = btn,
-                    Size = UDim2.new(0, 14, 0, 14),
-                    Position = UDim2.new(0, 9, 0.5, -7),
+                    Size = UDim2.new(0, 16, 0, 16),
+                    Position = UDim2.new(0, 9, 0.5, -8),
                     BackgroundTransparency = 1,
                     Text = name:sub(1, 1),
                     TextColor3 = Colors.TextSecondary,
