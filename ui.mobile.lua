@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-34"
+    local BUILD_TAG         = "B-35"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1836,7 +1836,7 @@ return function(ctx)
         local selected = States[stateKey]
         displayLabels = displayLabels or {}
 
-        local pillText = label:gsub("^[%z\1-\127\194-\244][\128-\191]*%s*", "")
+        local pillText = label:gsub("^[\194-\244][\128-\191]*%s*", "")
         if pillText == "" then pillText = label end
 
         local function getShortText()
