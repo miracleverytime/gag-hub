@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-28"
+    local BUILD_TAG         = "B-29"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1039,11 +1039,10 @@ return function(ctx)
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
     })
-    -- Custom padding: hapus padding atas untuk mobile (space kosong tidak perlu)
     Create("UIPadding", {
         PaddingLeft = UDim.new(0, 10),
         PaddingRight = UDim.new(0, 10),
-        PaddingTop = UDim.new(0, 0),      -- Dihapus padding atas (sebelumnya 10px)
+        PaddingTop = UDim.new(0, 10),
         PaddingBottom = UDim.new(0, 10),
         Parent = ContentScroll,
     })
