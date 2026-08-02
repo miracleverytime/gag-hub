@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-36"
+    local BUILD_TAG         = "B-37"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -693,7 +693,7 @@ return function(ctx)
 
     -- ====================== TOP BAR (MOBILE) ======================
     local TOPBAR_H = 42   -- sedikit lebih tinggi supaya konten topbar tidak sumpek
-    local SIDEBAR_W = 95 -- diperbesar dari 58 → 95 agar footer "Powered by Miracle Labs" proporsional di mobile
+    local SIDEBAR_W = 105 -- diperbesar dari 95 → 105 agar footer "Powered by Miracle Labs" proporsional di mobile
     local TopBar = Create("Frame", {
         Name = "TopBar",
         Parent = MainFrame,
