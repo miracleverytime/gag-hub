@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-32"
+    local BUILD_TAG         = "B-33"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1143,7 +1143,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "// " .. text,
             TextColor3 = Colors.TextMuted,
-            TextSize = 11,
+            TextSize = 12,  -- increased from 11 → 12
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             LayoutOrder = layoutOrder,
@@ -1224,7 +1224,7 @@ return function(ctx)
                     BackgroundTransparency = 1,
                     Text = name:sub(1, 1),
                     TextColor3 = Colors.TextSecondary,
-                    TextSize = 12,
+                    TextSize = 13,
                     Font = FONT_BOLD,
                 })
             end
@@ -1237,7 +1237,7 @@ return function(ctx)
                 BackgroundTransparency = 1,
                 Text = name,
                 TextColor3 = Colors.TextPrimary,
-                TextSize = 12,
+                TextSize = 13,
                 Font = FONT_BODY,
                 TextXAlignment = Enum.TextXAlignment.Left,
                 TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1401,7 +1401,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = string.upper(cleanTitle),
             TextColor3 = accentColor or Colors.Accent,
-            TextSize = 10,  -- increased from 9 → 10
+            TextSize = 12,  -- increased from 10 → 12
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             AutomaticSize = Enum.AutomaticSize.X,
@@ -1445,7 +1445,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.Accent,  -- changed to teal
-            TextSize = 10,  -- increased from 9 → 10
+            TextSize = 11,  -- increased from 10 → 11
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
         })
@@ -1478,7 +1478,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextPrimary,
-            TextSize = 13,
+            TextSize = 10,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1562,7 +1562,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextPrimary,
-            TextSize = 13,  -- naik dari 11 → 13
+            TextSize = 10,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1574,7 +1574,7 @@ return function(ctx)
             BackgroundColor3 = Colors.Background,
             Text = tostring(defaultVal) .. (suffix or ""),
             TextColor3 = Colors.Accent,
-            TextSize = 11,  -- naik dari 10 → 11
+            TextSize = 10,
             Font = FONT_MONO,
             BorderSizePixel = 0,
         })
@@ -1674,7 +1674,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = accentColor or Colors.TextPrimary,
-            TextSize = 13,  -- naik dari 11 → 13 untuk hierarki mobile
+            TextSize = 10,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1686,7 +1686,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "\226\128\186",
             TextColor3 = accentColor or Colors.Accent,
-            TextSize = 16,  -- naik dari 14 → 16
+            TextSize = 10,
             Font = FONT_BOLD,
         })
         -- No hover effects on mobile
@@ -1722,7 +1722,7 @@ return function(ctx)
             RichText = true,
             Text = label .. '  <font color="#71717A">\194\183 ' .. tostring(currentVal) .. '</font>',
             TextColor3 = Colors.TextPrimary,
-            TextSize = 13,  -- naik dari 11 → 13
+            TextSize = 10,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1734,7 +1734,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "\226\150\190",
             TextColor3 = Colors.Accent,
-            TextSize = 13,  -- naik dari 11 → 13
+            TextSize = 10,
             Font = FONT_BOLD,
             TextXAlignment = Enum.TextXAlignment.Center,
         })
@@ -1886,7 +1886,7 @@ return function(ctx)
             RichText = true,
             Text = getShortText(),
             TextColor3 = Colors.TextPrimary,
-            TextSize = 13,  -- naik dari 11 → 13
+            TextSize = 10,
             Font = FONT_BODY,
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
@@ -2135,7 +2135,7 @@ return function(ctx)
             BackgroundTransparency = 1,
             Text = "// " .. text,
             TextColor3 = Colors.Accent,  -- changed to teal
-            TextSize = 10,  -- increased from 9 → 10
+            TextSize = 12,  -- increased from 10 → 12
             Font = FONT_MONO,
             TextXAlignment = Enum.TextXAlignment.Left,
             LayoutOrder = layoutOrder,
