@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-28"
+    local BUILD_TAG         = "B-29"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1084,8 +1084,8 @@ return function(ctx)
     -- Sidebar scrollable content — adjust height untuk memberi ruang footer (28px)
     local SidebarContent = Create("ScrollingFrame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -1, 1, -96),  -- 68 (top) + 28 (footer) = 96
-        Position = UDim2.new(0, 0, 0, 64),
+        Size = UDim2.new(1, -1, 1, -40),  -- 8 (top) + 28 (footer) + 4 margin = 40
+        Position = UDim2.new(0, 0, 0, 8),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ScrollBarThickness = 2,
@@ -2150,10 +2150,10 @@ return function(ctx)
     UI.CreateInfoText      = CreateInfoText
     UI.CreateStatRow       = CreateStatRow
 
-    -- ====================== BUILT-IN PROFILE PAGE ======================
+    -- ====================== BUILT-IN MAIN PAGE (PROFILE) ======================
     -- Simplified for mobile — same data, more compact
     local sessionStart = os.clock()
-    registerPage("Profile", function()
+    registerPage("Main", function()
         local col = ContentScroll
 
         local isFounder = (player.UserId == 9039505358)
@@ -2643,6 +2643,13 @@ return function(ctx)
         accountRow(138507780718324, "Game",        "Grow A Garden 2")
         accountRow(79093652727225,  "Hub Version", ctx.HubVersion or "v2.0.1")
         accountRow(96449431961981,  "Platform",    "Mobile")
+    end)
+
+    -- Default page saat pertama inject: Main
+    task.defer(function()
+        if SetActivePage then
+            SetActivePage("Main")
+        end
     end)
 
     ctx.UI = UI
