@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-30"
+    local BUILD_TAG         = "B-31"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1083,8 +1083,8 @@ return function(ctx)
     -- Sidebar scrollable content — adjust height untuk memberi ruang footer (28px)
     local SidebarContent = Create("ScrollingFrame", {
         Parent = Sidebar,
-        Size = UDim2.new(1, -1, 1, -38),  -- 6 (top) + 28 (footer) + 4 margin = 38
-        Position = UDim2.new(0, 0, 0, 6),
+        Size = UDim2.new(1, -1, 1, -32),  -- 0 (top) + 28 (footer) + 4 margin = 32
+        Position = UDim2.new(0, 0, 0, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
         ScrollBarThickness = 2,
