@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-31"
+    local BUILD_TAG         = "B-32"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1093,6 +1093,8 @@ return function(ctx)
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
     })
     CreatePadding(SidebarContent, 6)
+    -- Override hanya PaddingTop supaya button pertama lebih jauh dari topbar
+    SidebarContent:FindFirstChildOfClass("UIPadding").PaddingTop = UDim.new(0, 10)
     CreateListLayout(SidebarContent, 2)
 
     -- Footer: icon ⚡ + "Powered by" + "Miracle Labs" (sama seperti desktop)
