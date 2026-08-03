@@ -618,14 +618,13 @@ return function(ctx)
                 BackgroundColor3 = Colors.Surface,
                 BorderSizePixel  = 0,
                 Text             = petListExpanded and "Hide" or "Show",
-                TextColor3       = Colors.Frozen,
+                TextColor3       = Colors.Accent,
                 TextSize         = 11,
                 Font             = Enum.Font.Gotham,
-                FontFace         = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Light, Enum.FontStyle.Normal),
                 AutoButtonColor  = false,
             })
             CreateCorner(toggleBtn, 6)
-            CreateStroke(toggleBtn, Colors.Frozen, 1)
+            CreateStroke(toggleBtn, Colors.Accent, 1)
 
             -- Frame konten pet (flat, tanpa nested scroll)
             local petListFrame = Create("Frame", {
