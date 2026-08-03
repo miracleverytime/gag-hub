@@ -610,21 +610,22 @@ return function(ctx)
                 return
             end
 
-            -- Toggle button
+            -- Toggle button (ikutin style valLabel di slider: Colors.Background + Accent + BorderLight)
             local toggleBtn = Create("TextButton", {
                 Parent                 = headerRow,
                 Size                   = UDim2.new(0, 70, 0, 22),
                 Position               = UDim2.new(1, -70, 0.5, -11),
-                BackgroundColor3       = Colors.Accent,
-                BackgroundTransparency = 0.15,
+                BackgroundColor3       = Colors.Background,
+                BackgroundTransparency = 0,
                 BorderSizePixel        = 0,
                 Text                   = petListExpanded and "Hide ▲" or "Show ▼",
-                TextColor3             = Color3.fromRGB(255, 255, 255),
+                TextColor3             = Colors.Accent,
                 TextSize               = 12,
                 Font                   = Enum.Font.Gotham,
                 AutoButtonColor        = false,
             })
-            CreateCorner(toggleBtn, 6)
+            CreateCorner(toggleBtn, 5)
+            CreateStroke(toggleBtn, Colors.BorderLight, 1)
 
             -- Frame konten pet (flat, tanpa nested scroll)
             local petListFrame = Create("Frame", {
@@ -650,8 +651,8 @@ return function(ctx)
                 petListFrame.Visible = petListExpanded
                 toggleBtn.Text = petListExpanded and "Hide ▲" or "Show ▼"
             end)
-            toggleBtn.MouseEnter:Connect(function() Tween(toggleBtn, { BackgroundTransparency = 0 }, 0.1) end)
-            toggleBtn.MouseLeave:Connect(function() Tween(toggleBtn, { BackgroundTransparency = 0.15 }, 0.1) end)
+            toggleBtn.MouseEnter:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.BackgroundLighter }, 0.1) end)
+            toggleBtn.MouseLeave:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.Background }, 0.1) end)
         end
 
         RebuildInventory()
