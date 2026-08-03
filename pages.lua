@@ -731,10 +731,11 @@ return function(ctx)
                     TextTruncate           = Enum.TextTruncate.AtEnd,
                 })
 
-                -- Rarity: mulai di 42%, lebar 26%
+                -- Rarity: zona 42%-64% (22% lebar), center di tengah zona
+                -- Ruang tengah antara nama(42%) dan TP(86%) = 44%, dibagi 2 = masing2 22%
                 Create("TextLabel", {
                     Parent                 = row,
-                    Size                   = UDim2.new(0.26, 0, 1, 0),
+                    Size                   = UDim2.new(0.22, 0, 1, 0),
                     Position               = UDim2.new(0.42, 0, 0, 0),
                     BackgroundTransparency = 1,
                     Text                   = rarity,
@@ -744,11 +745,11 @@ return function(ctx)
                     TextXAlignment         = Enum.TextXAlignment.Center,
                 })
 
-                -- Distance: mulai di 68%, lebar 18%
+                -- Distance: zona 64%-86% (22% lebar), center di tengah zona
                 Create("TextLabel", {
                     Parent                 = row,
-                    Size                   = UDim2.new(0.18, 0, 1, 0),
-                    Position               = UDim2.new(0.68, 0, 0, 0),
+                    Size                   = UDim2.new(0.22, 0, 1, 0),
+                    Position               = UDim2.new(0.64, 0, 0, 0),
                     BackgroundTransparency = 1,
                     Text                   = distStr,
                     TextColor3             = Colors.TextMuted,
