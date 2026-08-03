@@ -612,19 +612,19 @@ return function(ctx)
 
             -- Toggle button
             local toggleBtn = Create("TextButton", {
-                Parent           = headerRow,
-                Size             = UDim2.new(0, 82, 0, 22),
-                Position         = UDim2.new(1, -82, 0.5, -11),
-                BackgroundColor3 = Colors.Surface,
-                BorderSizePixel  = 0,
-                Text             = petListExpanded and "Hide" or "Show",
-                TextColor3       = Colors.Accent,
-                TextSize         = 11,
-                Font             = Enum.Font.Gotham,
-                AutoButtonColor  = false,
+                Parent                 = headerRow,
+                Size                   = UDim2.new(0, 70, 0, 22),
+                Position               = UDim2.new(1, -70, 0.5, -11),
+                BackgroundColor3       = Colors.Accent,
+                BackgroundTransparency = 0.15,
+                BorderSizePixel        = 0,
+                Text                   = petListExpanded and "Hide ▲" or "Show ▼",
+                TextColor3             = Color3.fromRGB(255, 255, 255),
+                TextSize               = 12,
+                Font                   = Enum.Font.Gotham,
+                AutoButtonColor        = false,
             })
             CreateCorner(toggleBtn, 6)
-            CreateStroke(toggleBtn, Colors.Accent, 1)
 
             -- Frame konten pet (flat, tanpa nested scroll)
             local petListFrame = Create("Frame", {
@@ -648,10 +648,10 @@ return function(ctx)
             toggleBtn.MouseButton1Click:Connect(function()
                 petListExpanded = not petListExpanded
                 petListFrame.Visible = petListExpanded
-                toggleBtn.Text = petListExpanded and "Hide" or "Show"
+                toggleBtn.Text = petListExpanded and "Hide ▲" or "Show ▼"
             end)
-            toggleBtn.MouseEnter:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.SurfaceLight }, 0.1) end)
-            toggleBtn.MouseLeave:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.Surface }, 0.1) end)
+            toggleBtn.MouseEnter:Connect(function() Tween(toggleBtn, { BackgroundTransparency = 0 }, 0.1) end)
+            toggleBtn.MouseLeave:Connect(function() Tween(toggleBtn, { BackgroundTransparency = 0.15 }, 0.1) end)
         end
 
         RebuildInventory()
