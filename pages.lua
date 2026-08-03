@@ -731,11 +731,11 @@ return function(ctx)
                     TextTruncate           = Enum.TextTruncate.AtEnd,
                 })
 
-                -- Rarity: zona 35%-57% (22% lebar), center di tengah zona
+                -- Rarity: zona 33%-55% (22% lebar), center di tengah zona
                 Create("TextLabel", {
                     Parent                 = row,
                     Size                   = UDim2.new(0.22, 0, 1, 0),
-                    Position               = UDim2.new(0.35, 0, 0, 0),
+                    Position               = UDim2.new(0.33, 0, 0, 0),
                     BackgroundTransparency = 1,
                     Text                   = rarity,
                     TextColor3             = col,
