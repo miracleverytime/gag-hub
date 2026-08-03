@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-59"
+    local BUILD_TAG         = "B-61"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1606,7 +1606,12 @@ return function(ctx)
         })
         CreateCorner(sliderKnob, 8)
 
-        local dragging = false
+        local dragging       = false
+        local intentResolved = false   -- sudah tahu arah gerak (H/V)?
+        local touchStartX    = 0
+        local touchStartY    = 0
+        local INTENT_THRESHOLD = 6     -- px minimum sebelum tentukan arah
+
         local trackBtn = Create("TextButton", {
             Parent = container,
             Size = UDim2.new(1, -24, 0, 26),  -- area drag lebih lebar/tinggi
@@ -1626,26 +1631,89 @@ return function(ctx)
             Tween(fill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
             Tween(sliderKnob, {Position = UDim2.new(pct, -8, 0.5, -8)}, 0.05)
         end
+
+        -- Cari ScrollingFrame induk terdekat untuk sementara dimatikan scrollnya
+        -- selama user sedang drag slider secara horizontal.
+        local function findParentScroll(obj)
+            local p = obj.Parent
+            while p do
+                if p:IsA("ScrollingFrame") then return p end
+                p = p.Parent
+            end
+            return nil
+        end
+        local parentScroll = findParentScroll(container)
+
+        local function lockParentScroll(lock)
+            if parentScroll then
+                parentScroll.ScrollingEnabled = not lock
+            end
+        end
+
         trackBtn.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                -- Desktop: langsung aktifkan, tidak perlu intent check
+                dragging       = true
+                intentResolved = true
                 updateSlider(input.Position.X, false)
+            elseif input.UserInputType == Enum.UserInputType.Touch then
+                -- Mobile: catat titik awal, tunggu intent resolution
+                touchStartX    = input.Position.X
+                touchStartY    = input.Position.Y
+                intentResolved = false
+                dragging       = false
+                -- Tandai input ini supaya InputChanged tahu ia berasal dari slider area
+                input:GetPropertyChangedSignal("UserInputState"):Connect(function()
+                    if input.UserInputState == Enum.UserInputState.End then
+                        if dragging then
+                            SaveState(stateKey, States[stateKey])
+                        end
+                        dragging       = false
+                        intentResolved = false
+                        lockParentScroll(false)
+                    end
+                end)
             end
         end)
+
         UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch) then
-                updateSlider(input.Position.X, false)
+            if input.UserInputType == Enum.UserInputType.MouseMovement then
+                if dragging then
+                    updateSlider(input.Position.X, false)
+                end
+            elseif input.UserInputType == Enum.UserInputType.Touch then
+                if not intentResolved then
+                    -- Belum tahu arahnya — hitung delta dari titik awal sentuhan
+                    local dx = math.abs(input.Position.X - touchStartX)
+                    local dy = math.abs(input.Position.Y - touchStartY)
+                    if dx < INTENT_THRESHOLD and dy < INTENT_THRESHOLD then
+                        return  -- belum cukup bergerak, tunggu dulu
+                    end
+                    intentResolved = true
+                    if dx >= dy then
+                        -- Gerak dominan HORIZONTAL → ini drag slider
+                        dragging = true
+                        lockParentScroll(true)   -- bekukan scroll induk
+                        updateSlider(input.Position.X, false)
+                    else
+                        -- Gerak dominan VERTIKAL → biarkan scroll induk bekerja normal
+                        dragging = false
+                    end
+                elseif dragging then
+                    updateSlider(input.Position.X, false)
+                end
             end
         end)
+
         UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1
                 or input.UserInputType == Enum.UserInputType.Touch then
                 if dragging then
                     SaveState(stateKey, States[stateKey])
                 end
-                dragging = false
+                dragging       = false
+                intentResolved = false
+                lockParentScroll(false)   -- selalu kembalikan scroll induk
             end
         end)
         return container
