@@ -615,7 +615,7 @@ return function(ctx)
                 Parent                 = headerRow,
                 Size                   = UDim2.new(0, 70, 0, 22),
                 Position               = UDim2.new(1, -70, 0.5, -11),
-                BackgroundColor3       = Colors.Background,
+                BackgroundColor3       = Colors.BackgroundLighter,
                 BackgroundTransparency = 0,
                 BorderSizePixel        = 0,
                 Text                   = petListExpanded and "Hide ▲" or "Show ▼",
@@ -651,8 +651,8 @@ return function(ctx)
                 petListFrame.Visible = petListExpanded
                 toggleBtn.Text = petListExpanded and "Hide ▲" or "Show ▼"
             end)
-            toggleBtn.MouseEnter:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.BackgroundLighter }, 0.1) end)
-            toggleBtn.MouseLeave:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.Background }, 0.1) end)
+            toggleBtn.MouseEnter:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.Surface }, 0.1) end)
+            toggleBtn.MouseLeave:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.BackgroundLighter }, 0.1) end)
         end
 
         RebuildInventory()
