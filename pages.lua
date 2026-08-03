@@ -621,6 +621,7 @@ return function(ctx)
                 TextColor3       = Colors.Frozen,
                 TextSize         = 11,
                 Font             = Enum.Font.Gotham,
+                FontFace         = Font.new("rbxasset://fonts/families/GothamSSm.json", Enum.FontWeight.Light, Enum.FontStyle.Normal),
                 AutoButtonColor  = false,
             })
             CreateCorner(toggleBtn, 6)
