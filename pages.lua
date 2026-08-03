@@ -706,22 +706,22 @@ return function(ctx)
                 CreateStroke(row, col, 1)
 
                 -- Layout kolom (semua pakai persen, total = 100%):
-                --   [8px pad] [dot 4%] [name 36%] [rarity 26%] [dist 20%] [tp 14%] [8px pad]
+                --   [dot ~5%] [name 35%] [rarity 22%] [dist 22%] [tp 16%]
                 -- Bullet dot
                 local bullet = Create("Frame", {
                     Parent          = row,
                     Size            = UDim2.new(0, 6, 0, 6),
-                    Position        = UDim2.new(0.01, 4, 0.5, -3),
+                    Position        = UDim2.new(0, 8, 0.5, -3),
                     BackgroundColor3 = col,
                     BorderSizePixel = 0,
                 })
                 CreateCorner(bullet, 3)
 
-                -- Pet name: mulai setelah dot (~6% dari kiri), lebar 36%
+                -- Pet name: mulai setelah dot (offset 22px dari kiri), lebar 35%
                 Create("TextLabel", {
                     Parent                 = row,
-                    Size                   = UDim2.new(0.36, 0, 1, 0),
-                    Position               = UDim2.new(0.06, 0, 0, 0),
+                    Size                   = UDim2.new(0.35, -22, 1, 0),
+                    Position               = UDim2.new(0, 22, 0, 0),
                     BackgroundTransparency = 1,
                     Text                   = petName,
                     TextColor3             = col,
@@ -731,12 +731,11 @@ return function(ctx)
                     TextTruncate           = Enum.TextTruncate.AtEnd,
                 })
 
-                -- Rarity: zona 42%-64% (22% lebar), center di tengah zona
-                -- Ruang tengah antara nama(42%) dan TP(86%) = 44%, dibagi 2 = masing2 22%
+                -- Rarity: zona 35%-57% (22% lebar), center di tengah zona
                 Create("TextLabel", {
                     Parent                 = row,
                     Size                   = UDim2.new(0.22, 0, 1, 0),
-                    Position               = UDim2.new(0.42, 0, 0, 0),
+                    Position               = UDim2.new(0.35, 0, 0, 0),
                     BackgroundTransparency = 1,
                     Text                   = rarity,
                     TextColor3             = col,
@@ -745,11 +744,11 @@ return function(ctx)
                     TextXAlignment         = Enum.TextXAlignment.Center,
                 })
 
-                -- Distance: zona 64%-86% (22% lebar), center di tengah zona
+                -- Distance: zona 57%-79% (22% lebar), center di tengah zona
                 Create("TextLabel", {
                     Parent                 = row,
                     Size                   = UDim2.new(0.22, 0, 1, 0),
-                    Position               = UDim2.new(0.64, 0, 0, 0),
+                    Position               = UDim2.new(0.57, 0, 0, 0),
                     BackgroundTransparency = 1,
                     Text                   = distStr,
                     TextColor3             = Colors.TextMuted,
@@ -758,11 +757,11 @@ return function(ctx)
                     TextXAlignment         = Enum.TextXAlignment.Center,
                 })
 
-                -- TP button: 14% lebar dari kanan, dengan sedikit padding
+                -- TP button: 16% lebar dari kanan, dengan padding 4px kanan
                 local tpBtn = Create("TextButton", {
                     Parent          = row,
-                    Size            = UDim2.new(0.14, -4, 0, 22),
-                    Position        = UDim2.new(0.86, 2, 0.5, -11),
+                    Size            = UDim2.new(0.16, -8, 0, 22),
+                    Position        = UDim2.new(0.84, 4, 0.5, -11),
                     BackgroundColor3 = Colors.Surface,
                     Text            = "TP →",
                     TextColor3      = col,
