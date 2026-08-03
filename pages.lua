@@ -620,7 +620,7 @@ return function(ctx)
                 Text             = petListExpanded and "Hide" or "Show",
                 TextColor3       = Colors.Frozen,
                 TextSize         = 11,
-                Font             = Enum.Font.GothamBold,
+                Font             = Enum.Font.Gotham,
                 AutoButtonColor  = false,
             })
             CreateCorner(toggleBtn, 6)
