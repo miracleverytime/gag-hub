@@ -121,12 +121,12 @@ return function(ctx)
     ctx.registerPage("Automation", function()
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 1: 🌱 Farming
+        -- Section 1:  Farming
         -- ═══════════════════════════════════════════════════════════
-        local _, farmContent = CreateSectionCard("🌱 Farming", 1, Colors.Success)
+        local _, farmContent = CreateSectionCard(" Farming", 1, Colors.Success)
 
         -- AUTO PLANT
-        CreateSubHeader(farmContent, "🌱 Auto Plant")
+        CreateSubHeader(farmContent, " Auto Plant")
         
         local lastNoTargetPlant = { [1] = 0 }
         local msPlantControl    = { SetDisabled = nil }
@@ -138,7 +138,7 @@ return function(ctx)
                     if #(States.autoPlantTargets or {}) == 0 then
                         revert()
                         notifyIfCooled(lastNoTargetPlant, "Auto Plant",
-                            "⚠️ Select seeds in 'Choose Seeds to Plant' before enabling Auto Plant!",
+                            " Select seeds in 'Choose Seeds to Plant' before enabling Auto Plant!",
                             Colors.Warning)
                     end
                 end
@@ -164,7 +164,7 @@ return function(ctx)
             "Notifies you each time a planting cycle completes")
 
         -- AUTO HARVEST
-        CreateSubHeader(farmContent, "🍅 Auto Harvest")
+        CreateSubHeader(farmContent, " Auto Harvest")
         
         -- LIVE COUNTER (Option C - styled stat row)
         local statsGrid = Create("Frame", {
@@ -200,10 +200,10 @@ return function(ctx)
         CreateToggle(farmContent, "Notify After Harvest", "notifyHarvest", "Show a notification after each harvest cycle")
         CreateSlider(farmContent, "Per-Fruit Delay (s)", 0, 2, "perFruitDelay")
         CreateSlider(farmContent, "Loop Delay (s)", 0, 30, "harvestLoopDelay")
-        CreateMultiSelect(farmContent, "⏯️Skip Mutation", MUTATIONS, "harvestFilterMutation")
+        CreateMultiSelect(farmContent, "Skip Mutation", MUTATIONS, "harvestFilterMutation")
 
         -- AUTO WATER
-        CreateSubHeader(farmContent, "💧 Auto Water")
+        CreateSubHeader(farmContent, " Auto Water")
         
         local wateringCans = {}
         for _, g in ipairs(GEARS) do
@@ -216,15 +216,15 @@ return function(ctx)
             function(newVal, revert)
                 if newVal and #(States.wateringCanTargets or {}) == 0 then
                     revert()
-                    Notify("Auto Water", "⚠️ Select a Watering Can below before enabling!", Colors.Warning, 5)
+                    Notify("Auto Water", " Select a Watering Can below before enabling!", Colors.Warning, 5)
                 end
             end)
-        CreateMultiSelect(farmContent, "🪣 Choose Watering Can", wateringCans, "wateringCanTargets")
+        CreateMultiSelect(farmContent, " Choose Watering Can", wateringCans, "wateringCanTargets")
         CreateSlider(farmContent, "Per-Plant Delay (s)", 0, 2, "perFruitDelay")
         CreateSlider(farmContent, "Water Loop Delay (s)", 1, 60, "harvestLoopDelay")
 
         -- AUTO SPRINKLER
-        CreateSubHeader(farmContent, "🌿 Auto Sprinkler")
+        CreateSubHeader(farmContent, " Auto Sprinkler")
         
         local sprinklerList = {}
         for _, g in ipairs(GEARS) do
@@ -237,18 +237,18 @@ return function(ctx)
             function(newVal, revert)
                 if newVal and #(States.sprinklerTargets or {}) == 0 then
                     revert()
-                    Notify("Auto Sprinkler", "⚠️ Select a Sprinkler below before enabling!", Colors.Warning, 5)
+                    Notify("Auto Sprinkler", " Select a Sprinkler below before enabling!", Colors.Warning, 5)
                 end
             end)
-        CreateMultiSelect(farmContent, "🌿 Choose Sprinkler", sprinklerList, "sprinklerTargets")
+        CreateMultiSelect(farmContent, " Choose Sprinkler", sprinklerList, "sprinklerTargets")
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 2: 🛒 Shopping
+        -- Section 2:  Shopping
         -- ═══════════════════════════════════════════════════════════
-        local _, shopContent = CreateSectionCard("🛒 Shopping", 2, Colors.Electric)
+        local _, shopContent = CreateSectionCard(" Shopping", 2, Colors.Electric)
 
         -- AUTO BUY SEEDS
-        CreateSubHeader(shopContent, "🌱 Auto Buy Seeds")
+        CreateSubHeader(shopContent, " Auto Buy Seeds")
         
         local lastNoTargetSeed = { [1] = 0 }
         local msSeedControl    = { SetDisabled = nil }
@@ -259,7 +259,7 @@ return function(ctx)
                 if newVal and not States.autoBuyAll and #(States.autoBuySeedTargets or {}) == 0 then
                     revert()
                     notifyIfCooled(lastNoTargetSeed, "Auto Buy",
-                        "⚠️ Select seeds below before enabling Auto Buy!", Colors.Warning)
+                        " Select seeds below before enabling Auto Buy!", Colors.Warning)
                     return
                 end
                 if newVal then
@@ -284,7 +284,7 @@ return function(ctx)
             end)
 
         setupMultiSelectGuard(
-            shopContent, "🌱Choose Target Seeds", SEEDS,
+            shopContent, "Choose Target Seeds", SEEDS,
             "autoBuySeedTargets", "autoBuySeed", "autoBuyAll",
             msSeedControl, forceOffAutoBuy, "Auto Buy Seeds",
             function() pcall(function() Logic.ResetNotifiedEmpty() end) end
@@ -292,7 +292,7 @@ return function(ctx)
         CreateToggle(shopContent, "Notify on Purchase", "notifyBuy", "Show a notification each time a seed is bought")
 
         -- AUTO BUY GEAR
-        CreateSubHeader(shopContent, "⚙️ Auto Buy Gear")
+        CreateSubHeader(shopContent, " Auto Buy Gear")
         
         local lastNoTargetGear = { [1] = 0 }
         local msGearControl    = { SetDisabled = nil }
@@ -303,7 +303,7 @@ return function(ctx)
                 if newVal and not States.autoBuyGearAll and #(States.autoBuyGearTargets or {}) == 0 then
                     revert()
                     notifyIfCooled(lastNoTargetGear, "Auto Buy Gear",
-                        "⚠️ Select gear below before enabling!", Colors.Warning)
+                        " Select gear below before enabling!", Colors.Warning)
                     return
                 end
                 if newVal then
@@ -328,7 +328,7 @@ return function(ctx)
             end)
 
         setupMultiSelectGuard(
-            shopContent, "⚙️Choose Target Gear", GEARS,
+            shopContent, "Choose Target Gear", GEARS,
             "autoBuyGearTargets", "autoBuyGear", "autoBuyGearAll",
             msGearControl, forceOffAutoBuyGear, "Auto Buy Gear",
             function() pcall(function() Logic.ResetNotifiedEmptyGear() end) end
@@ -336,7 +336,7 @@ return function(ctx)
         CreateToggle(shopContent, "Notify on Purchase", "notifyBuyGear", "Show a notification each time a gear is bought")
 
         -- AUTO BUY CRATE
-        CreateSubHeader(shopContent, "📦 Auto Buy Crate")
+        CreateSubHeader(shopContent, " Auto Buy Crate")
         
         local lastNoTargetCrate = { [1] = 0 }
         local msCrateControl    = { SetDisabled = nil }
@@ -347,7 +347,7 @@ return function(ctx)
                 if newVal and not States.autoBuyCrateAll and #(States.autoBuyCrateTargets or {}) == 0 then
                     revert()
                     notifyIfCooled(lastNoTargetCrate, "Auto Buy Crate",
-                        "⚠️ Select crates below before enabling!", Colors.Warning)
+                        " Select crates below before enabling!", Colors.Warning)
                     return
                 end
                 if newVal then
@@ -372,7 +372,7 @@ return function(ctx)
             end)
 
         setupMultiSelectGuard(
-            shopContent, "📦Choose Target Crates", CRATES,
+            shopContent, "Choose Target Crates", CRATES,
             "autoBuyCrateTargets", "autoBuyCrate", "autoBuyCrateAll",
             msCrateControl, forceOffAutoBuyCrate, "Auto Buy Crate",
             function() pcall(function() Logic.ResetNotifiedEmptyCrate() end) end
@@ -380,15 +380,15 @@ return function(ctx)
         CreateToggle(shopContent, "Notify on Purchase", "notifyBuyCrate", "Show a notification each time a crate is bought")
 
         -- AUTO OPEN CRATE
-        CreateSubHeader(shopContent, "🎁 Auto Open Crate")
+        CreateSubHeader(shopContent, " Auto Open Crate")
         CreateToggle(shopContent, "Auto Open Crate", "autoOpenCrate", "Automatically opens all crates in your backpack")
         CreateSlider(shopContent, "Delay Between Opens (s)", 1, 30, "crateOpenDelay")
         CreateToggle(shopContent, "Notify on Open", "notifyOpenCrate", "Show what item you received when a crate is opened")
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 3: 💰 Selling
+        -- Section 3:  Selling
         -- ═══════════════════════════════════════════════════════════
-        local _, sellContent = CreateSectionCard("💰 Selling", 3, Colors.Gold)
+        local _, sellContent = CreateSectionCard(" Selling", 3, Colors.Gold)
         
         local netStatus = Networking
             and "Sell system ready."
@@ -397,15 +397,15 @@ return function(ctx)
             netStatus .. "\nAuto Sell continuously sells all fruits in your backpack. Use filters below to keep specific mutations.")
         CreateToggle(sellContent, "Auto Sell Fruits", "autoSell", "Continuously sells all fruits in your backpack automatically")
         CreateToggle(sellContent, "Keep Mutated Fruits", "keepMutations", "Skip all fruits that have any mutation")
-        CreateMultiSelect(sellContent, "🔒Keep Specific Mutations", MUTATIONS, "sellKeepMutation")
+        CreateMultiSelect(sellContent, "Keep Specific Mutations", MUTATIONS, "sellKeepMutation")
         CreateSlider(sellContent, "Delay Between Sells (s)", 0, 3, "sellDelay")
         CreateSlider(sellContent, "Loop Delay (s)", 1, 60, "sellLoopDelay")
         CreateToggle(sellContent, "Notify on Sell", "notifySell", "Show a notification with sell totals after each cycle")
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 4: 🐾 Pets
+        -- Section 4:  Pets
         -- ═══════════════════════════════════════════════════════════
-        local _, petContent = CreateSectionCard("🐾 Pets", 4, Colors.Frozen)
+        local _, petContent = CreateSectionCard(" Pets", 4, Colors.Frozen)
         
         local WILD_PET_NAMES = {
             "__SIZE_Big", "__SIZE_Huge", "__SIZE_Giant",
@@ -416,12 +416,12 @@ return function(ctx)
             "Raccoon",
         }
         local WILD_PET_DISPLAY = {
-            __SIZE_Big     = "🔷 All Big",
-            __SIZE_Huge    = "🔶 All Huge",
-            __SIZE_Giant   = "💠 All Giant",
-            __TYPE_Rainbow = "🌈 All Rainbow",
+            __SIZE_Big     = " All Big",
+            __SIZE_Huge    = " All Huge",
+            __SIZE_Giant   = " All Giant",
+            __TYPE_Rainbow = " All Rainbow",
         }
-        CreateMultiSelect(petContent, "🐾Choose Target Pets", WILD_PET_NAMES, "wildCatchTargets", WILD_PET_DISPLAY)
+        CreateMultiSelect(petContent, "Choose Target Pets", WILD_PET_NAMES, "wildCatchTargets", WILD_PET_DISPLAY)
         CreateToggle(petContent, "Auto Catch Wild Pets", "autoCatchWild",
             "ON: keeps running, chasing any matching pet that spawns | OFF: stops the loop",
             function(newVal)
@@ -438,9 +438,9 @@ return function(ctx)
             end)
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 5: 🎁 Utilities
+        -- Section 5:  Utilities
         -- ═══════════════════════════════════════════════════════════
-        local _, utilContent = CreateSectionCard("🎁 Utilities", 5, Colors.Rainbow)
+        local _, utilContent = CreateSectionCard(" Utilities", 5, Colors.Rainbow)
         
         CreateToggle(utilContent, "Auto Accept Gifts", "autoAcceptGifts", "Automatically checks your mailbox every 10 seconds")
         CreateToggle(utilContent, "Auto Rejoin on Disconnect", "autoRejoin", "Rejoins automatically when kicked/disconnected")
@@ -463,9 +463,9 @@ return function(ctx)
         local sizeOrd   = { Huge = 3, Big = 2, Normal = 1 }
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 1: 🎒 Backpack Overview
+        -- Section 1:  Backpack Overview
         -- ═══════════════════════════════════════════════════════════
-        local _, bagContent = CreateSectionCard("🎒 Backpack", 1, Colors.Accent)
+        local _, bagContent = CreateSectionCard(" Backpack", 1, Colors.Accent)
         
         local _, fruitLbl  = CreateStatRow(bagContent, "Harvested Fruits in Bag", "?", Colors.Warning)
         local _, seedLbl   = CreateStatRow(bagContent, "Seeds in Bag", "?", Colors.Success)
@@ -490,7 +490,7 @@ return function(ctx)
             end
         end)
 
-        CreateActionButton(bagContent, "📋 List All Fruits in Bag", function()
+        CreateActionButton(bagContent, " List All Fruits in Bag", function()
             local items = {}
             for _, t in ipairs(player.Backpack:GetChildren()) do
                 local fn = t:GetAttribute("FruitName")
@@ -510,7 +510,7 @@ return function(ctx)
             end
         end)
 
-        CreateActionButton(bagContent, "📦 Scan Crates in Backpack", function()
+        CreateActionButton(bagContent, " Scan Crates in Backpack", function()
             local cratesInBag = GetCratesInInventory()
             if #cratesInBag == 0 then
                 Notify("Scan Crates", "No crates found in backpack.", Colors.TextMuted)
@@ -521,7 +521,7 @@ return function(ctx)
             Notify("Crates in Bag (" .. #cratesInBag .. ")", table.concat(names, ", "):sub(1, 150), Colors.Warning, 6)
         end)
 
-        CreateActionButton(bagContent, "🔍 Inspect Held Item", function()
+        CreateActionButton(bagContent, " Inspect Held Item", function()
             local ct = player.Character and player.Character:FindFirstChildWhichIsA("Tool")
             if ct then
                 local weight = ct:GetAttribute("Weight")
@@ -547,9 +547,9 @@ return function(ctx)
         end, Colors.Gold)
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 2: 🐾 Pet Inventory
+        -- Section 2:  Pet Inventory
         -- ═══════════════════════════════════════════════════════════
-        local _, petContent = CreateSectionCard("🐾 Pet Inventory", 2, Colors.Frozen)
+        local _, petContent = CreateSectionCard(" Pet Inventory", 2, Colors.Frozen)
         local listArea = Create("Frame", {
             Parent              = petContent,
             Size                = UDim2.new(1, 0, 0, 0),
@@ -605,7 +605,7 @@ return function(ctx)
                 local rarityCol = RarityColor[rarity] or Colors.TextSecondary
                 local valStr    = rarity
                 if pet.size ~= "Normal" then valStr = rarity .. " (" .. pet.size .. ")" end
-                local displayName = (pet.petType == "Rainbow" and "🌈 " or "") .. pet.name
+                local displayName = (pet.petType == "Rainbow" and " " or "") .. pet.name
                 CreateStatRow(petScroll, i .. ". " .. displayName, valStr, rarityCol)
             end
         end
@@ -619,9 +619,9 @@ return function(ctx)
         end)
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 3: 🔍 Pet Finder
+        -- Section 3:  Pet Finder
         -- ═══════════════════════════════════════════════════════════
-        local _, finderContent = CreateSectionCard("🔍 Pet Finder", 3, Colors.Warning)
+        local _, finderContent = CreateSectionCard(" Pet Finder", 3, Colors.Warning)
         local listContainer = Create("Frame", {
             Parent              = finderContent,
             Size                = UDim2.new(1, 0, 0, 0),
@@ -726,7 +726,7 @@ return function(ctx)
             end
         end)
 
-        CreateActionButton(finderContent, "⚡ TP to Nearest Pet", function()
+        CreateActionButton(finderContent, " TP to Nearest Pet", function()
             local pets = ScanWildPets("All")
             if #pets == 0 then Notify("Pet Finder", "No pets available right now.", Colors.Error) return end
             local nearest = pets[1]
@@ -747,11 +747,11 @@ return function(ctx)
         task.defer(RebuildPetList)
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 4: 💰 Selling Tools
+        -- Section 4:  Selling Tools
         -- ═══════════════════════════════════════════════════════════
-        local _, sellToolsContent = CreateSectionCard("💰 Selling", 4, Colors.Gold)
+        local _, sellToolsContent = CreateSectionCard(" Selling", 4, Colors.Gold)
 
-        CreateActionButton(sellToolsContent, "🔍 Preview Inventory Value", function()
+        CreateActionButton(sellToolsContent, " Preview Inventory Value", function()
             if not Networking then Notify("Preview", "Sell system unavailable!", Colors.Error) return end
             local ok, data = pcall(function() return Networking.NPCS.PreviewSellAll:Fire() end)
             if ok and data and data.FruitCount then
@@ -760,7 +760,7 @@ return function(ctx)
                 local msg = data.FruitCount .. " fruits | Normal: " .. tostring(data.TotalValue or 0) .. "¢"
                 if ddAvail then
                     local ddPrice = math.max(1, math.floor((data.TotalBaseValue or data.TotalValue or 0) * 5))
-                    msg = msg .. " | Daily Deal: " .. tostring(ddPrice) .. "¢ (5x!) ⭐"
+                    msg = msg .. " | Daily Deal: " .. tostring(ddPrice) .. "¢ (5x!) "
                 end
                 Notify("Preview Sell", msg, Colors.Gold, 6)
             else
@@ -768,7 +768,7 @@ return function(ctx)
             end
         end)
 
-        CreateActionButton(sellToolsContent, "⚡ Sell All Now", function()
+        CreateActionButton(sellToolsContent, " Sell All Now", function()
             if not Networking then Notify("Sell", "Sell system unavailable! Try reloading the hub.", Colors.Error) return end
             local ok, result = pcall(function() return Networking.NPCS.SellAll:Fire() end)
             if ok and result and result.Success then
@@ -778,7 +778,7 @@ return function(ctx)
             end
         end, Colors.Gold)
 
-        CreateActionButton(sellToolsContent, "🎯 Sell with Filters", function()
+        CreateActionButton(sellToolsContent, " Sell with Filters", function()
             if not Networking then Notify("Sell", "Sell system unavailable!", Colors.Error) return end
             local fruits = {}
             for _, tool in ipairs(player.Backpack:GetChildren()) do
@@ -815,18 +815,18 @@ return function(ctx)
     ctx.registerPage("Show", function()
         
         -- ═══════════════════════════════════════════════════════════
-        -- Section 1: 👁️ ESP
+        -- Section 1:  ESP
         -- ═══════════════════════════════════════════════════════════
-        local _, espContent = CreateSectionCard("👁️ ESP", 1, Colors.Electric)
+        local _, espContent = CreateSectionCard(" ESP", 1, Colors.Electric)
         
         CreateToggle(espContent, "ESP Players", "espPlayers", "Shows player names/tags above heads")
         CreateToggle(espContent, "ESP Wild Pets", "espItems", "Highlights wild pets in workspace")
         CreateToggle(espContent, "ESP Fruits", "espFruits", "Highlights harvestable fruits on the plot")
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 2: 📊 Live Stats
+        -- Section 2:  Live Stats
         -- ═══════════════════════════════════════════════════════════
-        local _, statsContent = CreateSectionCard("📊 Live Stats", 2, Colors.Accent)
+        local _, statsContent = CreateSectionCard(" Live Stats", 2, Colors.Accent)
         
         local _, hpLbl = CreateStatRow(statsContent, "Health", "100 / 100", Colors.Success)
         local _, wsLbl = CreateStatRow(statsContent, "WalkSpeed", tostring(ctx.humanoid and ctx.humanoid.WalkSpeed or "?"), Colors.Accent)
@@ -851,9 +851,9 @@ return function(ctx)
         end)
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 3: 🎨 Graphics
+        -- Section 3:  Graphics
         -- ═══════════════════════════════════════════════════════════
-        local _, graphicsContent = CreateSectionCard("🎨 Graphics", 3, Colors.Warning)
+        local _, graphicsContent = CreateSectionCard(" Graphics", 3, Colors.Warning)
         
         CreateActionButton(graphicsContent, "Ultra Low Graphics (Permanent until rejoin)", function()
             if ctx.UltraLow and ctx.UltraLow.Active then
@@ -874,9 +874,9 @@ return function(ctx)
     ctx.registerPage("Misc", function()
         
         -- ═══════════════════════════════════════════════════════════
-        -- Section 1: 🏃 Movement
+        -- Section 1:  Movement
         -- ═══════════════════════════════════════════════════════════
-        local _, moveContent = CreateSectionCard("🏃 Movement", 1, Colors.Electric)
+        local _, moveContent = CreateSectionCard(" Movement", 1, Colors.Electric)
         
         CreateToggle(moveContent, "Lock WalkSpeed", "lockWalkSpeed")
         CreateSlider(moveContent, "WalkSpeed", 1, 500, "walkSpeed")
@@ -885,9 +885,9 @@ return function(ctx)
         CreateToggle(moveContent, "Infinite Jump", "infiniteJump")
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 2: ✈️ Fly
+        -- Section 2:  Fly
         -- ═══════════════════════════════════════════════════════════
-        local _, flyContent = CreateSectionCard("✈️ Fly", 2, Colors.TextSecondary)
+        local _, flyContent = CreateSectionCard(" Fly", 2, Colors.TextSecondary)
         
         CreateInfoText(flyContent, "Controls", "[F] Toggle Fly | [W/A/S/D] Move | [Space] Up | [Ctrl] Down")
 
@@ -905,9 +905,9 @@ return function(ctx)
         CreateSlider(flyContent, "Fly Speed", 1, 300, "flySpeed")
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 3: 🎁 Mailbox
+        -- Section 3:  Mailbox
         -- ═══════════════════════════════════════════════════════════
-        local _, mailContent = CreateSectionCard("🎁 Mailbox", 3, Colors.Rainbow)
+        local _, mailContent = CreateSectionCard(" Mailbox", 3, Colors.Rainbow)
         
         CreateActionButton(mailContent, "Check Mailbox Now", function()
             local plot = GetMyPlot()
@@ -944,12 +944,12 @@ return function(ctx)
         end)
 
         -- ═══════════════════════════════════════════════════════════
-        -- Section 4: 🌐 Server Info
+        -- Section 4:  Server Info
         -- ═══════════════════════════════════════════════════════════
         local PlayersService  = game:GetService("Players")
         local TeleportService = game:GetService("TeleportService")
 
-        local _, serverContent = CreateSectionCard("🌐 Server Info", 4, Colors.Accent)
+        local _, serverContent = CreateSectionCard(" Server Info", 4, Colors.Accent)
         
         CreateStatRow(serverContent, "Job ID", game.JobId:sub(1, 20) .. "...", Colors.TextMuted)
         CreateStatRow(serverContent, "Place ID", tostring(game.PlaceId), Colors.TextMuted)
@@ -995,7 +995,7 @@ return function(ctx)
 
     -- ====================== PAGE 5: SETTINGS ======================
     ctx.registerPage("Settings", function()
-        local _, settContent = CreateSectionCard("⚙️ General Settings", 1, Colors.Accent)
+        local _, settContent = CreateSectionCard(" General Settings", 1, Colors.Accent)
         CreateToggle(settContent, "Auto Save Config", "autoSaveConfig", "Saves your config automatically")
         CreateToggle(settContent, "Anti AFK", "antiAfk", "Prevents auto-disconnect")
         CreateToggle(settContent, "Minimize to Tray on Close", "minimizeToTray", "Minimizes to M shield instead of closing")
