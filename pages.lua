@@ -559,12 +559,14 @@ return function(ctx)
         CreateListLayout(listArea, 6)
 
         local ROW_H, ROW_GAP = 24, 4
+        local petListExpanded = false  -- default collapsed
 
         local function RebuildInventory()
             if not listArea or not listArea.Parent then return end
             for _, c in ipairs(listArea:GetChildren()) do
                 if not c:IsA("UIListLayout") then c:Destroy() end
             end
+
             local playerPets = {}
             for _, t in ipairs(player.Backpack:GetChildren()) do
                 local petName = t:GetAttribute("Pet") or t:GetAttribute("PetSpecies")
@@ -582,32 +584,74 @@ return function(ctx)
                 if ra ~= rb then return ra > rb end
                 return (sizeOrd[a.size] or 1) > (sizeOrd[b.size] or 1)
             end)
-            CreateSubHeader(listArea, "Pets in Backpack (" .. #playerPets .. ")")
-            if #playerPets == 0 then
+
+            local count = #playerPets
+
+            -- Header row: label kiri + toggle button kanan
+            local headerRow = Create("Frame", {
+                Parent              = listArea,
+                Size                = UDim2.new(1, 0, 0, 28),
+                BackgroundTransparency = 1,
+            })
+            Create("TextLabel", {
+                Parent                 = headerRow,
+                Size                   = UDim2.new(1, -90, 1, 0),
+                Position               = UDim2.new(0, 0, 0, 0),
+                BackgroundTransparency = 1,
+                Text                   = "Pets in Backpack (" .. count .. ")",
+                TextColor3             = Colors.TextSecondary,
+                TextSize               = 11,
+                Font                   = Enum.Font.GothamBold,
+                TextXAlignment         = Enum.TextXAlignment.Left,
+            })
+
+            if count == 0 then
                 CreateInfoText(listArea, nil, "No pets in backpack.", Colors.TextMuted)
                 return
             end
-            local scrollH   = 8 * ROW_H + 7 * ROW_GAP
-            local scrollWrap = Create("Frame", { Parent = listArea, Size = UDim2.new(1, 0, 0, scrollH), BackgroundTransparency = 1 })
-            local petScroll  = Create("ScrollingFrame", {
-                Parent                = scrollWrap,
-                Size                  = UDim2.new(1, 0, 1, 0),
-                BackgroundTransparency = 1,
-                BorderSizePixel       = 0,
-                ScrollBarThickness    = 3,
-                ScrollBarImageColor3  = Colors.Border,
-                CanvasSize            = UDim2.new(0, 0, 0, 0),
-                AutomaticCanvasSize   = Enum.AutomaticSize.Y,
+
+            -- Toggle button
+            local toggleBtn = Create("TextButton", {
+                Parent           = headerRow,
+                Size             = UDim2.new(0, 82, 0, 22),
+                Position         = UDim2.new(1, -82, 0.5, -11),
+                BackgroundColor3 = Colors.Surface,
+                BorderSizePixel  = 0,
+                Text             = petListExpanded and "Hide" or "Show",
+                TextColor3       = Colors.Frozen,
+                TextSize         = 11,
+                Font             = Enum.Font.GothamBold,
+                AutoButtonColor  = false,
             })
-            CreateListLayout(petScroll, ROW_GAP)
+            CreateCorner(toggleBtn, 6)
+            CreateStroke(toggleBtn, Colors.Frozen, 1)
+
+            -- Frame konten pet (flat, tanpa nested scroll)
+            local petListFrame = Create("Frame", {
+                Parent              = listArea,
+                Size                = UDim2.new(1, 0, 0, 0),
+                AutomaticSize       = Enum.AutomaticSize.Y,
+                BackgroundTransparency = 1,
+                Visible             = petListExpanded,
+            })
+            CreateListLayout(petListFrame, ROW_GAP)
+
             for i, pet in ipairs(playerPets) do
                 local rarity    = PET_RARITY_LOOKUP[pet.name] or "Unknown"
                 local rarityCol = RarityColor[rarity] or Colors.TextSecondary
                 local valStr    = rarity
                 if pet.size ~= "Normal" then valStr = rarity .. " (" .. pet.size .. ")" end
                 local displayName = (pet.petType == "Rainbow" and " " or "") .. pet.name
-                CreateStatRow(petScroll, i .. ". " .. displayName, valStr, rarityCol)
+                CreateStatRow(petListFrame, i .. ". " .. displayName, valStr, rarityCol)
             end
+
+            toggleBtn.MouseButton1Click:Connect(function()
+                petListExpanded = not petListExpanded
+                petListFrame.Visible = petListExpanded
+                toggleBtn.Text = petListExpanded and "Hide" or "Show"
+            end)
+            toggleBtn.MouseEnter:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.SurfaceLight }, 0.1) end)
+            toggleBtn.MouseLeave:Connect(function() Tween(toggleBtn, { BackgroundColor3 = Colors.Surface }, 0.1) end)
         end
 
         RebuildInventory()
