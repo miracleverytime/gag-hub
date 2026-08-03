@@ -704,22 +704,64 @@ return function(ctx)
                 })
                 CreateCorner(row, 6)
                 CreateStroke(row, col, 1)
+
+                -- Layout kolom (semua pakai persen, total = 100%):
+                --   [8px pad] [dot 4%] [name 36%] [rarity 26%] [dist 20%] [tp 14%] [8px pad]
+                -- Bullet dot
                 local bullet = Create("Frame", {
                     Parent          = row,
                     Size            = UDim2.new(0, 6, 0, 6),
-                    Position        = UDim2.new(0, 10, 0.5, -3),
+                    Position        = UDim2.new(0.01, 4, 0.5, -3),
                     BackgroundColor3 = col,
                     BorderSizePixel = 0,
                 })
                 CreateCorner(bullet, 3)
-                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 120, 1, 0), Position = UDim2.new(0, 22, 0, 0), BackgroundTransparency = 1, Text = petName, TextColor3 = col, TextSize = 11, Font = Enum.Font.GothamBold, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd })
-                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 80, 1, 0), Position = UDim2.new(0, 148, 0, 0), BackgroundTransparency = 1, Text = rarity, TextColor3 = col, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left })
-                Create("TextLabel", { Parent = row, Size = UDim2.new(0, 70, 1, 0), Position = UDim2.new(0, 234, 0, 0), BackgroundTransparency = 1, Text = distStr, TextColor3 = Colors.TextMuted, TextSize = 10, Font = Enum.Font.Gotham, TextXAlignment = Enum.TextXAlignment.Left })
 
+                -- Pet name: mulai setelah dot (~6% dari kiri), lebar 36%
+                Create("TextLabel", {
+                    Parent                 = row,
+                    Size                   = UDim2.new(0.36, 0, 1, 0),
+                    Position               = UDim2.new(0.06, 0, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text                   = petName,
+                    TextColor3             = col,
+                    TextSize               = 11,
+                    Font                   = Enum.Font.GothamBold,
+                    TextXAlignment         = Enum.TextXAlignment.Left,
+                    TextTruncate           = Enum.TextTruncate.AtEnd,
+                })
+
+                -- Rarity: mulai di 42%, lebar 26%
+                Create("TextLabel", {
+                    Parent                 = row,
+                    Size                   = UDim2.new(0.26, 0, 1, 0),
+                    Position               = UDim2.new(0.42, 0, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text                   = rarity,
+                    TextColor3             = col,
+                    TextSize               = 10,
+                    Font                   = Enum.Font.Gotham,
+                    TextXAlignment         = Enum.TextXAlignment.Center,
+                })
+
+                -- Distance: mulai di 68%, lebar 18%
+                Create("TextLabel", {
+                    Parent                 = row,
+                    Size                   = UDim2.new(0.18, 0, 1, 0),
+                    Position               = UDim2.new(0.68, 0, 0, 0),
+                    BackgroundTransparency = 1,
+                    Text                   = distStr,
+                    TextColor3             = Colors.TextMuted,
+                    TextSize               = 10,
+                    Font                   = Enum.Font.Gotham,
+                    TextXAlignment         = Enum.TextXAlignment.Center,
+                })
+
+                -- TP button: 14% lebar dari kanan, dengan sedikit padding
                 local tpBtn = Create("TextButton", {
                     Parent          = row,
-                    Size            = UDim2.new(0, 56, 0, 22),
-                    Position        = UDim2.new(1, -62, 0.5, -11),
+                    Size            = UDim2.new(0.14, -4, 0, 22),
+                    Position        = UDim2.new(0.86, 2, 0.5, -11),
                     BackgroundColor3 = Colors.Surface,
                     Text            = "TP →",
                     TextColor3      = col,
