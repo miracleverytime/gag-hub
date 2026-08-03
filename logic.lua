@@ -2677,13 +2677,36 @@ return function(ctx)
         else
             lighting.GlobalShadows = defaults.GlobalShadows
         end
-        if States.lockWalkSpeed and humanoid then humanoid.WalkSpeed = States.walkSpeed end
+        
+        -- Save default humanoid values
+        if humanoid and not Logic._humanoidDefaults then
+            Logic._humanoidDefaults = {
+                WalkSpeed = humanoid.WalkSpeed,
+                JumpPower = humanoid.UseJumpPower and humanoid.JumpPower or nil,
+                JumpHeight = (not humanoid.UseJumpPower) and humanoid.JumpHeight or nil,
+                UseJumpPower = humanoid.UseJumpPower,
+            }
+        end
+        local humDefaults = Logic._humanoidDefaults
+        
+        if States.lockWalkSpeed and humanoid then
+            humanoid.WalkSpeed = States.walkSpeed
+        elseif humanoid and humDefaults then
+            humanoid.WalkSpeed = humDefaults.WalkSpeed
+        end
+        
         if States.lockJumpPower and humanoid then
             if humanoid.UseJumpPower then
                 humanoid.JumpPower = States.jumpPower
             else
                 -- Roblox baru pakai JumpHeight; konversi dari JumpPower: h = v²/2g
                 humanoid.JumpHeight = (States.jumpPower * States.jumpPower) / (2 * 196.2)
+            end
+        elseif humanoid and humDefaults then
+            if humanoid.UseJumpPower and humDefaults.JumpPower then
+                humanoid.JumpPower = humDefaults.JumpPower
+            elseif not humanoid.UseJumpPower and humDefaults.JumpHeight then
+                humanoid.JumpHeight = humDefaults.JumpHeight
             end
         end
     end)
@@ -2894,6 +2917,8 @@ return function(ctx)
         humanoid = char:WaitForChild("Humanoid")
         ctx.humanoid = humanoid
         flyBody = nil
+        -- Reset humanoid defaults on respawn so new defaults are captured
+        Logic._humanoidDefaults = nil
     end)
 
     ctx.Logic = Logic
