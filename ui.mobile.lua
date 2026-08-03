@@ -10,7 +10,7 @@
 -- ======================================================================
 
 return function(ctx)
-    local BUILD_TAG         = "B-59"
+    local BUILD_TAG         = "B-60"
     local Colors             = ctx.Colors
     local States             = ctx.States
     local playerGui          = ctx.playerGui
@@ -1547,18 +1547,24 @@ return function(ctx)
 
     local function CreateSlider(parent, text, minVal, maxVal, stateKey, suffix, onChange)
         local defaultVal = States[stateKey] or minVal
+        local currentVal = defaultVal
+
+        -- Mobile: ganti slider dengan stepper  [−]  nilai  [+]
+        -- Lebih aman dari accidental tap saat scroll karena tombol kecil & presisi
         local container = Create("Frame", {
             Parent = parent,
-            Size = UDim2.new(1, 0, 0, 56),  -- naik dari 50 → 56
+            Size = UDim2.new(1, 0, 0, 44),
             BackgroundColor3 = Colors.BackgroundLighter,
             BorderSizePixel = 0,
         })
         CreateCorner(container, 8)
         CreateStroke(container, Colors.Border, 1)
+
+        -- Label kiri
         Create("TextLabel", {
             Parent = container,
-            Size = UDim2.new(1, -76, 0, 18),
-            Position = UDim2.new(0, 12, 0, 8),
+            Size = UDim2.new(1, -140, 1, 0),
+            Position = UDim2.new(0, 12, 0, 0),
             BackgroundTransparency = 1,
             Text = text,
             TextColor3 = Colors.TextPrimary,
@@ -1567,87 +1573,107 @@ return function(ctx)
             TextXAlignment = Enum.TextXAlignment.Left,
             TextTruncate = Enum.TextTruncate.AtEnd,
         })
-        local valLabel = Create("TextLabel", {
+
+        -- Tombol −
+        local btnMinus = Create("TextButton", {
             Parent = container,
-            Size = UDim2.new(0, 52, 0, 20),
-            Position = UDim2.new(1, -62, 0, 6),
+            Size = UDim2.new(0, 32, 0, 28),
+            Position = UDim2.new(1, -134, 0.5, -14),
+            BackgroundColor3 = Colors.Surface,
+            Text = "−",
+            TextColor3 = Colors.TextPrimary,
+            TextSize = 16,
+            Font = FONT_BOLD,
+            BorderSizePixel = 0,
+            AutoButtonColor = false,
+        })
+        CreateCorner(btnMinus, 6)
+        CreateStroke(btnMinus, Colors.Border, 1)
+
+        -- Label nilai (juga bisa ditekan untuk input langsung)
+        local valBtn = Create("TextButton", {
+            Parent = container,
+            Size = UDim2.new(0, 52, 0, 28),
+            Position = UDim2.new(1, -98, 0.5, -14),
             BackgroundColor3 = Colors.Background,
-            Text = tostring(defaultVal) .. (suffix or ""),
+            Text = tostring(currentVal) .. (suffix or ""),
             TextColor3 = Colors.Accent,
             TextSize = 12,
             Font = FONT_MONO,
             BorderSizePixel = 0,
+            AutoButtonColor = false,
         })
-        CreateCorner(valLabel, 5)
-        CreateStroke(valLabel, Colors.BorderLight, 1)
+        CreateCorner(valBtn, 6)
+        CreateStroke(valBtn, Colors.BorderLight, 1)
 
-        local track = Create("Frame", {
+        -- Tombol +
+        local btnPlus = Create("TextButton", {
             Parent = container,
-            Size = UDim2.new(1, -24, 0, 6),  -- sedikit lebih tebal
-            Position = UDim2.new(0, 12, 0, 38),  -- sesuaikan Y dengan tinggi baru
-            BackgroundColor3 = Colors.SliderTrack,
+            Size = UDim2.new(0, 32, 0, 28),
+            Position = UDim2.new(1, -42, 0.5, -14),
+            BackgroundColor3 = Colors.Surface,
+            Text = "+",
+            TextColor3 = Colors.Accent,
+            TextSize = 16,
+            Font = FONT_BOLD,
             BorderSizePixel = 0,
+            AutoButtonColor = false,
         })
-        CreateCorner(track, 3)
-        local fillPct = (defaultVal - minVal) / math.max(maxVal - minVal, 1)
-        local fill = Create("Frame", {
-            Parent = track,
-            Size = UDim2.new(fillPct, 0, 1, 0),
-            BackgroundColor3 = Colors.SliderFill,
-            BorderSizePixel = 0,
-        })
-        CreateCorner(fill, 3)
-        local sliderKnob = Create("Frame", {
-            Parent = track,
-            Size = UDim2.new(0, 16, 0, 16),  -- sedikit lebih besar untuk touch
-            Position = UDim2.new(fillPct, -8, 0.5, -8),
-            BackgroundColor3 = Colors.Accent,
-            BorderSizePixel = 0,
-        })
-        CreateCorner(sliderKnob, 8)
+        CreateCorner(btnPlus, 6)
+        CreateStroke(btnPlus, Colors.BorderLight, 1)
 
-        local dragging = false
-        local trackBtn = Create("TextButton", {
-            Parent = container,
-            Size = UDim2.new(1, -24, 0, 26),  -- area drag lebih lebar/tinggi
-            Position = UDim2.new(0, 12, 0, 28),
-            BackgroundTransparency = 1,
-            Text = "",
-        })
-        local function updateSlider(x, save)
-            local trackAbsPos = track.AbsolutePosition.X
-            local trackAbsSize = track.AbsoluteSize.X
-            local pct = math.clamp((x - trackAbsPos) / math.max(trackAbsSize, 1), 0, 1)
-            local val = math.floor(minVal + pct * (maxVal - minVal))
-            States[stateKey] = val
-            if save then SaveState(stateKey, val) end
-            valLabel.Text = tostring(val) .. (suffix or "")
-            if onChange then onChange(val) end
-            Tween(fill, {Size = UDim2.new(pct, 0, 1, 0)}, 0.05)
-            Tween(sliderKnob, {Position = UDim2.new(pct, -8, 0.5, -8)}, 0.05)
+        local function applyVal(val, save)
+            currentVal = math.clamp(val, minVal, maxVal)
+            States[stateKey] = currentVal
+            valBtn.Text = tostring(currentVal) .. (suffix or "")
+            if save then SaveState(stateKey, currentVal) end
+            if onChange then onChange(currentVal) end
         end
-        trackBtn.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                updateSlider(input.Position.X, false)
-            end
+
+        btnMinus.MouseButton1Click:Connect(function()
+            applyVal(currentVal - 1, true)
+            Tween(btnMinus, {BackgroundColor3 = Colors.SurfaceLight}, 0.08)
+            task.delay(0.12, function() Tween(btnMinus, {BackgroundColor3 = Colors.Surface}, 0.08) end)
         end)
-        UserInputService.InputChanged:Connect(function(input)
-            if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
-                or input.UserInputType == Enum.UserInputType.Touch) then
-                updateSlider(input.Position.X, false)
-            end
+
+        btnPlus.MouseButton1Click:Connect(function()
+            applyVal(currentVal + 1, true)
+            Tween(btnPlus, {BackgroundColor3 = Colors.SurfaceLight}, 0.08)
+            task.delay(0.12, function() Tween(btnPlus, {BackgroundColor3 = Colors.Surface}, 0.08) end)
         end)
-        UserInputService.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1
-                or input.UserInputType == Enum.UserInputType.Touch then
-                if dragging then
-                    SaveState(stateKey, States[stateKey])
+
+        -- Tap nilai → buka TextBox inline untuk edit langsung
+        valBtn.MouseButton1Click:Connect(function()
+            local inputBox = Create("TextBox", {
+                Parent = container,
+                Size = UDim2.new(0, 52, 0, 28),
+                Position = UDim2.new(1, -98, 0.5, -14),
+                BackgroundColor3 = Colors.Background,
+                Text = tostring(currentVal),
+                TextColor3 = Colors.Accent,
+                TextSize = 12,
+                Font = FONT_MONO,
+                BorderSizePixel = 0,
+                ClearTextOnFocus = true,
+                ZIndex = 10,
+            })
+            CreateCorner(inputBox, 6)
+            CreateStroke(inputBox, Colors.Accent, 1)
+            inputBox:CaptureFocus()
+
+            local function commit()
+                local num = tonumber(inputBox.Text)
+                if num then
+                    applyVal(math.floor(num), true)
                 end
-                dragging = false
+                inputBox:Destroy()
             end
+
+            inputBox.FocusLost:Connect(function(enterPressed)
+                commit()
+            end)
         end)
+
         return container
     end
 
